@@ -46,6 +46,12 @@ class MainWindow(QMainWindow):
         self._setup_menu()
         self._setup_shortcuts()
 
+        undo_z = QAction("Undo Delete", self.sidebar)
+        undo_z.setShortcut(QKeySequence("Ctrl+Z"))
+        undo_z.setShortcutContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        undo_z.triggered.connect(self._undo_delete)
+        self.sidebar.addAction(undo_z)
+
         self._auto_save_timer = QTimer(self)
         self._auto_save_timer.setInterval(self.settings.get("auto_save_interval_ms", 1000))
         self._auto_save_timer.timeout.connect(self._auto_save)
@@ -82,7 +88,7 @@ class MainWindow(QMainWindow):
         edit_menu = menubar.addMenu("Edit")
         self._undo_action = self._make_action(edit_menu, "Undo Delete", self._undo_delete, QKeySequence("Ctrl+Shift+Z"))
         edit_menu.addSeparator()
-        self._make_action(edit_menu, "Delete Selected", self._bulk_delete_selected, QKeySequence("Ctrl+Shift+D"))
+        self._make_action(edit_menu, "Delete Selected", self._bulk_delete_selected, QKeySequence("Ctrl+D"))
         self._make_action(edit_menu, "Bulk Create Pages", self._bulk_create, QKeySequence("Ctrl+Shift+B"))
 
         view_menu = menubar.addMenu("View")
@@ -104,6 +110,11 @@ class MainWindow(QMainWindow):
         italic.triggered.connect(lambda: self._apply_to_text("italic"))
         self.addAction(italic)
 
+        undo_u = QAction("Undo Delete", self)
+        undo_u.setShortcut(QKeySequence("Ctrl+U"))
+        undo_u.triggered.connect(self._undo_delete)
+        self.addAction(undo_u)
+
     def _apply_to_text(self, fmt):
         if hasattr(self.editor, '_apply_format'):
             self.editor._apply_format(fmt)
@@ -124,6 +135,10 @@ class MainWindow(QMainWindow):
                 self.sidebar.refresh()
 
     def _delete_page(self):
+        selected = self.sidebar.tree.selectedItems()
+        if len(selected) > 1:
+            self._bulk_delete_selected()
+            return
         if not self.editor.current_page_id:
             return
         from src.repositories.page_repo import PageRepo
