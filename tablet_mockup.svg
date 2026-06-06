@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="768" height="1024" viewBox="0 0 768 1024" xmlns="http://www.w3.org/2000/svg">
+  <rect width="768" height="1024" fill="#FFF8F5"/>
+  <rect x="0" y="0" width="768" height="64" fill="#FFFFFF"/>
+  <text x="20" y="40" font-family="Poppins,Inter,Arial" font-size="16" fill="#2E2B2B">Personal Productivity</text>
+  <rect x="16" y="88" width="64" height="64" rx="12" fill="#FFFFFF" stroke="#F2E6E9"/>
+  <text x="48" y="128" font-family="Inter,Arial" font-size="20" fill="#CFA6D6" text-anchor="middle">≡</text>
+  <rect x="16" y="168" width="736" height="720" rx="16" fill="#FFFFFF" stroke="#F0E8EA"/>
+  <rect x="32" y="184" width="704" height="44" rx="10" fill="#FFF" stroke="#F2E6E9"/>
+  <g font-family="Inter,Arial" font-size="13" fill="#6B6770">
+    <text x="48" y="212">B</text>
+    <text x="80" y="212">I</text>
+    <text x="116" y="212">H1</text>
+    <text x="156" y="212">•</text>
+  </g>
+  <rect x="32" y="244" width="704" height="64" rx="10" fill="#FFF8F5" stroke="#F7D1DC"/>
+  <text x="56" y="284" font-family="Inter,Arial" font-size="14" fill="#2E2B2B">Daily Reflection</text>
+
+  <rect x="32" y="324" width="704" height="96" rx="10" fill="#FFFFFF" stroke="#F2E6E9"/>
+  <text x="56" y="352" font-family="Inter,Arial" font-size="14" fill="#2E2B2B">• Morning routine</text>
+  <text x="56" y="374" font-family="Inter,Arial" font-size="13" fill="#6B6770">• Hydration, meditation, planning</text>
+
+  <rect x="664" y="872" width="72" height="72" rx="36" fill="#F7D1DC"/>
+  <text x="700" y="920" font-family="Inter,Arial" font-size="36" fill="#FFFFFF" text-anchor="middle">+</text>
+  <text x="56" y="960" font-family="Inter,Arial" font-size="12" fill="#6B6770">Tip: Long-press to drag blocks</text>
+</svg>

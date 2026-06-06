@@ -49,9 +49,10 @@ Core features for initial delivery:
 - CRUD operations (create, rename, delete, reorder pages)
 - **Nested hierarchy** via `parent_id` — context menu (Move Up/Down)
 - **Multi-select** — Ctrl+click / Shift+click for batch operations
-- **Bulk delete** — select multiple pages, right-click **Delete Selected (N)** or `Ctrl+Shift+D`
-- **Undo delete** — all deletions (single/bulk, page/block/task) are stored for **15 minutes** and restored via **Edit → Undo Delete** (`Ctrl+Shift+Z`)
-- **Bulk date-based page creation** — dialog with three modes:
+- **Bulk delete** — select multiple pages, right-click **Delete Selected (N)**, or `Ctrl+D` / `Delete` key
+- **Undo delete** — all deletions (single/bulk, page/block/task) are stored for **15 minutes** and restored via **Edit → Undo Delete** (`Ctrl+Shift+Z`, `Ctrl+U`, or `Ctrl+Z` with sidebar focus); each press undoes one action, supporting multiple undos in sequence
+- **New Page as child** — `Ctrl+N` / "+ New Page" creates children under selected page(s); creates root-level page if none selected
+- **Bulk time-based page creation** — dialog with three modes; end date dynamically adjusts when start changes (+1d / +7d / +1y)
 
   | Mode | Page Name | Logic |
   |------|-----------|-------|
@@ -59,7 +60,8 @@ Core features for initial delivery:
   | **Weeks** | `YYYY-MM-DD - YYYY-MM-DD` | User picks a reference date + start-of-week day (Mon/Tue/.../Sun) → find nearest past start-of-week on or before ref date → generate N weekly pages forward from that start |
   | **Years** | `YYYY` | User picks start & end year → one page per year |
 
-- Bulk create dialog pre-fills start/end dates with **current system date**
+- **Bulk named page creation** — click "+ Bulk Named" → enter base name + count → creates `BaseName 1`, `BaseName 2`, ...
+- **Expand/Collapse** — "Show All" / "Hide All" buttons in sidebar; manually collapsed branches persist across refreshes
 - Pages stored in `pages` table (id, title, parent_id, sort_order, timestamps)
 
 **Acceptance criteria:**
@@ -68,6 +70,8 @@ Core features for initial delivery:
 - Undo restores any deletion within 15 minutes
 - Bulk creation generates correct page names per the format table
 - Week calculation correctly snaps to the user-chosen start-of-week day
+- Ctrl+N with selection creates child pages; with no selection creates root-level
+- Show/Hide All buttons toggle tree; manual collapse state survives refresh
 
 ---
 
@@ -131,12 +135,14 @@ Core features for initial delivery:
 
   | Shortcut | Action |
   |----------|--------|
-  | `Ctrl+N` | New Page |
+  | `Ctrl+N` | New Page (as child if pages selected) |
   | `Ctrl+Shift+N` | New Child Page |
   | `Ctrl+S` | Save |
-  | `Delete` | Delete Current Page |
-  | `Ctrl+Shift+Z` | Undo Delete (15-min window) |
-  | `Ctrl+Shift+D` | Delete Selected (bulk) |
+  | `Delete` | Delete page(s) — single or bulk |
+  | `Ctrl+D` | Delete Selected (bulk) |
+  | `Ctrl+Shift+Z` | Undo Delete |
+  | `Ctrl+U` | Undo Delete |
+  | `Ctrl+Z` | Undo Delete (sidebar focus only) |
   | `Ctrl+Shift+B` | Bulk Create Pages |
   | `Ctrl+B` | Bold |
   | `Ctrl+I` | Italic |

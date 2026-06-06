@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1200" height="800" viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#FFF8F5"/>
+      <stop offset="1" stop-color="#FFF3F8"/>
+    </linearGradient>
+    <linearGradient id="cardGrad" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.98"/>
+      <stop offset="1" stop-color="#FFF9FB"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" x2="1">
+      <stop offset="0" stop-color="#CFA6D6"/>
+      <stop offset="1" stop-color="#F7D1DC"/>
+    </linearGradient>
+    <filter id="softShadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="10" stdDeviation="18" flood-color="#2E2B2B" flood-opacity="0.06"/>
+    </filter>
+  </defs>
+
+  <rect width="1200" height="800" fill="url(#bg)"/>
+  <rect x="20" y="18" width="1160" height="64" rx="14" fill="url(#cardGrad)" filter="url(#softShadow)"/>
+  <text x="48" y="60" font-family="Playfair Display, Georgia, serif" font-weight="600" font-size="20" fill="#2E2B2B">Personal Productivity</text>
+  <rect x="320" y="34" width="160" height="12" rx="6" fill="url(#accent)" opacity="0.9"/>
+  <rect x="28" y="106" width="300" height="650" rx="16" fill="url(#cardGrad)" stroke="#F0E6E8" filter="url(#softShadow)"/>
+  <g font-family="Inter, Arial, sans-serif" font-size="14" fill="#2E2B2B" opacity="0.95">
+    <text x="64" y="158">Inbox</text>
+    <text x="64" y="194">Projects</text>
+    <text x="64" y="230">Weekly</text>
+    <text x="64" y="266">Templates</text>
+  </g>
+  <rect x="36" y="226" width="8" height="28" rx="4" fill="#D4A373"/>
+  <rect x="348" y="106" width="820" height="650" rx="16" fill="url(#cardGrad)" stroke="#F0E8EA" filter="url(#softShadow)"/>
+  <rect x="372" y="132" width="784" height="48" rx="10" fill="#FFF" stroke="#F2E8EA"/>
+  <g font-family="Inter, Arial, sans-serif" font-size="13" fill="#6B6770">
+    <text x="392" y="162">B</text>
+    <text x="420" y="162">I</text>
+    <text x="448" y="162">H1</text>
+    <text x="492" y="162">• List</text>
+    <text x="540" y="162">Insert</text>
+  </g>
+  <rect x="372" y="200" width="784" height="84" rx="12" fill="#FFF8F9" stroke="#F7D1DC"/>
+  <text x="392" y="242" font-family="Playfair Display, Georgia, serif" font-size="18" fill="#2E2B2B">Weekly Intentions</text>
+  <text x="392" y="264" font-family="Inter, Arial, sans-serif" font-size="13" fill="#6B6770">Three focused priorities to move you forward</text>
+  <rect x="372" y="300" width="784" height="92" rx="12" fill="#FFFFFF" stroke="#F0E8EA"/>
+  <text x="392" y="336" font-family="Inter, Arial, sans-serif" font-size="14" fill="#2E2B2B">• Plan workouts</text>
+  <text x="392" y="356" font-family="Inter, Arial, sans-serif" font-size="13" fill="#6B6770">• Track water, sleep & habits</text>
+  <rect x="372" y="410" width="784" height="140" rx="12" fill="#FFFFFF" stroke="#F0E8EA"/>
+  <text x="392" y="438" font-family="Inter, Arial, sans-serif" font-size="14" fill="#2E2B2B">Schedule</text>
+  <g>
+    <rect x="392" y="462" width="720" height="40" rx="10" fill="#FFF" stroke="#F2E8EA"/>
+    <rect x="392" y="506" width="720" height="40" rx="10" fill="#FFF" stroke="#F2E8EA"/>
+  </g>
+  <g transform="translate(1060,640)">
+    <circle cx="0" cy="0" r="36" fill="#D4A373" opacity="0.95"/>
+    <text x="-2" y="8" font-family="Inter, Arial, sans-serif" font-size="30" fill="#FFFFFF">+</text>
+  </g>
+  <text x="372" y="772" font-family="Inter, Arial, sans-serif" font-size="12" fill="#6B6770">All changes saved</text>
+</svg>

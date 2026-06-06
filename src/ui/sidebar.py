@@ -57,6 +57,15 @@ class Sidebar(QWidget):
         btn_layout.addWidget(self.btn_bulk_named)
         layout.addLayout(btn_layout)
 
+        view_layout = QHBoxLayout()
+        self.btn_expand = QPushButton("Show All")
+        self.btn_collapse = QPushButton("Hide All")
+        self.btn_expand.setStyleSheet("QPushButton { padding: 2px 8px; font-size: 10px; }")
+        self.btn_collapse.setStyleSheet("QPushButton { padding: 2px 8px; font-size: 10px; }")
+        view_layout.addWidget(self.btn_expand)
+        view_layout.addWidget(self.btn_collapse)
+        layout.addLayout(view_layout)
+
         self.tree = QTreeWidget()
         self.tree.setHeaderHidden(True)
         self.tree.setIndentation(16)
@@ -67,6 +76,9 @@ class Sidebar(QWidget):
         self.tree.itemClicked.connect(self._on_item_clicked)
         layout.addWidget(self.tree)
 
+        self.btn_expand.clicked.connect(self.tree.expandAll)
+        self.btn_collapse.clicked.connect(self.tree.collapseAll)
+
         self.btn_new.clicked.connect(self._create_page)
         self.btn_new_page.clicked.connect(self._bulk_creation_requested)
         self.btn_bulk_named.clicked.connect(self._bulk_named_dialog)
@@ -74,6 +86,7 @@ class Sidebar(QWidget):
         self._load_pages()
 
     def _load_pages(self):
+        expanded_ids = self._collect_expanded()
         self.tree.clear()
         pages = self.repo.get_all()
         root_pages = [p for p in pages if p.parent_id is None]
@@ -92,6 +105,37 @@ class Sidebar(QWidget):
             item.setData(0, Qt.ItemDataRole.UserRole, page.id)
             add_children(item, page.id)
 
+        if expanded_ids:
+            self._restore_expanded(expanded_ids)
+        else:
+            self.tree.expandAll()
+
+    def _collect_expanded(self):
+        ids = set()
+        root = self.tree.invisibleRootItem()
+        stack = [root]
+        while stack:
+            parent = stack.pop()
+            for i in range(parent.childCount()):
+                child = parent.child(i)
+                pid = child.data(0, Qt.ItemDataRole.UserRole)
+                if child.isExpanded() and pid:
+                    ids.add(pid)
+                stack.append(child)
+        return ids
+
+    def _restore_expanded(self, ids):
+        root = self.tree.invisibleRootItem()
+        stack = [root]
+        while stack:
+            parent = stack.pop()
+            for i in range(parent.childCount()):
+                child = parent.child(i)
+                pid = child.data(0, Qt.ItemDataRole.UserRole)
+                if pid and pid in ids:
+                    child.setExpanded(True)
+                stack.append(child)
+
     def _on_item_clicked(self, item, column):
         page_id = item.data(0, Qt.ItemDataRole.UserRole)
         if page_id:
@@ -100,8 +144,13 @@ class Sidebar(QWidget):
     def _create_page(self):
         title, ok = QInputDialog.getText(self, "New Page", "Page title:")
         if ok and title.strip():
-            page = Page(title=title.strip())
-            self.repo.create(page)
+            selected = self.tree.selectedItems()
+            if selected:
+                for item in selected:
+                    parent_id = item.data(0, Qt.ItemDataRole.UserRole)
+                    self.repo.create(Page(title=title.strip(), parent_id=parent_id))
+            else:
+                self.repo.create(Page(title=title.strip()))
             self._load_pages()
             self.pages_changed.emit()
 

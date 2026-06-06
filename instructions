@@ -25,6 +25,7 @@ py run.py
 ### Create a page
 - Click **"+ New Page"** button → enter title → page appears in the tree.
 - **Keyboard:** `Ctrl+N`.
+- If one or more pages are **selected** in the tree, the new page is created as a **child** under each selected page.
 
 ### Create a child (nested) page
 - Right-click a page → **"Add Child Page"** → enter title.
@@ -35,21 +36,21 @@ py run.py
 
 ### Delete a page (single)
 - Right-click a page → **"Delete"** (no confirmation).
-- **Keyboard:** `Delete` key (when the page is loaded in the editor).
-- Deletion is stored for **15 minutes** — use **Edit → Undo Delete** (`Ctrl+Shift+Z`) to restore.
+- **Keyboard:** `Delete` key (when the page is loaded in the editor, or when multiple pages are selected in the tree for bulk delete).
+- Deletion is stored for **15 minutes** — use **Undo Delete** to restore.
 
 ### Multi-select & Bulk Delete
 - **Ctrl+click** or **Shift+click** to select multiple pages in the tree.
 - Right-click any selected page → **"Delete Selected (N)"** (no confirmation).
-- **Keyboard:** `Ctrl+Shift+D` when multiple pages are selected.
-- All deletions are captured as a single undoable action — one `Ctrl+Shift+Z` restores everything.
+- **Keyboard:** `Delete`, `Ctrl+D` when multiple pages are selected.
+- All deletions are captured as a single undoable action — one undo restores everything.
 
 ### Reorder pages
 - Right-click a page → **"Move Up"** / **"Move Down"** (changes `sort_order`).
 
-### Bulk create pages
-- Click **"+ Bulk"** button, or **Edit → Bulk Create Pages** (`Ctrl+Shift+B`).
-- Start and end date pre-filled with **current system date**.
+### Bulk create time-based pages
+- Click **"Bulk Time-Based"** button, or **Edit → Bulk Create Pages** (`Ctrl+Shift+B`).
+- Start and end date pre-filled. End date **dynamically adjusts** when start date changes: Days → +1 day, Weeks → +7 days, Years → +1 year.
 - Three modes:
   | Mode | Output | Verification |
   |------|--------|-------------|
@@ -57,11 +58,21 @@ py run.py
   | **Weeks** | One `YYYY-MM-DD - YYYY-MM-DD` per week, snapped to chosen start-of-week day | First page starts on the correct weekday |
   | **Years** | One `YYYY` per year between start and end year | Count = end_year - start_year + 1 |
 
+### Bulk create named pages
+- Click **"+ Bulk Named"** button.
+- Enter a **base name** and **number of pages**.
+- Creates pages with sequential names: `BaseName 1`, `BaseName 2`, ..., `BaseName N`.
+
 ### Undo Delete
-- **Edit → Undo Delete** (`Ctrl+Shift+Z`) restores the most recent deletion.
+- **Edit → Undo Delete** (`Ctrl+Shift+Z`, `Ctrl+U`, or `Ctrl+Z` when sidebar has focus) restores deletions one at a time.
+- Each press undoes the most recent deletion — press repeatedly to go further back.
 - Works for: single page, bulk pages, content blocks, and individual tasks.
 - Actions older than **15 minutes** are automatically discarded.
 - After undo, the sidebar refreshes and the editor clears/resets.
+
+### Expand / Collapse tree
+- **"Show All"** / **"Hide All"** buttons in the sidebar expand or collapse all tree nodes.
+- Manually collapsed branches stay collapsed across sidebar refreshes.
 
 ### Toggle sidebar visibility
 - **View → Toggle Sidebar**.
@@ -188,12 +199,14 @@ py run.py
 
 | Shortcut | Action |
 |----------|--------|
-| `Ctrl+N` | New Page |
+| `Ctrl+N` | New Page (as child if pages selected) |
 | `Ctrl+Shift+N` | New Child Page |
 | `Ctrl+S` | Save |
-| `Delete` | Delete Current Page |
-| `Ctrl+Shift+Z` | Undo Delete (15-min window) |
-| `Ctrl+Shift+D` | Delete Selected (bulk) |
+| `Delete` | Delete page(s) — single or bulk |
+| `Ctrl+D` | Delete Selected (bulk) |
+| `Ctrl+Shift+Z` | Undo Delete |
+| `Ctrl+U` | Undo Delete |
+| `Ctrl+Z` | Undo Delete (sidebar focus only) |
 | `Ctrl+Shift+B` | Bulk Create Pages |
 | `Ctrl+B` | Bold |
 | `Ctrl+I` | Italic |
@@ -214,20 +227,26 @@ Run this after any code change:
  6. Bulk create 5 days → 5 pages appear (dates default to today)
  7. Bulk create weeks (verify weekday snap)
  8. Select 3 pages with Ctrl+click → right-click → Delete Selected → Undo
- 9. Add a text block → type Markdown → preview renders
-10. Use B/I/H1/H2/<>/Link/Bullet formatting buttons
-11. Ctrl+B / Ctrl+I shortcuts on active text block
-12. Add a table → add/remove rows and columns
-13. Add a list block → create tasks → check some → set recurrence
-14. Check a weekly task → new unchecked task appears
-15. Delete a task → Undo Delete → task reappears
-16. Delete a block (×) → Undo Delete → block with its content reappears
-17. Save page as template → insert template on another page
-18. Select 2+ pages → right-click → Insert Template into Selected → verify both get blocks
-19. Open Settings → change week start day → save
-20. Toggle sidebar visibility
-21. Resize window, drag splitter
-22. Close app → reopen → verify all data persists
+ 9. Select 3 pages → press Delete → bulk delete → Undo (Ctrl+U / Ctrl+Z w/ sidebar focus)
+10. Select a page → Ctrl+N → new page is a child of selected
+11. Select 2 pages → Ctrl+N → both get child with same name
+12. Click "+ Bulk Named" → enter "Test" / 3 → creates "Test 1", "Test 2", "Test 3"
+13. Click "Show All" / "Hide All" buttons → tree expands/collapses
+14. Collapse a branch → refresh sidebar (create a page) → stays collapsed
+15. Add a text block → type Markdown → preview renders
+16. Use B/I/H1/H2/<>/Link/Bullet formatting buttons
+17. Ctrl+B / Ctrl+I shortcuts on active text block
+18. Add a table → add/remove rows and columns
+19. Add a list block → create tasks → check some → set recurrence
+20. Check a weekly task → new unchecked task appears
+21. Delete a task → Undo Delete → task reappears
+22. Delete a block (×) → Undo Delete → block with its content reappears
+23. Save page as template → insert template on another page
+24. Select 2+ pages → right-click → Insert Template into Selected → verify both get blocks
+25. Open Settings → change week start day → save
+26. Toggle sidebar visibility
+27. Resize window, drag splitter
+28. Close app → reopen → verify all data persists
 ```
 
 ## Project Workflow
