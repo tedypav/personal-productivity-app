@@ -208,6 +208,17 @@ class Sidebar(QWidget):
         mode_combo.currentIndexChanged.connect(on_mode_changed)
         start_date.dateChanged.connect(_update_end_date)
 
+        def _validate():
+            mode = mode_combo.currentText()
+            if mode == "Days" and end_date.date() <= start_date.date():
+                end_date.setDate(start_date.date().addDays(1))
+            elif mode == "Weeks" and end_date.date() < start_date.date().addDays(7):
+                end_date.setDate(start_date.date().addDays(7))
+            elif mode == "Years" and end_date.date() <= start_date.date().addYears(1):
+                end_date.setDate(start_date.date().addYears(1))
+
+        end_date.dateChanged.connect(_validate)
+
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         buttons.accepted.connect(dialog.accept)
         buttons.rejected.connect(dialog.reject)

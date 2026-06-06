@@ -671,10 +671,6 @@ class PageEditor(QWidget):
         self._block_widgets = []
 
         blocks = self.block_repo.get_by_page(page_id)
-        if not blocks:
-            default = ContentBlock(page_id=page_id, block_type="text", content_markdown="")
-            self.block_repo.create(default)
-            blocks = [default]
 
         for i, block in enumerate(blocks):
             w = ContentBlockWidget(block, index=i)
