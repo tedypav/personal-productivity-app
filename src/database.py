@@ -54,5 +54,30 @@ def init_db():
         );
     """)
 
+    try:
+        conn.execute("ALTER TABLE content_blocks ADD COLUMN height INTEGER")
+    except sqlite3.OperationalError:
+        pass
+
+    try:
+        conn.execute("ALTER TABLE content_blocks ADD COLUMN width INTEGER")
+    except sqlite3.OperationalError:
+        pass
+
+    try:
+        conn.execute("ALTER TABLE content_blocks ADD COLUMN header TEXT")
+    except sqlite3.OperationalError:
+        pass
+
+    try:
+        conn.execute("ALTER TABLE content_blocks ADD COLUMN header_font_size INTEGER")
+    except sqlite3.OperationalError:
+        pass
+
+    try:
+        conn.execute("ALTER TABLE content_blocks ADD COLUMN content_font_size INTEGER")
+    except sqlite3.OperationalError:
+        pass
+
     conn.commit()
     conn.close()

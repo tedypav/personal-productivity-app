@@ -1,4 +1,5 @@
 import json
+import traceback
 from datetime import datetime, timedelta
 
 import markdown
@@ -7,11 +8,11 @@ from PyQt6.QtWidgets import (
     QComboBox, QLabel, QCheckBox, QGridLayout, QLineEdit,
     QScrollArea, QDialog, QDialogButtonBox, QMessageBox,
     QListWidget, QFrame, QTextBrowser, QSizePolicy,
-    QToolButton, QApplication
+    QToolButton, QApplication, QLayout, QWidgetItem
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QPoint, QMimeData
+from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QPoint, QMimeData, QSize, QRect
 from PyQt6.QtGui import (
-    QFont, QAction, QKeySequence, QTextCursor, QDrag,
+    QFont, QAction, QKeySequence, QTextCursor, QTextCharFormat, QDrag,
     QPainter, QColor, QBrush, QPen
 )
 
@@ -26,9 +27,9 @@ from src.undo_manager import undo_manager
 MD_EXTENSIONS = ["fenced_code", "tables", "nl2br"]
 
 
-def render_markdown(text: str) -> str:
+def render_markdown(text: str, font_size: int = 13) -> str:
     html = markdown.markdown(text, extensions=MD_EXTENSIONS)
-    return f"""<html><body style="font-family:Segoe UI, sans-serif; padding:4px 8px; line-height:1.4; font-size:13px;">{html}</body></html>"""
+    return f"""<html><body style="font-family:Segoe UI, sans-serif; padding:4px 8px; line-height:1.4; font-size:{font_size}px;">{html}</body></html>"""
 
 
 BLOCK_STYLE = """
@@ -40,18 +41,38 @@ QFrame#block {
 QFrame#block:hover {
     border-color: #6366f1;
 }
+QFrame#block[selected="true"] {
+    border: 2px solid #6366f1;
+    background: #f8f8ff;
+}
 """
 
 
 class MarkdownTextEdit(QTextEdit):
     focus_lost = pyqtSignal()
+    focused = pyqtSignal()
 
     def __init__(self, block_id, content="", parent=None):
         super().__init__(parent)
         self.block_id = block_id
-        self.setPlainText(content)
-        self.setMinimumHeight(40)
-        self.setAcceptRichText(False)
+        self.setMinimumHeight(30)
+        self.setAcceptRichText(True)
+        self._set_content(content)
+
+    def _set_content(self, content):
+        content = content or ""
+        stripped = content.strip()
+        if stripped.startswith("<") and ">" in stripped:
+            self.setHtml(content)
+        else:
+            import markdown
+            html = markdown.markdown(content, extensions=["fenced_code", "tables", "nl2br"])
+            wrapped = f'<html><body style="font-family:Segoe UI, sans-serif; font-size:13px;">{html}</body></html>'
+            self.setHtml(wrapped)
+
+    def focusInEvent(self, event):
+        super().focusInEvent(event)
+        self.focused.emit()
 
     def focusOutEvent(self, event):
         super().focusOutEvent(event)
@@ -61,10 +82,11 @@ class MarkdownTextEdit(QTextEdit):
 class MarkdownBlock(QWidget):
     changed = pyqtSignal()
 
-    def __init__(self, block_id, content="", parent=None):
+    def __init__(self, block_id, content="", parent=None, content_font_size=None):
         super().__init__(parent)
         self.block_id = block_id
         self.editing = False
+        self.content_font_size = content_font_size or 13
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -73,6 +95,11 @@ class MarkdownBlock(QWidget):
         self.editor = MarkdownTextEdit(block_id, content)
         self.editor.setVisible(False)
         self.editor.focus_lost.connect(self._switch_to_preview)
+
+        if self.content_font_size:
+            font = self.editor.document().defaultFont()
+            font.setPointSize(self.content_font_size)
+            self.editor.document().setDefaultFont(font)
 
         self.preview = QTextBrowser()
         self.preview.setOpenExternalLinks(True)
@@ -105,12 +132,25 @@ class MarkdownBlock(QWidget):
         self.preview.setVisible(True)
         self._update_preview()
 
+    def set_content_font_size(self, size):
+        self.content_font_size = size
+        cursor = self.editor.textCursor()
+        if cursor.hasSelection():
+            fmt = QTextCharFormat()
+            fmt.setFontPointSize(size)
+            cursor.mergeCharFormat(fmt)
+        else:
+            font = self.editor.document().defaultFont()
+            font.setPointSize(size)
+            self.editor.document().setDefaultFont(font)
+        self._update_preview()
+
     def _on_text_changed(self):
         self.changed.emit()
         self._update_preview()
 
     def _update_preview(self):
-        html = render_markdown(self.editor.toPlainText())
+        html = self.editor.toHtml()
         self.preview.setHtml(html)
 
     def insert_formatting(self, prefix, suffix=""):
@@ -375,67 +415,120 @@ class DragHandle(QLabel):
 
 
 class ResizeHandle(QWidget):
+    CORNER_WIDTH = 24
+
     def __init__(self, block_widget, parent=None):
         super().__init__(parent)
         self.block_widget = block_widget
-        self.setFixedHeight(6)
+        self.setFixedHeight(14)
         self.setCursor(Qt.CursorShape.SizeVerCursor)
-        self.setStyleSheet("background: transparent;")
+        self.setStyleSheet("background: #f0f0ff; border-top: 1px solid #e5e7eb;")
         self._dragging = False
         self._start_y = 0
+        self._start_x = 0
         self._start_height = 0
+        self._start_width = 0
+        self._in_corner = False
         self.setMouseTracking(True)
 
+    def _is_in_corner(self, pos_x):
+        return pos_x >= self.width() - self.CORNER_WIDTH
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        p = QPainter(self)
+        h = self.height()
+        w = self.width()
+        corner_x = w - self.CORNER_WIDTH
+        p.setPen(QColor("#d1d5db"))
+        for i in range(3):
+            y = h - 4 - i * 4
+            p.drawLine(corner_x + 4 + i * 4, y, corner_x + 4 + i * 4 + 4, y)
+
     def enterEvent(self, event):
-        self.setStyleSheet("background: #e0e7ff; border-radius: 2px;")
+        self.setStyleSheet("background: #e0e7ff; border-top: 1px solid #6366f1;")
 
     def leaveEvent(self, event):
         if not self._dragging:
-            self.setStyleSheet("background: transparent;")
+            self.setStyleSheet("background: #f0f0ff; border-top: 1px solid #e5e7eb;")
+            self._in_corner = False
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
             self._dragging = True
             self._start_y = event.globalPosition().toPoint().y()
+            self._start_x = event.globalPosition().toPoint().x()
             self._start_height = self.block_widget.height()
+            self._start_width = self.block_widget.width()
+            self._in_corner = self._is_in_corner(event.position().toPoint().x())
             self.setStyleSheet("background: #6366f1; border-radius: 2px;")
 
     def mouseMoveEvent(self, event):
         if self._dragging:
-            delta = event.globalPosition().toPoint().y() - self._start_y
-            new_h = max(60, self._start_height + delta)
+            delta_y = event.globalPosition().toPoint().y() - self._start_y
+            new_h = max(60, self._start_height + delta_y)
+            if self._in_corner:
+                delta_x = event.globalPosition().toPoint().x() - self._start_x
+                new_w = max(200, self._start_width + delta_x)
+                self.block_widget.setFixedWidth(new_w)
+                self.block_widget.setFixedHeight(new_h)
+            else:
+                self.block_widget.setMinimumHeight(new_h)
             if isinstance(self.block_widget._body, MarkdownBlock):
-                editor_h = max(60, new_h - 60)
+                editor_h = max(30, new_h - 60)
                 self.block_widget._body.editor.setMinimumHeight(editor_h)
-                self.block_widget._body.editor.setMaximumHeight(editor_h + 20)
                 self.block_widget._body.preview.setMinimumHeight(editor_h)
             elif isinstance(self.block_widget._body, TableWidget):
                 for i in range(self.block_widget._body.grid.count()):
-                    w = self.block_widget._body.grid.itemAt(i)
-                    if w and w.widget() and isinstance(w.widget(), TableCell):
+                    it = self.block_widget._body.grid.itemAt(i)
+                    if it and it.widget() and isinstance(it.widget(), TableCell):
                         cell_h = max(30, (new_h - 80) // max(1, len(self.block_widget._body.rows)))
-                        w.widget().setMaximumHeight(cell_h + 20)
-            self.block_widget.setMinimumHeight(new_h)
+                        it.widget().setMaximumHeight(cell_h + 20)
+        else:
+            in_corner = self._is_in_corner(event.position().toPoint().x())
+            if in_corner != self._in_corner:
+                self._in_corner = in_corner
+                self.setCursor(Qt.CursorShape.SizeFDiagCursor if in_corner else Qt.CursorShape.SizeVerCursor)
 
     def mouseReleaseEvent(self, event):
         self._dragging = False
         self.setStyleSheet("background: #e0e7ff; border-radius: 2px;")
+        if hasattr(self.block_widget, 'save'):
+            self.block_widget.save()
 
 
 class ContentBlockWidget(QFrame):
     changed = pyqtSignal()
     delete_requested = pyqtSignal(object)
+    clicked = pyqtSignal(object, bool)  # (self, add_to_selection)
+    header_focused = pyqtSignal(object)  # self
+    content_focused = pyqtSignal(object)  # self
 
     def __init__(self, block: ContentBlock, index=0, parent=None):
         super().__init__(parent)
         self.block = block
         self.block_index = index
+        self._selected = False
         self.setObjectName("block")
         self.setFrameStyle(QFrame.Shape.NoFrame)
         self.setStyleSheet(BLOCK_STYLE)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.setFocusPolicy(Qt.FocusPolicy.ClickFocus)
 
         self._build_ui()
+
+    def set_selected(self, selected: bool):
+        self._selected = selected
+        self.setProperty("selected", "true" if selected else "false")
+        self.style().unpolish(self)
+        self.style().polish(self)
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            mods = QApplication.keyboardModifiers()
+            add_to_selection = mods in (Qt.KeyboardModifier.ShiftModifier, Qt.KeyboardModifier.ControlModifier)
+            self.clicked.emit(self, add_to_selection)
+        super().mousePressEvent(event)
 
     def _build_ui(self):
         layout = QVBoxLayout(self)
@@ -445,15 +538,30 @@ class ContentBlockWidget(QFrame):
         header = QHBoxLayout()
         header.setContentsMargins(0, 0, 0, 0)
         self.drag_handle = DragHandle()
-        type_label = QLabel(f"[{self.block.block_type}]")
-        type_label.setStyleSheet("color: #9ca3af; font-size: 9px; font-weight: 600;")
+
+        default_header = self.block.header if self.block.header else self.block.block_type
+        header_size = self.block.header_font_size or 9
+        self._header_edit = QLineEdit(default_header)
+        self._header_edit.setPlaceholderText(self.block.block_type)
+        header_font = QFont("Segoe UI", header_size, QFont.Weight.DemiBold)
+        self._header_edit.setFont(header_font)
+        _orig_header_focus = self._header_edit.focusInEvent
+        def _on_header_focus(ev, orig=_orig_header_focus, me=self):
+            orig(ev)
+            me.header_focused.emit(me)
+        self._header_edit.focusInEvent = _on_header_focus
+        self._header_edit.setStyleSheet(
+            "QLineEdit { border: none; background: transparent; color: #9ca3af; padding: 0; }"
+            "QLineEdit:focus { border: none; background: #f3f4f6; color: #374151; }"
+        )
 
         del_btn = QPushButton("×")
-        del_btn.setFixedSize(20, 20)
-        del_btn.setStyleSheet("QPushButton { border: none; color: #9ca3af; font-size: 14px; } QPushButton:hover { color: #ef4444; }")
+        del_btn.setFixedSize(24, 24)
+        del_btn.setToolTip("Delete block")
+        del_btn.setStyleSheet("QPushButton { border: 1px solid #e5e7eb; border-radius: 4px; color: #9ca3af; font-size: 14px; } QPushButton:hover { color: #ef4444; border-color: #ef4444; background: #fef2f2; }")
 
         header.addWidget(self.drag_handle)
-        header.addWidget(type_label)
+        header.addWidget(self._header_edit, 1)
         header.addStretch()
         header.addWidget(del_btn)
         layout.addLayout(header)
@@ -461,9 +569,11 @@ class ContentBlockWidget(QFrame):
         self._body = None
 
         if self.block.block_type == "text":
-            self._body = MarkdownBlock(self.block.id, self.block.content_markdown)
+            content_size = self.block.content_font_size or 13
+            self._body = MarkdownBlock(self.block.id, self.block.content_markdown, content_font_size=content_size)
             self._body.changed.connect(self._on_content_changed)
             layout.addWidget(self._body)
+            self._body.editor.focused.connect(lambda ed=self: self.content_focused.emit(ed))
         elif self.block.block_type == "table":
             self._body = TableWidget(self.block.id, self.block.content_markdown)
             self._body.changed.connect(self._on_content_changed)
@@ -476,7 +586,29 @@ class ContentBlockWidget(QFrame):
         self.resize_handle = ResizeHandle(self)
         layout.addWidget(self.resize_handle)
 
+        if self.block.height:
+            self._apply_height(self.block.height)
+        else:
+            self._apply_height(60)
+
+        if self.block.width:
+            self.setFixedWidth(self.block.width)
+
         del_btn.clicked.connect(self._delete)
+
+    def _apply_height(self, h):
+        h = max(60, h)
+        if isinstance(self._body, MarkdownBlock):
+            inner_h = max(30, h - 60)
+            self._body.editor.setMinimumHeight(inner_h)
+            self._body.preview.setMinimumHeight(inner_h)
+        elif isinstance(self._body, TableWidget):
+            for i in range(self._body.grid.count()):
+                w = self._body.grid.itemAt(i)
+                if w and w.widget() and isinstance(w.widget(), TableCell):
+                    cell_h = max(30, (h - 80) // max(1, len(self._body.rows)))
+                    w.widget().setMaximumHeight(cell_h + 20)
+        self.setMinimumHeight(h)
 
     def _on_content_changed(self):
         self.changed.emit()
@@ -493,11 +625,25 @@ class ContentBlockWidget(QFrame):
         self.delete_requested.emit(self)
 
     def save(self):
+        self.block.height = self.minimumHeight() if self.minimumHeight() > 0 else None
+        if self.minimumWidth() > 0 and self.minimumWidth() == self.maximumWidth():
+            self.block.width = self.minimumWidth()
+        else:
+            self.block.width = None
+        text = self._header_edit.text().strip()
+        self.block.header = text if text and text != self.block.block_type else None
+        self.block.header_font_size = self._header_edit.font().pointSize()
+        if self._body and isinstance(self._body, MarkdownBlock):
+            self.block.content_font_size = self._body.content_font_size
         if self.block.block_type == "table" and self._body:
             self.block.content_markdown = self._body.to_markdown()
             BlockRepo().update(self.block)
         elif self.block.block_type == "text" and self._body:
-            self.block.content_markdown = self._body.toPlainText()
+            self.block.content_markdown = self._body.editor.toHtml()
+            BlockRepo().update(self.block)
+        elif self.block.block_type in ("list", "checkbox"):
+            BlockRepo().update(self.block)
+        else:
             BlockRepo().update(self.block)
 
 
@@ -513,12 +659,172 @@ class DropIndicator(QWidget):
         p.drawLine(0, 2, self.width(), 2)
 
 
+class FlowLayout(QLayout):
+    def __init__(self, parent=None, margin=0, hspacing=6, vspacing=4):
+        super().__init__(parent)
+        self._items = []
+        self._hspacing = hspacing
+        self._vspacing = vspacing
+        self.setContentsMargins(margin, margin, margin, margin)
+
+    def addItem(self, item):
+        self._items.append(item)
+
+    def count(self):
+        return len(self._items)
+
+    def itemAt(self, index):
+        return self._items[index] if 0 <= index < len(self._items) else None
+
+    def takeAt(self, index):
+        if 0 <= index < len(self._items):
+            return self._items.pop(index)
+        return None
+
+    def removeWidget(self, widget):
+        for i, item in enumerate(self._items):
+            if item.widget() == widget:
+                self._items.pop(i)
+                break
+
+    def insertWidget(self, index, widget):
+        item = QWidgetItem(widget)
+        self._items.insert(index, item)
+
+    def expandingDirections(self):
+        return Qt.Orientation.Horizontal
+
+    def hasHeightForWidth(self):
+        return True
+
+    def heightForWidth(self, width):
+        return self._do_layout(QRect(0, 0, width, 0), True).height()
+
+    def setGeometry(self, rect):
+        super().setGeometry(rect)
+        self._do_layout(rect, False)
+
+    def sizeHint(self):
+        return QSize(400, 200)
+
+    def minimumSize(self):
+        size = QSize()
+        for item in self._items:
+            hint = item.minimumSize()
+            size = size.expandedTo(hint)
+        margins = self.contentsMargins()
+        size += QSize(2 * margins.left(), 2 * margins.top())
+        return size
+
+    def _item_width(self, item):
+        widget = item.widget()
+        if not widget:
+            return 250
+        min_w = widget.minimumWidth()
+        max_w = widget.maximumWidth()
+        if min_w > 0 and min_w == max_w:
+            return min_w
+        if min_w > 0:
+            return min_w
+        return max(200, item.sizeHint().width())
+
+    def _is_fixed_width(self, item):
+        widget = item.widget()
+        if not widget:
+            return False
+        min_w = widget.minimumWidth()
+        max_w = widget.maximumWidth()
+        return min_w > 0 and min_w == max_w
+
+    def _item_height(self, item):
+        widget = item.widget()
+        if not widget:
+            return 100
+        if widget.minimumHeight() > 0:
+            return widget.minimumHeight()
+        return max(item.sizeHint().height(), 60)
+
+    def _do_layout(self, rect, test_only):
+        margins = self.contentsMargins()
+        content_left = rect.x() + margins.left()
+        content_top = rect.y() + margins.top()
+        content_width = max(1, rect.width() - margins.left() - margins.right())
+
+        visible = [item for item in self._items if item.widget()]
+
+        rows = []
+        current_row = []
+        current_row_width = 0
+
+        for item in visible:
+            is_fixed = self._is_fixed_width(item)
+            if is_fixed and current_row:
+                sep = self._hspacing
+                iw = self._item_width(item)
+                if current_row_width + sep + iw <= content_width:
+                    current_row.append(item)
+                    current_row_width += sep + iw
+                    continue
+                rows.append(current_row)
+                current_row = [item]
+                current_row_width = iw
+            elif is_fixed and not current_row:
+                current_row.append(item)
+                current_row_width = self._item_width(item)
+            else:
+                if current_row:
+                    rows.append(current_row)
+                current_row = [item]
+                current_row_width = self._item_width(item)
+
+        if current_row:
+            rows.append(current_row)
+
+        y = content_top
+        for row in rows:
+            total_fixed = 0
+            stretch_indices = []
+            for idx, item in enumerate(row):
+                widget = item.widget()
+                if not widget or widget.sizePolicy().horizontalPolicy() == QSizePolicy.Policy.Expanding:
+                    stretch_indices.append(idx)
+                else:
+                    total_fixed += self._item_width(item)
+
+            spacing = self._hspacing * (len(row) - 1)
+            stretch_avail = max(0, content_width - total_fixed - spacing)
+            stretch_w = stretch_avail // max(1, len(stretch_indices)) if stretch_indices else 0
+            remaining = stretch_avail - stretch_w * len(stretch_indices) if stretch_indices else 0
+
+            x = content_left
+            max_h = 0
+            for idx, item in enumerate(row):
+                if idx in stretch_indices:
+                    w = stretch_w + (1 if idx < remaining else 0)
+                else:
+                    w = self._item_width(item)
+                h = self._item_height(item)
+                if not test_only:
+                    item.setGeometry(QRect(x, y, max(1, w), max(1, h)))
+                x += w + self._hspacing
+                max_h = max(max_h, h)
+
+            y += max_h + self._vspacing
+
+        total_height = y - content_top + margins.bottom()
+        return QSize(content_width, total_height)
+
+
 class PageEditor(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.current_page_id = None
         self.block_repo = BlockRepo()
+        self._block_widgets: list[ContentBlockWidget] = []
+        self._selected_block_widgets: set[ContentBlockWidget] = set()
+        self._font_target: tuple[ContentBlockWidget, str] | None = None
         self.setStyleSheet("background: #ffffff;")
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
 
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
@@ -532,10 +838,7 @@ class PageEditor(QWidget):
 
         self.content = QWidget()
         self.content.setStyleSheet("background: #ffffff;")
-        self.content_layout = QVBoxLayout(self.content)
-        self.content_layout.setContentsMargins(12, 4, 12, 4)
-        self.content_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-        self.content_layout.setSpacing(4)
+        self.content_layout = FlowLayout(self.content, margin=12)
         scroll.setWidget(self.content)
 
         main_layout.addWidget(scroll, 1)
@@ -549,6 +852,8 @@ class PageEditor(QWidget):
         self.content.dragMoveEvent = self._drag_move_over
         self.content.dragLeaveEvent = self._drag_leave
         self.content.dropEvent = self._drop
+
+        QApplication.instance().focusChanged.connect(self._on_focus_changed)
 
     def _build_toolbar(self, parent_layout):
         toolbar_widget = QWidget()
@@ -617,6 +922,17 @@ class PageEditor(QWidget):
         for b in [self._bold_btn, self._italic_btn, self._h1_btn, self._h2_btn, self._code_btn, self._link_btn, self._bullet_btn]:
             toolbar.addWidget(b)
 
+        toolbar.addSpacing(8)
+        toolbar.addWidget(QLabel("Size:"))
+        self._font_size_combo = QComboBox()
+        self._font_size_combo.addItems([str(s) for s in [9, 10, 11, 12, 13, 14, 15, 16, 18, 20, 22, 24, 28, 32]])
+        self._font_size_combo.setCurrentText("13")
+        self._font_size_combo.setFixedWidth(60)
+        self._font_size_combo.setToolTip("Font size for focused header or text")
+        tracer = self  # capture self for the lambda
+        self._font_size_combo.currentTextChanged.connect(self._on_font_size_changed)
+        toolbar.addWidget(self._font_size_combo)
+
         parent_layout.addWidget(toolbar_widget)
 
         self._add_block_btn.clicked.connect(lambda: self._add_block("text"))
@@ -631,9 +947,72 @@ class PageEditor(QWidget):
         self._link_btn.clicked.connect(lambda: self._apply_format("link"))
         self._bullet_btn.clicked.connect(lambda: self._apply_format("bullet"))
 
+    @staticmethod
+    def _find_block_widget(widget):
+        while widget:
+            if isinstance(widget, ContentBlockWidget):
+                return widget
+            widget = widget.parent()
+        return None
+
+    def _set_font_combo_from_target(self):
+        if not self._font_target:
+            return
+        block_w, part = self._font_target
+        if part == "header":
+            size = block_w._header_edit.font().pointSize()
+        else:
+            try:
+                size = block_w._body.content_font_size
+            except AttributeError:
+                return
+        self._font_size_combo.blockSignals(True)
+        self._font_size_combo.setCurrentText(str(size))
+        self._font_size_combo.blockSignals(False)
+
+    def _on_block_header_focused(self, block_w):
+        self._font_target = (block_w, "header")
+        self._set_font_combo_from_target()
+
+    def _on_block_content_focused(self, block_w):
+        self._font_target = (block_w, "content")
+        self._set_font_combo_from_target()
+
+    def _on_focus_changed(self, old, new):
+        if not new:
+            return
+        block_w = self._find_block_widget(new)
+        if not block_w:
+            return
+        if new is block_w._header_edit:
+            self._font_target = (block_w, "header")
+            self._set_font_combo_from_target()
+        elif isinstance(new, (MarkdownTextEdit, QTextBrowser)):
+            try:
+                self._font_target = (block_w, "content")
+                self._set_font_combo_from_target()
+            except AttributeError:
+                pass
+
+    def _on_font_size_changed(self, val_str):
+        if not self._font_target:
+            return
+        try:
+            size = int(val_str)
+        except (ValueError, TypeError):
+            return
+        block_w, part = self._font_target
+        if part == "header":
+            font = block_w._header_edit.font()
+            font.setPointSize(size)
+            block_w._header_edit.setFont(font)
+        elif part == "content":
+            try:
+                block_w._body.set_content_font_size(size)
+            except AttributeError:
+                return
+
     def _get_active_text_block(self):
-        if not hasattr(self, '_block_widgets'):
-            return None
         for w in self._block_widgets:
             if hasattr(w, '_body') and isinstance(w._body, MarkdownBlock):
                 if w._body.editor.hasFocus():
@@ -664,11 +1043,12 @@ class PageEditor(QWidget):
         from src.repositories.page_repo import PageRepo
         page = PageRepo().get_by_id(page_id)
         self.page_title.setText(page.title if page else "Untitled")
+        self._clear_selection()
 
-        for w in getattr(self, '_block_widgets', []):
+        for w in self._block_widgets:
             w.setParent(None)
             w.deleteLater()
-        self._block_widgets = []
+        self._block_widgets.clear()
 
         blocks = self.block_repo.get_by_page(page_id)
 
@@ -676,6 +1056,9 @@ class PageEditor(QWidget):
             w = ContentBlockWidget(block, index=i)
             w.changed.connect(self._on_block_changed)
             w.delete_requested.connect(self._on_block_deleted)
+            w.clicked.connect(self._on_block_clicked)
+            w.header_focused.connect(self._on_block_header_focused)
+            w.content_focused.connect(self._on_block_content_focused)
             self._setup_drag(w)
             self.content_layout.addWidget(w)
             self._block_widgets.append(w)
@@ -705,12 +1088,64 @@ class PageEditor(QWidget):
             widget.setParent(None)
             widget.deleteLater()
 
+    def _on_block_clicked(self, widget, add_to_selection):
+        if add_to_selection:
+            if widget in self._selected_block_widgets:
+                widget.set_selected(False)
+                self._selected_block_widgets.discard(widget)
+            else:
+                widget.set_selected(True)
+                self._selected_block_widgets.add(widget)
+        else:
+            self._clear_selection()
+            widget.set_selected(True)
+            self._selected_block_widgets.add(widget)
+
+    def _clear_selection(self):
+        for w in self._selected_block_widgets:
+            w.set_selected(False)
+        self._selected_block_widgets.clear()
+
+    def _delete_selected_blocks(self):
+        if not self._selected_block_widgets:
+            return
+        from src.undo_manager import _block_dict, _task_dict
+        from src.repositories.task_repo import TaskRepo
+        for w in list(self._selected_block_widgets):
+            tasks_data = [_task_dict(t) for t in TaskRepo().get_by_block(w.block.id)]
+            undo_manager.push({
+                "type": "block",
+                "block": _block_dict(w.block),
+                "tasks": tasks_data,
+            })
+            BlockRepo().delete(w.block.id)
+        self._clear_selection()
+        self.load_page(self.current_page_id)
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key.Key_Delete:
+            self._delete_selected_blocks()
+            event.accept()
+        elif event.key() == Qt.Key.Key_D and event.modifiers() == Qt.KeyboardModifier.ControlModifier:
+            focus_widget = QApplication.focusWidget()
+            if focus_widget and isinstance(focus_widget, (QTextEdit, QLineEdit)):
+                event.ignore()
+                return
+            self._delete_selected_blocks()
+            event.accept()
+        else:
+            super().keyPressEvent(event)
+
     def _add_block(self, block_type: str):
         if not self.current_page_id:
             return
-        block = ContentBlock(page_id=self.current_page_id, block_type=block_type)
-        self.block_repo.create(block)
-        self.load_page(self.current_page_id)
+        try:
+            block = ContentBlock(page_id=self.current_page_id, block_type=block_type)
+            self.block_repo.create(block)
+            self.load_page(self.current_page_id)
+        except Exception as e:
+            traceback.print_exc()
+            QMessageBox.critical(self, "Error", f"Failed to add block:\n{e}")
 
     def _reorder_blocks(self):
         for i, w in enumerate(self._block_widgets):
@@ -821,6 +1256,6 @@ class PageEditor(QWidget):
         self.drag_source_widget = None
 
     def save_current(self):
-        for w in getattr(self, '_block_widgets', []):
+        for w in self._block_widgets:
             if hasattr(w, 'save'):
                 w.save()
