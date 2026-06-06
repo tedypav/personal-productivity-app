@@ -1,11 +1,13 @@
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QTreeWidget, QTreeWidgetItem,
-    QPushButton, QHBoxLayout, QInputDialog, QMessageBox, QMenu
+    QPushButton, QHBoxLayout, QInputDialog, QMessageBox, QMenu,
+    QDialog, QListWidget, QDialogButtonBox, QLabel
 )
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import Qt, pyqtSignal, QDate
 from src.repositories.page_repo import PageRepo
 from src.models.page import Page
 from src.settings import load_settings
+from src.undo_manager import undo_manager, capture_page_tree
 
 
 class Sidebar(QWidget):
@@ -57,6 +59,7 @@ class Sidebar(QWidget):
         self.tree.setHeaderHidden(True)
         self.tree.setIndentation(16)
         self.tree.setAnimated(True)
+        self.tree.setSelectionMode(QTreeWidget.SelectionMode.ExtendedSelection)
         self.tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.tree.customContextMenuRequested.connect(self._show_context_menu)
         self.tree.itemClicked.connect(self._on_item_clicked)
@@ -115,12 +118,14 @@ class Sidebar(QWidget):
 
         start_date = QDateEdit()
         start_date.setCalendarPopup(True)
+        start_date.setDate(QDate.currentDate())
         layout.addWidget(QLabel("Start date:"))
         layout.addWidget(start_date)
 
         end_label = QLabel("End date:")
         end_date = QDateEdit()
         end_date.setCalendarPopup(True)
+        end_date.setDate(QDate.currentDate())
         layout.addWidget(end_label)
         layout.addWidget(end_date)
 
@@ -181,8 +186,19 @@ class Sidebar(QWidget):
         if not item:
             return
 
+        selected = self.tree.selectedItems()
         page_id = item.data(0, Qt.ItemDataRole.UserRole)
         menu = QMenu()
+
+        if len(selected) > 1:
+            delete_sel = menu.addAction(f"Delete Selected ({len(selected)})")
+            template_sel = menu.addAction(f"Insert Template into Selected ({len(selected)})")
+            action = menu.exec(self.tree.viewport().mapToGlobal(pos))
+            if action == delete_sel:
+                self._bulk_delete(selected)
+            elif action == template_sel:
+                self._bulk_insert_template(selected)
+            return
 
         rename_action = menu.addAction("Rename")
         delete_action = menu.addAction("Delete")
@@ -205,14 +221,13 @@ class Sidebar(QWidget):
                     self.pages_changed.emit()
 
         elif action == delete_action:
-            reply = QMessageBox.question(
-                self, "Delete Page", "Delete this page and all its content?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-            )
-            if reply == QMessageBox.StandardButton.Yes:
-                self.repo.delete(page_id)
-                self._load_pages()
-                self.pages_changed.emit()
+            data = capture_page_tree(page_id)
+            if data:
+                data["type"] = "page"
+                undo_manager.push(data)
+            self.repo.delete(page_id)
+            self._load_pages()
+            self.pages_changed.emit()
 
         elif action == add_child_action:
             title, ok = QInputDialog.getText(self, "New Child Page", "Page title:")
@@ -237,6 +252,80 @@ class Sidebar(QWidget):
                 self.repo.update(page)
                 self._load_pages()
                 self.pages_changed.emit()
+
+    def _bulk_delete(self, items):
+        all_ids = []
+        for item in items:
+            pid = item.data(0, Qt.ItemDataRole.UserRole)
+            if pid:
+                all_ids.append(pid)
+        if not all_ids:
+            return
+
+        selected_set = set(all_ids)
+        to_capture = []
+        for pid in all_ids:
+            page = self.repo.get_by_id(pid)
+            if page and page.parent_id not in selected_set:
+                to_capture.append(pid)
+
+        captured = []
+        for pid in to_capture:
+            data = capture_page_tree(pid)
+            if data:
+                data["type"] = "page"
+                captured.append(data)
+
+        if captured:
+            undo_manager.push({"type": "bulk", "actions": captured})
+
+        for pid in all_ids:
+            self.repo.delete(pid)
+        self._load_pages()
+        self.pages_changed.emit()
+
+    def _bulk_insert_template(self, items):
+        from src.repositories.template_repo import TemplateRepo
+        from src.repositories.block_repo import BlockRepo
+        from src.models.content_block import ContentBlock
+        import json
+
+        repo = TemplateRepo()
+        templates = repo.get_all()
+        if not templates:
+            QMessageBox.information(self, "Templates", "No templates saved yet.")
+            return
+
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Insert Template into Selected Pages")
+        layout = QVBoxLayout(dialog)
+        list_widget = QListWidget()
+        for t in templates:
+            list_widget.addItem(f"{t.name} ({t.category})")
+        layout.addWidget(list_widget)
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+
+        if dialog.exec() == QDialog.DialogCode.Accepted and list_widget.currentRow() >= 0:
+            template = templates[list_widget.currentRow()]
+            blocks_data = json.loads(template.content_json)
+            page_ids = [item.data(0, Qt.ItemDataRole.UserRole) for item in items if item.data(0, Qt.ItemDataRole.UserRole)]
+            for pid in page_ids:
+                for bd in blocks_data:
+                    block = ContentBlock(
+                        page_id=pid,
+                        block_type=bd.get("block_type", "text"),
+                        content_markdown=bd.get("content_markdown", "")
+                    )
+                    BlockRepo().create(block)
+            QMessageBox.information(self, "Template", f"Template '{template.name}' inserted into {len(page_ids)} page(s).")
+
+    def delete_selected(self):
+        items = self.tree.selectedItems()
+        if len(items) > 1:
+            self._bulk_delete(items)
 
     def refresh(self):
         self._load_pages()

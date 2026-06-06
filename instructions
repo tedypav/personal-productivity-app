@@ -16,6 +16,7 @@ py run.py
 - Window title: "Personal Productivity App".
 - Default size ~1200×800, minimum 900×600.
 - Database `app.db` is created automatically in the project root.
+- File `settings.json` is created on first launch.
 
 ---
 
@@ -23,24 +24,32 @@ py run.py
 
 ### Create a page
 - Click **"+ New Page"** button → enter title → page appears in the tree.
-- **Keyboard:** `Ctrl+N` from File menu.
+- **Keyboard:** `Ctrl+N`.
 
 ### Create a child (nested) page
 - Right-click a page → **"Add Child Page"** → enter title.
-- **Keyboard:** `Ctrl+Shift+N` (works when a page is selected in the editor).
+- **Keyboard:** `Ctrl+Shift+N` (when a page is loaded in the editor).
 
 ### Rename a page
 - Right-click a page → **"Rename"** → enter new title.
 
-### Delete a page
-- Right-click a page → **"Delete"** → confirm dialog.
-- **Keyboard:** `Delete` key (works when the page is loaded in the editor).
+### Delete a page (single)
+- Right-click a page → **"Delete"** (no confirmation).
+- **Keyboard:** `Delete` key (when the page is loaded in the editor).
+- Deletion is stored for **15 minutes** — use **Edit → Undo Delete** (`Ctrl+Shift+Z`) to restore.
+
+### Multi-select & Bulk Delete
+- **Ctrl+click** or **Shift+click** to select multiple pages in the tree.
+- Right-click any selected page → **"Delete Selected (N)"** (no confirmation).
+- **Keyboard:** `Ctrl+Shift+D` when multiple pages are selected.
+- All deletions are captured as a single undoable action — one `Ctrl+Shift+Z` restores everything.
 
 ### Reorder pages
 - Right-click a page → **"Move Up"** / **"Move Down"** (changes `sort_order`).
 
 ### Bulk create pages
-- Click **"+ Bulk"** button or Menu → Page → **"Bulk Create Pages"**.
+- Click **"+ Bulk"** button, or **Edit → Bulk Create Pages** (`Ctrl+Shift+B`).
+- Start and end date pre-filled with **current system date**.
 - Three modes:
   | Mode | Output | Verification |
   |------|--------|-------------|
@@ -48,20 +57,26 @@ py run.py
   | **Weeks** | One `YYYY-MM-DD - YYYY-MM-DD` per week, snapped to chosen start-of-week day | First page starts on the correct weekday |
   | **Years** | One `YYYY` per year between start and end year | Count = end_year - start_year + 1 |
 
+### Undo Delete
+- **Edit → Undo Delete** (`Ctrl+Shift+Z`) restores the most recent deletion.
+- Works for: single page, bulk pages, content blocks, and individual tasks.
+- Actions older than **15 minutes** are automatically discarded.
+- After undo, the sidebar refreshes and the editor clears/resets.
+
 ### Toggle sidebar visibility
-- Menu → View → **"Toggle Sidebar"** (or use the menu item).
+- **View → Toggle Sidebar**.
 
 ---
 
 ## 3. Content Blocks — Text
 
 ### Add a text block
-- Click **"+ Text"** in the toolbar.
+- Click **"+ Text"** in the editor toolbar.
 
 ### Edit content
 - Click the preview area to switch to edit mode.
-- Press **Tab** or click outside to return to preview.
-- Markdown is rendered as HTML in preview.
+- Click outside or press Tab to return to preview.
+- Markdown is rendered as HTML in preview (fenced code, tables, line breaks supported).
 
 ### Formatting toolbar
 | Button | Shortcut | Action |
@@ -77,7 +92,7 @@ py run.py
 - Formatting applies to the **currently focused text block** only.
 
 ### Delete a block
-- Click the **"×"** button in the block header.
+- Click the **"×"** button in the block header (no confirmation, undoable).
 
 ### Resize a block
 - Drag the thin resize handle below each block vertically.
@@ -114,7 +129,7 @@ py run.py
 - **Check/uncheck** a task via its checkbox.
 - **Edit task text** directly in the text field.
 - **Set recurrence** via the dropdown: `none`, `daily`, `weekly`, `monthly`.
-- **Delete** a task with **"X"** button.
+- **Delete** a task with **"X"** button (no confirmation, undoable).
 - **Add** a new task with **"+ Add Task"** button.
 
 ### Recurring tasks
@@ -126,12 +141,17 @@ py run.py
 ## 6. Template System
 
 ### Save a page as template
-- Menu → Page → **"Save Page as Template"** → enter a name.
-- All content blocks (text, tables, tasks) are captured.
+- **Page → Save Page as Template** → enter a name.
+- All content blocks (text, tables, tasks) are captured as JSON.
 
-### Insert a template
-- Click **"Template"** button in toolbar → select a template from the list.
+### Insert a template into current page
+- Click **"Template"** button in the editor toolbar → select a template.
 - The template's blocks are appended to the current page.
+
+### Bulk insert template into multiple pages
+- **Ctrl+click** / **Shift+click** to select multiple pages in the sidebar.
+- Right-click → **"Insert Template into Selected (N)"** → pick one template.
+- The template is applied to **every selected page**.
 
 ### Persistence
 - Templates survive app restart (stored in SQLite `templates` table).
@@ -148,7 +168,7 @@ py run.py
 
 ## 8. Settings
 
-- Menu → File → **"Settings..."** opens a dialog with:
+- **File → Settings...** opens a dialog with:
   - **Week start day** (used by bulk "Weeks" creation).
   - **Auto-save interval** (500–10000 ms, step 500).
   - **Font size** (10–32; requires restart).
@@ -164,31 +184,58 @@ py run.py
 
 ---
 
-## 10. Quick Regression Checklist
+## 10. Keyboard Shortcuts Reference
+
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl+N` | New Page |
+| `Ctrl+Shift+N` | New Child Page |
+| `Ctrl+S` | Save |
+| `Delete` | Delete Current Page |
+| `Ctrl+Shift+Z` | Undo Delete (15-min window) |
+| `Ctrl+Shift+D` | Delete Selected (bulk) |
+| `Ctrl+Shift+B` | Bulk Create Pages |
+| `Ctrl+B` | Bold |
+| `Ctrl+I` | Italic |
+| `Ctrl+Q` | Exit |
+
+---
+
+## 11. Quick Regression Checklist
 
 Run this after any code change:
 
 ```
-1. Start app (no crash, DB created)
-2. Create a page → see it in sidebar
-3. Create a child page → appears nested
-4. Rename a page via context menu
-5. Delete a page (confirm dialog)
-6. Bulk create 5 days → 5 pages appear
-7. Bulk create weeks (verify weekday snap)
-8. Add a text block → type Markdown → preview renders
-9. Use B/I/H1/H2/<>/Link/Bullet formatting buttons
-10. Ctrl+B / Ctrl+I shortcuts on active text block
-11. Add a table → add/remove rows and columns
-12. Add a list block → create tasks → check some
-13. Set a task to "weekly" recurrence → check it → new task appears
-14. Save page as template → insert template on another page
-15. Open Settings → change week start day → save
-16. Toggle sidebar visibility
-17. Resize window, drag splitter
-18. Close app → reopen → verify all data persists
+ 1. Start app (no crash, DB + settings created)
+ 2. Create a page → see it in sidebar
+ 3. Create a child page → appears nested
+ 4. Rename a page via context menu
+ 5. Delete a page (no prompt) → Undo Delete (Ctrl+Shift+Z) → page reappears
+ 6. Bulk create 5 days → 5 pages appear (dates default to today)
+ 7. Bulk create weeks (verify weekday snap)
+ 8. Select 3 pages with Ctrl+click → right-click → Delete Selected → Undo
+ 9. Add a text block → type Markdown → preview renders
+10. Use B/I/H1/H2/<>/Link/Bullet formatting buttons
+11. Ctrl+B / Ctrl+I shortcuts on active text block
+12. Add a table → add/remove rows and columns
+13. Add a list block → create tasks → check some → set recurrence
+14. Check a weekly task → new unchecked task appears
+15. Delete a task → Undo Delete → task reappears
+16. Delete a block (×) → Undo Delete → block with its content reappears
+17. Save page as template → insert template on another page
+18. Select 2+ pages → right-click → Insert Template into Selected → verify both get blocks
+19. Open Settings → change week start day → save
+20. Toggle sidebar visibility
+21. Resize window, drag splitter
+22. Close app → reopen → verify all data persists
 ```
 
-## Missing Dependency
+## Project Workflow
 
-- `markdown` library is required (used in `editor.py` for rendering) but was not in `requirements.txt`. Ensure `markdown>=3.10` is listed and installed.
+- **All feature requests must be written in `project_plan.md` before implementation.**
+- **Test all features listed in the plan** before saving new changes.
+- Keep `project_plan.md` updated to reflect the current state of the application.
+
+## Missing Dependency (Historical)
+
+- `markdown` library is required (used in `editor.py` for rendering). It has been added to `requirements.txt` as `markdown>=3.10`.

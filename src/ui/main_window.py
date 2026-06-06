@@ -15,6 +15,7 @@ from src.repositories.template_repo import TemplateRepo
 from src.models.template import Template
 from src.database import init_db
 from src.settings import load_settings, save_settings
+from src.undo_manager import undo_manager, capture_page_tree
 
 
 class MainWindow(QMainWindow):
@@ -78,6 +79,12 @@ class MainWindow(QMainWindow):
         page_menu.addSeparator()
         self._make_action(page_menu, "Bulk Create Pages", self._bulk_create)
 
+        edit_menu = menubar.addMenu("Edit")
+        self._undo_action = self._make_action(edit_menu, "Undo Delete", self._undo_delete, QKeySequence("Ctrl+Shift+Z"))
+        edit_menu.addSeparator()
+        self._make_action(edit_menu, "Delete Selected", self._bulk_delete_selected, QKeySequence("Ctrl+Shift+D"))
+        self._make_action(edit_menu, "Bulk Create Pages", self._bulk_create, QKeySequence("Ctrl+Shift+B"))
+
         view_menu = menubar.addMenu("View")
         self._toggle_sidebar_action = self._make_action(view_menu, "Toggle Sidebar", self._toggle_sidebar)
 
@@ -120,13 +127,30 @@ class MainWindow(QMainWindow):
         if not self.editor.current_page_id:
             return
         from src.repositories.page_repo import PageRepo
-        reply = QMessageBox.question(
-            self, "Delete Page", "Delete this page and all its content?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-        )
-        if reply == QMessageBox.StandardButton.Yes:
-            PageRepo().delete(self.editor.current_page_id)
-            self.sidebar.refresh()
+        page_id = self.editor.current_page_id
+        data = capture_page_tree(page_id)
+        if data:
+            data["type"] = "page"
+            undo_manager.push(data)
+        PageRepo().delete(page_id)
+        self.sidebar.refresh()
+        self.editor.current_page_id = None
+        self.editor.page_title.setText("Select a page")
+
+    def _undo_delete(self):
+        action = undo_manager.pop()
+        if not action:
+            return
+        self.sidebar.refresh()
+        if action["type"] == "page":
+            self.editor.current_page_id = None
+            self.editor.page_title.setText("Select a page")
+        elif self.editor.current_page_id:
+            self.editor.load_page(self.editor.current_page_id)
+
+    def _bulk_delete_selected(self):
+        self.sidebar.delete_selected()
+        if not self.sidebar.tree.selectedItems():
             self.editor.current_page_id = None
             self.editor.page_title.setText("Select a page")
 

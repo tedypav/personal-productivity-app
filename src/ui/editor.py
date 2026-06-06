@@ -20,6 +20,7 @@ from src.repositories.task_repo import TaskRepo
 from src.repositories.template_repo import TemplateRepo
 from src.models.content_block import ContentBlock
 from src.models.task import Task
+from src.undo_manager import undo_manager
 
 
 MD_EXTENSIONS = ["fenced_code", "tables", "nl2br"]
@@ -347,6 +348,11 @@ class TaskWidget(QWidget):
         self.task_repo.update(task)
 
     def _delete_task(self, task):
+        from src.undo_manager import _task_dict
+        undo_manager.push({
+            "type": "task",
+            "task": _task_dict(task),
+        })
         self.task_repo.delete(task.id)
         self._load()
         self.task_changed.emit()
@@ -476,6 +482,13 @@ class ContentBlockWidget(QFrame):
         self.changed.emit()
 
     def _delete(self):
+        from src.undo_manager import _block_dict, _task_dict
+        tasks_data = [_task_dict(t) for t in TaskRepo().get_by_block(self.block.id)]
+        undo_manager.push({
+            "type": "block",
+            "block": _block_dict(self.block),
+            "tasks": tasks_data,
+        })
         BlockRepo().delete(self.block.id)
         self.delete_requested.emit(self)
 

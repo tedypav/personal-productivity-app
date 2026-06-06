@@ -106,6 +106,10 @@ class UndoManager:
                 self._restore_block(conn, action)
             elif action["type"] == "task":
                 self._restore_task(conn, action)
+            elif action["type"] == "bulk":
+                for sub in action["actions"]:
+                    if sub["type"] == "page":
+                        self._restore_page(conn, sub)
             conn.commit()
         finally:
             conn.close()
