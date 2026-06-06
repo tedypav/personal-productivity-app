@@ -19,7 +19,14 @@
 ### Module 2: Page Management
 - CRUD operations (create, rename, delete, reorder pages)
 - **Nested hierarchy** via `parent_id` — drag-to-reorder or context menu
-- **Bulk page creation** — generate N pages from a template or naming pattern (e.g., "Week 1" through "Week 12")
+- **Bulk date-based page creation** — dialog with three modes:
+
+  | Mode | Page Name | Logic |
+  |------|-----------|-------|
+  | **Days** | `YYYY-MM-DD` | User picks start & end date → one page per day |
+  | **Weeks** | `YYYY-MM-DD - YYYY-MM-DD` | User picks a reference date + start-of-week day (Mon/Tue/.../Sun) → find nearest past start-of-week on or before ref date → generate N weekly pages forward from that start |
+  | **Years** | `YYYY` | User picks start & end year → one page per year |
+
 - Pages stored in `pages` table (id, title, parent_id, sort_order, timestamps)
 
 ### Module 3: Content Blocks — Text & Styling
@@ -38,12 +45,25 @@
 - Save any page (including its content blocks) as a **template**
 - Browse/insert templates into a page via a dialog
 - `templates` table: id, name, category, content_snapshot (JSON)
-- Bulk page creation sources from templates
 
 ### Module 6: UI Polish & Data Persistence
 - Auto-save on content change
 - Collapsible sidebar, resizable panels
 - Keyboard shortcuts (Ctrl+N page, Ctrl+S save, etc.)
+
+---
+
+## Further Development
+
+### AI Integration (future)
+- Integrate OpenAI/Anthropic API via an `ai_service.py` module
+- Bring-your-own-API-key in settings
+- Potential features:
+  - **AI write/rewrite** — select text and prompt "make this professional", "summarize", etc.
+  - **Smart page generation** — natural language prompts like "Create a weekly planning page"
+  - **Natural language commands** — "Create a page for each day this week"
+  - **Semantic search** — search pages by meaning, not just keywords
+  - **Task suggestions** — AI suggests priorities based on page content
 
 ---
 
