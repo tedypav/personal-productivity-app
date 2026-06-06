@@ -106,11 +106,16 @@ py run.py
 - Click the **"×"** button in the block header (no confirmation, undoable).
 
 ### Resize a block
-- Drag the thin resize handle below each block vertically.
+- **Bottom resize handle** — drag up/down to change height, drag left/right to change width.
+- **Bottom-right corner** (24px dotted area) — 2D resize: drag to change both width and height simultaneously.
+- **Right edge** — hover near the right edge of any block (cursor changes to ↔), then click and drag to change width.
 
-### Reorder blocks (drag & drop)
-- Drag the **"⋮⋮"** handle on the left of any block to a new position.
-- A blue drop indicator line shows where the block will land.
+### Move blocks (free-form canvas)
+- Blocks are positioned on a **free-form canvas** (no layout constraints).
+- Drag the **"⋮⋮"** handle anywhere to freely reposition a block.
+- Blocks can overlap and be placed anywhere on the page.
+- **Clicking** a block brings it to the front (z-order).
+- Position (`pos_x`, `pos_y`) is persisted in the database.
 
 ---
 
@@ -247,6 +252,12 @@ Run this after any code change:
 26. Toggle sidebar visibility
 27. Resize window, drag splitter
 28. Close app → reopen → verify all data persists
+29. Free-form canvas: drag "⋮⋮" handle to move a block anywhere on the page
+30. Free-form canvas: blocks can overlap and z-order changes on click
+31. Resize block vertically: drag bottom handle up/down
+32. Resize block horizontally: drag bottom handle left/right or right edge ↔
+33. 2D resize: drag bottom-right corner (dots) to change width + height simultaneously
+34. Restart app → block positions persist
 ```
 
 ## Project Workflow

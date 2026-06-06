@@ -76,22 +76,28 @@ Core features for initial delivery:
 ---
 
 ### Module 3: Content Blocks — Text & Styling
-- Pages composed of ordered **content blocks** (like Notion's drag-and-drop rows)
+- Pages composed of **content blocks** on a **free-form canvas** (no layout constraints)
 - **Text blocks** supporting Markdown syntax (bold, italic, headings, code, links)
 - **Preview/edit toggle** — click preview to edit; blur to return to rendered view
 - Toolbar for quick formatting (B/I/H1/H2/code/link/bullet)
 - **Keyboard shortcuts:** `Ctrl+B` bold, `Ctrl+I` italic, formatting buttons for H1/H2/code/link/bullet
-- Stored in `content_blocks` table (id, page_id, block_type, content_markdown, sort_order)
+- Stored in `content_blocks` table (id, page_id, block_type, content_markdown, sort_order, pos_x, pos_y, width, height, header, header_font_size, content_font_size)
 - Auto-save on content change (debounced, default 1s interval)
-- **Drag-and-drop reorder** of blocks via "⋮⋮" handle with blue drop indicator
-- **Resize handle** at bottom of each block for vertical resizing
+- **Free-form positioning** — drag "⋮⋮" handle to move blocks anywhere on the canvas; overlapping allowed
+- **Z-order** — clicking a block brings it to the front
+- **Resize handle** at bottom: height (vertical drag), width (horizontal drag)
+- **Right-edge resize** — hover right edge (↔ cursor), click and drag to change width
+- **Corner resize** — bottom-right 24px corner does 2D resize (width + height simultaneously)
+- Block position (`pos_x`, `pos_y`) persisted in DB and restored on page load
 
 **Acceptance criteria:**
 - Text blocks persist Markdown content and render formatted output
 - Toolbar buttons apply correct Markdown wrapping
-- Blocks can be reordered by dragging; drop indicator shown
-- Blocks can be resized vertically via drag handle
+- Blocks can be freely dragged and positioned anywhere; overlapping supported
+- Clicking a block brings it to the front
+- Blocks can be resized: vertically (bottom), horizontally (bottom or right edge), or both (corner)
 - Auto-save triggers within 1 second of stopping typing
+- Block positions survive app restart
 
 ---
 
@@ -173,7 +179,7 @@ Core features for initial delivery:
 | Table | Key Columns |
 |-------|-------------|
 | `pages` | id (PK), title, parent_id (FK self, nullable), sort_order, created_at, updated_at |
-| `content_blocks` | id (PK), page_id (FK), block_type (text/table/list/checkbox), content_markdown, sort_order |
+| `content_blocks` | id (PK), page_id (FK), block_type (text/table/list/checkbox), content_markdown, sort_order, pos_x, pos_y, width, height, header, header_font_size, content_font_size |
 | `tasks` | id (PK), content_block_id (FK), text, is_checked (bool), recurrence_type (none/daily/weekly/monthly), due_date (nullable), parent_task_id (FK self, nullable), sort_order |
 | `templates` | id (PK), name, category, content_json (text), created_at |
 
