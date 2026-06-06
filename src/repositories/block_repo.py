@@ -20,8 +20,8 @@ class BlockRepo:
             (block.page_id,)
         ).fetchone()[0]
         cursor = conn.execute(
-            "INSERT INTO content_blocks (page_id, block_type, content_markdown, sort_order, height, width, header, header_font_size, content_font_size) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (block.page_id, block.block_type, block.content_markdown, max_order, block.height, block.width, block.header, block.header_font_size, block.content_font_size)
+            "INSERT INTO content_blocks (page_id, block_type, content_markdown, sort_order, height, width, header, header_font_size, content_font_size, pos_x, pos_y) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (block.page_id, block.block_type, block.content_markdown, max_order, block.height, block.width, block.header, block.header_font_size, block.content_font_size, block.pos_x, block.pos_y)
         )
         conn.commit()
         block_id = cursor.lastrowid
@@ -32,8 +32,8 @@ class BlockRepo:
     def update(block: ContentBlock):
         conn = get_connection()
         conn.execute(
-            "UPDATE content_blocks SET content_markdown=?, block_type=?, sort_order=?, height=?, width=?, header=?, header_font_size=?, content_font_size=? WHERE id=?",
-            (block.content_markdown, block.block_type, block.sort_order, block.height, block.width, block.header, block.header_font_size, block.content_font_size, block.id)
+            "UPDATE content_blocks SET content_markdown=?, block_type=?, sort_order=?, height=?, width=?, header=?, header_font_size=?, content_font_size=?, pos_x=?, pos_y=? WHERE id=?",
+            (block.content_markdown, block.block_type, block.sort_order, block.height, block.width, block.header, block.header_font_size, block.content_font_size, block.pos_x, block.pos_y, block.id)
         )
         conn.commit()
         conn.close()

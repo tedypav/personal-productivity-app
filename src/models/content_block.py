@@ -14,3 +14,5 @@ class ContentBlock:
     header: Optional[str] = None
     header_font_size: Optional[int] = None
     content_font_size: Optional[int] = None
+    pos_x: int = 0
+    pos_y: int = 0

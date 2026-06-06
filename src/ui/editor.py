@@ -8,12 +8,12 @@ from PyQt6.QtWidgets import (
     QComboBox, QLabel, QCheckBox, QGridLayout, QLineEdit,
     QScrollArea, QDialog, QDialogButtonBox, QMessageBox,
     QListWidget, QFrame, QTextBrowser, QSizePolicy,
-    QToolButton, QApplication, QLayout, QWidgetItem
+    QToolButton, QApplication
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QPoint, QMimeData, QSize, QRect
+from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QPoint
 from PyQt6.QtGui import (
-    QFont, QAction, QKeySequence, QTextCursor, QTextCharFormat, QDrag,
-    QPainter, QColor, QBrush, QPen
+    QFont, QAction, QKeySequence, QTextCursor, QTextCharFormat,
+    QPainter, QColor
 )
 
 from src.repositories.block_repo import BlockRepo
@@ -466,14 +466,15 @@ class ResizeHandle(QWidget):
     def mouseMoveEvent(self, event):
         if self._dragging:
             delta_y = event.globalPosition().toPoint().y() - self._start_y
+            delta_x = event.globalPosition().toPoint().x() - self._start_x
             new_h = max(60, self._start_height + delta_y)
+            new_w = max(200, self._start_width + delta_x)
             if self._in_corner:
-                delta_x = event.globalPosition().toPoint().x() - self._start_x
-                new_w = max(200, self._start_width + delta_x)
                 self.block_widget.setFixedWidth(new_w)
                 self.block_widget.setFixedHeight(new_h)
             else:
                 self.block_widget.setMinimumHeight(new_h)
+                self.block_widget.setFixedWidth(new_w)
             if isinstance(self.block_widget._body, MarkdownBlock):
                 editor_h = max(30, new_h - 60)
                 self.block_widget._body.editor.setMinimumHeight(editor_h)
@@ -512,8 +513,12 @@ class ContentBlockWidget(QFrame):
         self.setObjectName("block")
         self.setFrameStyle(QFrame.Shape.NoFrame)
         self.setStyleSheet(BLOCK_STYLE)
-        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum)
         self.setFocusPolicy(Qt.FocusPolicy.ClickFocus)
+        self.setMouseTracking(True)
+        self._right_resizing = False
+        self._right_resize_start_x = 0
+        self._right_resize_start_w = 0
 
         self._build_ui()
 
@@ -525,10 +530,32 @@ class ContentBlockWidget(QFrame):
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
+            if event.position().toPoint().x() >= self.width() - 8:
+                self._right_resizing = True
+                self._right_resize_start_x = event.globalPosition().toPoint().x()
+                self._right_resize_start_w = self.width()
+                return
             mods = QApplication.keyboardModifiers()
             add_to_selection = mods in (Qt.KeyboardModifier.ShiftModifier, Qt.KeyboardModifier.ControlModifier)
             self.clicked.emit(self, add_to_selection)
         super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event):
+        if self._right_resizing:
+            delta = event.globalPosition().toPoint().x() - self._right_resize_start_x
+            self.setFixedWidth(max(200, self._right_resize_start_w + delta))
+        elif event.position().toPoint().x() >= self.width() - 8:
+            self.setCursor(Qt.CursorShape.SizeHorCursor)
+        else:
+            self.setCursor(Qt.CursorShape.ArrowCursor)
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        if self._right_resizing:
+            self._right_resizing = False
+            self.save()
+            return
+        super().mouseReleaseEvent(event)
 
     def _build_ui(self):
         layout = QVBoxLayout(self)
@@ -593,6 +620,8 @@ class ContentBlockWidget(QFrame):
 
         if self.block.width:
             self.setFixedWidth(self.block.width)
+        else:
+            self.setMinimumWidth(260)
 
         del_btn.clicked.connect(self._delete)
 
@@ -625,6 +654,8 @@ class ContentBlockWidget(QFrame):
         self.delete_requested.emit(self)
 
     def save(self):
+        self.block.pos_x = self.x()
+        self.block.pos_y = self.y()
         self.block.height = self.minimumHeight() if self.minimumHeight() > 0 else None
         if self.minimumWidth() > 0 and self.minimumWidth() == self.maximumWidth():
             self.block.width = self.minimumWidth()
@@ -647,172 +678,11 @@ class ContentBlockWidget(QFrame):
             BlockRepo().update(self.block)
 
 
-class DropIndicator(QWidget):
+class Canvas(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setFixedHeight(4)
-        self.hide()
-
-    def paintEvent(self, event):
-        p = QPainter(self)
-        p.setPen(QPen(QColor("#6366f1"), 2))
-        p.drawLine(0, 2, self.width(), 2)
-
-
-class FlowLayout(QLayout):
-    def __init__(self, parent=None, margin=0, hspacing=6, vspacing=4):
-        super().__init__(parent)
-        self._items = []
-        self._hspacing = hspacing
-        self._vspacing = vspacing
-        self.setContentsMargins(margin, margin, margin, margin)
-
-    def addItem(self, item):
-        self._items.append(item)
-
-    def count(self):
-        return len(self._items)
-
-    def itemAt(self, index):
-        return self._items[index] if 0 <= index < len(self._items) else None
-
-    def takeAt(self, index):
-        if 0 <= index < len(self._items):
-            return self._items.pop(index)
-        return None
-
-    def removeWidget(self, widget):
-        for i, item in enumerate(self._items):
-            if item.widget() == widget:
-                self._items.pop(i)
-                break
-
-    def insertWidget(self, index, widget):
-        item = QWidgetItem(widget)
-        self._items.insert(index, item)
-
-    def expandingDirections(self):
-        return Qt.Orientation.Horizontal
-
-    def hasHeightForWidth(self):
-        return True
-
-    def heightForWidth(self, width):
-        return self._do_layout(QRect(0, 0, width, 0), True).height()
-
-    def setGeometry(self, rect):
-        super().setGeometry(rect)
-        self._do_layout(rect, False)
-
-    def sizeHint(self):
-        return QSize(400, 200)
-
-    def minimumSize(self):
-        size = QSize()
-        for item in self._items:
-            hint = item.minimumSize()
-            size = size.expandedTo(hint)
-        margins = self.contentsMargins()
-        size += QSize(2 * margins.left(), 2 * margins.top())
-        return size
-
-    def _item_width(self, item):
-        widget = item.widget()
-        if not widget:
-            return 250
-        min_w = widget.minimumWidth()
-        max_w = widget.maximumWidth()
-        if min_w > 0 and min_w == max_w:
-            return min_w
-        if min_w > 0:
-            return min_w
-        return max(200, item.sizeHint().width())
-
-    def _is_fixed_width(self, item):
-        widget = item.widget()
-        if not widget:
-            return False
-        min_w = widget.minimumWidth()
-        max_w = widget.maximumWidth()
-        return min_w > 0 and min_w == max_w
-
-    def _item_height(self, item):
-        widget = item.widget()
-        if not widget:
-            return 100
-        if widget.minimumHeight() > 0:
-            return widget.minimumHeight()
-        return max(item.sizeHint().height(), 60)
-
-    def _do_layout(self, rect, test_only):
-        margins = self.contentsMargins()
-        content_left = rect.x() + margins.left()
-        content_top = rect.y() + margins.top()
-        content_width = max(1, rect.width() - margins.left() - margins.right())
-
-        visible = [item for item in self._items if item.widget()]
-
-        rows = []
-        current_row = []
-        current_row_width = 0
-
-        for item in visible:
-            is_fixed = self._is_fixed_width(item)
-            if is_fixed and current_row:
-                sep = self._hspacing
-                iw = self._item_width(item)
-                if current_row_width + sep + iw <= content_width:
-                    current_row.append(item)
-                    current_row_width += sep + iw
-                    continue
-                rows.append(current_row)
-                current_row = [item]
-                current_row_width = iw
-            elif is_fixed and not current_row:
-                current_row.append(item)
-                current_row_width = self._item_width(item)
-            else:
-                if current_row:
-                    rows.append(current_row)
-                current_row = [item]
-                current_row_width = self._item_width(item)
-
-        if current_row:
-            rows.append(current_row)
-
-        y = content_top
-        for row in rows:
-            total_fixed = 0
-            stretch_indices = []
-            for idx, item in enumerate(row):
-                widget = item.widget()
-                if not widget or widget.sizePolicy().horizontalPolicy() == QSizePolicy.Policy.Expanding:
-                    stretch_indices.append(idx)
-                else:
-                    total_fixed += self._item_width(item)
-
-            spacing = self._hspacing * (len(row) - 1)
-            stretch_avail = max(0, content_width - total_fixed - spacing)
-            stretch_w = stretch_avail // max(1, len(stretch_indices)) if stretch_indices else 0
-            remaining = stretch_avail - stretch_w * len(stretch_indices) if stretch_indices else 0
-
-            x = content_left
-            max_h = 0
-            for idx, item in enumerate(row):
-                if idx in stretch_indices:
-                    w = stretch_w + (1 if idx < remaining else 0)
-                else:
-                    w = self._item_width(item)
-                h = self._item_height(item)
-                if not test_only:
-                    item.setGeometry(QRect(x, y, max(1, w), max(1, h)))
-                x += w + self._hspacing
-                max_h = max(max_h, h)
-
-            y += max_h + self._vspacing
-
-        total_height = y - content_top + margins.bottom()
-        return QSize(content_width, total_height)
+        self.setMinimumSize(2000, 2000)
+        self.setStyleSheet("background: #ffffff;")
 
 
 class PageEditor(QWidget):
@@ -836,22 +706,12 @@ class PageEditor(QWidget):
         scroll.setFrameShape(QFrame.Shape.NoFrame)
         scroll.setStyleSheet("QScrollArea { border: none; background: #ffffff; }")
 
-        self.content = QWidget()
-        self.content.setStyleSheet("background: #ffffff;")
-        self.content_layout = FlowLayout(self.content, margin=12)
+        self.content = Canvas()
         scroll.setWidget(self.content)
 
         main_layout.addWidget(scroll, 1)
 
-        self.drop_indicator = DropIndicator(self.content)
-        self.drop_indicator.raise_()
-        self.drag_source_widget = None
-
-        self.content.setAcceptDrops(True)
-        self.content.dragEnterEvent = self._drag_enter
-        self.content.dragMoveEvent = self._drag_move_over
-        self.content.dragLeaveEvent = self._drag_leave
-        self.content.dropEvent = self._drop
+        self._drag_data = None  # (widget, start_x, start_y, start_mouse_x, start_mouse_y)
 
         QApplication.instance().focusChanged.connect(self._on_focus_changed)
 
@@ -1052,7 +912,12 @@ class PageEditor(QWidget):
 
         blocks = self.block_repo.get_by_page(page_id)
 
+        all_at_zero = all(b.pos_x == 0 and b.pos_y == 0 for b in blocks)
+
         for i, block in enumerate(blocks):
+            if all_at_zero:
+                block.pos_x = 30 + (i % 5) * 280
+                block.pos_y = 30 + (i // 5) * 200
             w = ContentBlockWidget(block, index=i)
             w.changed.connect(self._on_block_changed)
             w.delete_requested.connect(self._on_block_deleted)
@@ -1060,24 +925,42 @@ class PageEditor(QWidget):
             w.header_focused.connect(self._on_block_header_focused)
             w.content_focused.connect(self._on_block_content_focused)
             self._setup_drag(w)
-            self.content_layout.addWidget(w)
+            w.setParent(self.content)
+            w.move(block.pos_x, block.pos_y)
+            w.show()
             self._block_widgets.append(w)
 
     def _setup_drag(self, widget):
-        widget.drag_handle.mousePressEvent = lambda e: self._drag_start(widget, e)
-        widget.drag_handle.mouseMoveEvent = lambda e: self._drag_move(widget, e)
-
-    def _drag_start(self, widget, event):
-        if event.button() == Qt.MouseButton.LeftButton:
-            self.drag_source_widget = widget
-            drag = QDrag(widget)
-            mime = QMimeData()
-            mime.setText(str(id(widget)))
-            drag.setMimeData(mime)
-            drag.exec(Qt.DropAction.MoveAction)
-
-    def _drag_move(self, widget, event):
-        pass
+        orig_mouse_press = widget.drag_handle.mousePressEvent
+        def _drag_press(ev, w=widget):
+            if ev.button() == Qt.MouseButton.LeftButton:
+                self._drag_data = (w, w.x(), w.y(), ev.globalPosition().toPoint().x(), ev.globalPosition().toPoint().y())
+                w.raise_()
+                ev.accept()
+            else:
+                orig_mouse_press(ev)
+        widget.drag_handle.mousePressEvent = _drag_press
+        orig_mouse_move = widget.drag_handle.mouseMoveEvent
+        def _drag_move(ev, w=widget):
+            if self._drag_data and self._drag_data[0] is w:
+                dx = ev.globalPosition().toPoint().x() - self._drag_data[3]
+                dy = ev.globalPosition().toPoint().y() - self._drag_data[4]
+                w.move(self._drag_data[1] + dx, self._drag_data[2] + dy)
+                ev.accept()
+            else:
+                orig_mouse_move(ev)
+        widget.drag_handle.mouseMoveEvent = _drag_move
+        orig_mouse_release = widget.drag_handle.mouseReleaseEvent
+        def _drag_release(ev, w=widget):
+            if self._drag_data and self._drag_data[0] is w:
+                w.block.pos_x = w.x()
+                w.block.pos_y = w.y()
+                w.save()
+                self._drag_data = None
+                ev.accept()
+            else:
+                orig_mouse_release(ev)
+        widget.drag_handle.mouseReleaseEvent = _drag_release
 
     def _on_block_changed(self):
         pass
@@ -1089,6 +972,7 @@ class PageEditor(QWidget):
             widget.deleteLater()
 
     def _on_block_clicked(self, widget, add_to_selection):
+        widget.raise_()
         if add_to_selection:
             if widget in self._selected_block_widgets:
                 widget.set_selected(False)
@@ -1140,17 +1024,18 @@ class PageEditor(QWidget):
         if not self.current_page_id:
             return
         try:
-            block = ContentBlock(page_id=self.current_page_id, block_type=block_type)
+            offset = 20 * (len(self._block_widgets) % 15)
+            block = ContentBlock(
+                page_id=self.current_page_id,
+                block_type=block_type,
+                pos_x=50 + offset,
+                pos_y=50 + offset,
+            )
             self.block_repo.create(block)
             self.load_page(self.current_page_id)
         except Exception as e:
             traceback.print_exc()
             QMessageBox.critical(self, "Error", f"Failed to add block:\n{e}")
-
-    def _reorder_blocks(self):
-        for i, w in enumerate(self._block_widgets):
-            w.block.sort_order = i
-            BlockRepo().update(w.block)
 
     def _insert_template(self):
         if not self.current_page_id:
@@ -1184,76 +1069,6 @@ class PageEditor(QWidget):
                 )
                 self.block_repo.create(block)
             self.load_page(self.current_page_id)
-
-    def _get_drop_index(self, pos_y):
-        best_idx = len(self._block_widgets)
-        best_dist = float('inf')
-        for i, w in enumerate(self._block_widgets):
-            wy = w.y()
-            wh = w.height()
-            mid = wy + wh // 2
-            dist = abs(pos_y - mid)
-            if dist < best_dist:
-                best_dist = dist
-                best_idx = i
-        # decide above or below based on which half
-        if best_idx < len(self._block_widgets):
-            w = self._block_widgets[best_idx]
-            mid = w.y() + w.height() // 2
-            if pos_y > mid:
-                best_idx += 1
-        return best_idx
-
-    def _show_drop_indicator(self, pos_y):
-        idx = self._get_drop_index(pos_y)
-        if idx < len(self._block_widgets):
-            target = self._block_widgets[idx]
-            self.drop_indicator.setFixedWidth(target.width())
-            self.drop_indicator.move(target.x(), target.y() - 2)
-        elif self._block_widgets:
-            target = self._block_widgets[-1]
-            self.drop_indicator.setFixedWidth(target.width())
-            self.drop_indicator.move(target.x(), target.y() + target.height() - 2)
-        else:
-            self.drop_indicator.setFixedWidth(self.content.width())
-            self.drop_indicator.move(0, 0)
-        self.drop_indicator.show()
-
-    def _drag_enter(self, event):
-        if event.mimeData().hasText() and self.drag_source_widget:
-            event.acceptProposedAction()
-            self._show_drop_indicator(event.position().toPoint().y())
-
-    def _drag_move_over(self, event):
-        if event.mimeData().hasText() and self.drag_source_widget:
-            event.acceptProposedAction()
-            self._show_drop_indicator(event.position().toPoint().y())
-
-    def _drag_leave(self, event):
-        self.drop_indicator.hide()
-
-    def _drop(self, event):
-        self.drop_indicator.hide()
-        if not self.drag_source_widget:
-            return
-        source = self.drag_source_widget
-        pos = event.position().toPoint()
-        target_idx = self._get_drop_index(pos.y())
-        source_idx = self._block_widgets.index(source)
-
-        if source_idx == target_idx or (source_idx + 1 == target_idx):
-            self.drag_source_widget = None
-            return
-
-        if source_idx < target_idx:
-            target_idx -= 1
-
-        self.content_layout.removeWidget(source)
-        self._block_widgets.remove(source)
-        self._block_widgets.insert(target_idx, source)
-        self.content_layout.insertWidget(target_idx, source)
-        self._reorder_blocks()
-        self.drag_source_widget = None
 
     def save_current(self):
         for w in self._block_widgets:
