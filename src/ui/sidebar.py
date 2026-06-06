@@ -1,7 +1,7 @@
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QTreeWidget, QTreeWidgetItem,
     QPushButton, QHBoxLayout, QInputDialog, QMessageBox, QMenu,
-    QDialog, QListWidget, QDialogButtonBox, QLabel
+    QDialog, QListWidget, QDialogButtonBox, QLabel, QLineEdit, QSpinBox
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QDate
 from src.repositories.page_repo import PageRepo
@@ -50,9 +50,11 @@ class Sidebar(QWidget):
 
         btn_layout = QHBoxLayout()
         self.btn_new = QPushButton("+ New Page")
-        self.btn_new_page = QPushButton("+ Bulk")
+        self.btn_new_page = QPushButton("Bulk Time-Based")
+        self.btn_bulk_named = QPushButton("+ Bulk Named")
         btn_layout.addWidget(self.btn_new)
         btn_layout.addWidget(self.btn_new_page)
+        btn_layout.addWidget(self.btn_bulk_named)
         layout.addLayout(btn_layout)
 
         self.tree = QTreeWidget()
@@ -67,6 +69,7 @@ class Sidebar(QWidget):
 
         self.btn_new.clicked.connect(self._create_page)
         self.btn_new_page.clicked.connect(self._bulk_creation_requested)
+        self.btn_bulk_named.clicked.connect(self._bulk_named_dialog)
 
         self._load_pages()
 
@@ -138,12 +141,23 @@ class Sidebar(QWidget):
         layout.addWidget(week_start_label)
         layout.addWidget(week_start_combo)
 
+        def _update_end_date():
+            mode = mode_combo.currentText()
+            if mode == "Days":
+                end_date.setDate(start_date.date().addDays(1))
+            elif mode == "Weeks":
+                end_date.setDate(start_date.date().addDays(7))
+            elif mode == "Years":
+                end_date.setDate(start_date.date().addYears(1))
+
         def on_mode_changed(index):
             is_weeks = mode_combo.currentText() == "Weeks"
             week_start_label.setVisible(is_weeks)
             week_start_combo.setVisible(is_weeks)
+            _update_end_date()
 
         mode_combo.currentIndexChanged.connect(on_mode_changed)
+        start_date.dateChanged.connect(_update_end_date)
 
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         buttons.accepted.connect(dialog.accept)
@@ -178,6 +192,36 @@ class Sidebar(QWidget):
 
             for title in titles:
                 self.repo.create(Page(title=title))
+            self._load_pages()
+            self.pages_changed.emit()
+
+    def _bulk_named_dialog(self):
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Bulk Create Named Pages")
+        layout = QVBoxLayout(dialog)
+
+        layout.addWidget(QLabel("Base name:"))
+        name_edit = QLineEdit("Page")
+        layout.addWidget(name_edit)
+
+        layout.addWidget(QLabel("Number of pages:"))
+        count_spin = QSpinBox()
+        count_spin.setRange(1, 999)
+        count_spin.setValue(5)
+        layout.addWidget(count_spin)
+
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            base = name_edit.text().strip()
+            count = count_spin.value()
+            if not base:
+                return
+            for i in range(1, count + 1):
+                self.repo.create(Page(title=f"{base} {i}"))
             self._load_pages()
             self.pages_changed.emit()
 
