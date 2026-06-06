@@ -1,1 +1,2 @@
 PyQt6>=6.11
+markdown>=3.10
