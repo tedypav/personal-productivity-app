@@ -89,5 +89,20 @@ def init_db():
     except sqlite3.OperationalError:
         pass
 
+    try:
+        conn.execute("ALTER TABLE content_blocks ADD COLUMN header_align_h TEXT DEFAULT 'left'")
+    except sqlite3.OperationalError:
+        pass
+
+    try:
+        conn.execute("ALTER TABLE content_blocks ADD COLUMN header_align_v TEXT DEFAULT 'center'")
+    except sqlite3.OperationalError:
+        pass
+
+    try:
+        conn.execute("ALTER TABLE content_blocks ADD COLUMN header_height INTEGER")
+    except sqlite3.OperationalError:
+        pass
+
     conn.commit()
     conn.close()

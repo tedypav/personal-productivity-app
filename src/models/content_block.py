@@ -13,6 +13,9 @@ class ContentBlock:
     width: Optional[int] = None
     header: Optional[str] = None
     header_font_size: Optional[int] = None
+    header_align_h: str = "left"
+    header_align_v: str = "center"
+    header_height: Optional[int] = None
     content_font_size: Optional[int] = None
     pos_x: int = 0
     pos_y: int = 0
