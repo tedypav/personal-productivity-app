@@ -480,9 +480,9 @@ class ResizeHandle(QWidget):
     def __init__(self, block_widget, parent=None):
         super().__init__(parent)
         self.block_widget = block_widget
-        self.setFixedHeight(14)
+        self.setFixedHeight(8)
         self.setCursor(Qt.CursorShape.SizeVerCursor)
-        self.setStyleSheet("background: #f0f0ff; border-top: 1px solid #e5e7eb;")
+        self._hovered = False
         self._dragging = False
         self._start_y = 0
         self._start_x = 0
@@ -497,21 +497,23 @@ class ResizeHandle(QWidget):
     def paintEvent(self, event):
         super().paintEvent(event)
         p = QPainter(self)
-        h = self.height()
         w = self.width()
-        corner_x = w - self.CORNER_WIDTH
+        if self._hovered or self._dragging:
+            p.fillRect(self.rect(), QColor("#e0e7ff"))
         p.setPen(QColor("#d1d5db"))
+        cx = w // 2
         for i in range(3):
-            y = h - 4 - i * 4
-            p.drawLine(corner_x + 4 + i * 4, y, corner_x + 4 + i * 4 + 4, y)
+            p.drawLine(cx - 8 + i * 5, self.height() // 2, cx - 4 + i * 5, self.height() // 2)
 
     def enterEvent(self, event):
-        self.setStyleSheet("background: #e0e7ff; border-top: 1px solid #6366f1;")
+        self._hovered = True
+        self.update()
 
     def leaveEvent(self, event):
         if not self._dragging:
-            self.setStyleSheet("background: #f0f0ff; border-top: 1px solid #e5e7eb;")
-            self._in_corner = False
+            self._hovered = False
+        self._in_corner = False
+        self.update()
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
@@ -521,7 +523,7 @@ class ResizeHandle(QWidget):
             self._start_height = self.block_widget.height()
             self._start_width = self.block_widget.width()
             self._in_corner = self._is_in_corner(event.position().toPoint().x())
-            self.setStyleSheet("background: #6366f1; border-radius: 2px;")
+            self.update()
 
     def mouseMoveEvent(self, event):
         if self._dragging:
@@ -536,8 +538,9 @@ class ResizeHandle(QWidget):
                 self.block_widget.setFixedWidth(new_w)
                 self.block_widget.setFixedHeight(new_h)
             else:
-                self.block_widget.setMinimumHeight(new_h)
                 self.block_widget.setFixedWidth(new_w)
+                self.block_widget.setMinimumHeight(new_h)
+                self.block_widget.resize(self.block_widget.width(), new_h)
             if isinstance(self.block_widget._body, MarkdownBlock):
                 editor_h = max(30, new_h - 60)
                 self.block_widget._body.editor.setMinimumHeight(editor_h)
@@ -556,7 +559,8 @@ class ResizeHandle(QWidget):
 
     def mouseReleaseEvent(self, event):
         self._dragging = False
-        self.setStyleSheet("background: #e0e7ff; border-radius: 2px;")
+        self._hovered = True
+        self.update()
         if hasattr(self.block_widget, 'save'):
             self.block_widget.save()
 
@@ -1331,41 +1335,69 @@ class PageEditor(QWidget):
         self._update_canvas_size()
 
     def _setup_drag(self, widget):
-        orig_mouse_press = widget.drag_handle.mousePressEvent
-        def _drag_press(ev, w=widget):
+        def _start_drag(ev, w):
+            self._drag_data = (w, w.x(), w.y(), ev.globalPosition().toPoint().x(), ev.globalPosition().toPoint().y())
+            w.raise_()
+            ev.accept()
+
+        def _make_move(orig):
+            def _drag_move(ev, w=widget):
+                if self._drag_data and self._drag_data[0] is w:
+                    dx = ev.globalPosition().toPoint().x() - self._drag_data[3]
+                    dy = ev.globalPosition().toPoint().y() - self._drag_data[4]
+                    new_x = max(0, self._drag_data[1] + dx)
+                    new_y = self._drag_data[2] + dy
+                    max_x = self.content.width() - w.width()
+                    if new_x > max_x:
+                        new_x = max_x
+                    w.move(new_x, new_y)
+                    ev.accept()
+                else:
+                    orig(ev)
+            return _drag_move
+
+        def _make_release(orig):
+            def _drag_release(ev, w=widget):
+                if self._drag_data and self._drag_data[0] is w:
+                    w.block.pos_x = w.x()
+                    w.block.pos_y = w.y()
+                    w.save()
+                    self._drag_data = None
+                    ev.accept()
+                else:
+                    orig(ev)
+            return _drag_release
+
+        # Drag handle patching (keep existing)
+        orig_handle_press = widget.drag_handle.mousePressEvent
+        def _handle_press(ev, w=widget):
             if ev.button() == Qt.MouseButton.LeftButton:
-                self._drag_data = (w, w.x(), w.y(), ev.globalPosition().toPoint().x(), ev.globalPosition().toPoint().y())
-                w.raise_()
-                ev.accept()
+                _start_drag(ev, w)
             else:
-                orig_mouse_press(ev)
-        widget.drag_handle.mousePressEvent = _drag_press
-        orig_mouse_move = widget.drag_handle.mouseMoveEvent
-        def _drag_move(ev, w=widget):
-            if self._drag_data and self._drag_data[0] is w:
-                dx = ev.globalPosition().toPoint().x() - self._drag_data[3]
-                dy = ev.globalPosition().toPoint().y() - self._drag_data[4]
-                new_x = max(0, self._drag_data[1] + dx)
-                new_y = self._drag_data[2] + dy
-                max_x = self.content.width() - w.width()
-                if new_x > max_x:
-                    new_x = max_x
-                w.move(new_x, new_y)
-                ev.accept()
-            else:
-                orig_mouse_move(ev)
-        widget.drag_handle.mouseMoveEvent = _drag_move
-        orig_mouse_release = widget.drag_handle.mouseReleaseEvent
-        def _drag_release(ev, w=widget):
-            if self._drag_data and self._drag_data[0] is w:
-                w.block.pos_x = w.x()
-                w.block.pos_y = w.y()
-                w.save()
-                self._drag_data = None
-                ev.accept()
-            else:
-                orig_mouse_release(ev)
-        widget.drag_handle.mouseReleaseEvent = _drag_release
+                orig_handle_press(ev)
+        widget.drag_handle.mousePressEvent = _handle_press
+        widget.drag_handle.mouseMoveEvent = _make_move(widget.drag_handle.mouseMoveEvent)
+        widget.drag_handle.mouseReleaseEvent = _make_release(widget.drag_handle.mouseReleaseEvent)
+
+        # Block widget top-area drag (click on header area → drag entire block)
+        orig_block_press = widget.mousePressEvent
+        def _block_press(ev, w=widget):
+            if ev.button() == Qt.MouseButton.LeftButton:
+                x = ev.position().toPoint().x()
+                y = ev.position().toPoint().y()
+                if x >= w.width() - 8:
+                    orig_block_press(ev)
+                    return
+                top = w._header_container.y() if w._header_container else 0
+                bottom = top + w._header_container.height() if w._header_container else 0
+                bottom += w._header_resize_handle.height() if w._header_resize_handle else 0
+                if y <= bottom + 4:
+                    _start_drag(ev, w)
+                    return
+            orig_block_press(ev)
+        widget.mousePressEvent = _block_press
+        widget.mouseMoveEvent = _make_move(widget.mouseMoveEvent)
+        widget.mouseReleaseEvent = _make_release(widget.mouseReleaseEvent)
 
     def _on_block_changed(self):
         pass
