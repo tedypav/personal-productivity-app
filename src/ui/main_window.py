@@ -81,7 +81,7 @@ class MainWindow(QMainWindow):
         self._make_action(page_menu, "New Page", self._new_page)
         self._make_action(page_menu, "New Child Page", self._new_child_page)
         self._make_action(page_menu, "Save Page as Template", self._save_as_template)
-        self._make_action(page_menu, "Delete Current Page", self._delete_page, QKeySequence("Delete"))
+        self._make_action(page_menu, "Delete Current Page", self._delete_page)
         page_menu.addSeparator()
         self._make_action(page_menu, "Bulk Create Pages", self._bulk_create)
 

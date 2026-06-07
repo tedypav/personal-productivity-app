@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import (
     QComboBox, QLabel, QCheckBox, QGridLayout, QLineEdit,
     QScrollArea, QDialog, QDialogButtonBox, QMessageBox,
     QListWidget, QFrame, QTextBrowser, QSizePolicy,
-    QToolButton, QApplication, QButtonGroup
+    QToolButton, QApplication, QButtonGroup, QStackedWidget
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QPoint, QEvent
 from PyQt6.QtGui import (
@@ -79,20 +79,81 @@ class MarkdownTextEdit(QTextEdit):
         self.focus_lost.emit()
 
 
+class _EmbeddedTaskContainer(QWidget):
+    """Container for one embedded task list inside a text block or table cell."""
+    remove_requested = pyqtSignal(object)
+
+    def __init__(self, task_widget, parent=None):
+        super().__init__(parent)
+        self.task_widget = task_widget
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(4, 2, 4, 4)
+        layout.setSpacing(0)
+
+        # Top handle bar: drag handle + remove button
+        top_bar = QHBoxLayout()
+        top_bar.setContentsMargins(0, 0, 0, 0)
+        top_bar.setSpacing(0)
+
+        self.drag_handle = QLabel("⠿")
+        self.drag_handle.setFixedWidth(20)
+        self.drag_handle.setCursor(Qt.CursorShape.OpenHandCursor)
+        self.drag_handle.setStyleSheet("color: #9ca3af; font-size: 14px;")
+        self.drag_handle.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+
+        lbl = QLabel("Tasks")
+        lbl.setStyleSheet("color: #6b7280; font-size: 11px; font-weight: bold; padding: 0 4px;")
+
+        self._add_btn = QPushButton("+ Add Task")
+        self._add_btn.setFixedHeight(22)
+        self._add_btn.setStyleSheet("QPushButton { font-size: 11px; border: 1px solid #d1d5db; border-radius: 3px; background: #f9fafb; padding: 0 8px; color: #374151; } QPushButton:hover { border-color: #6366f1; color: #6366f1; }")
+
+        self._remove_btn = QPushButton("×")
+        self._remove_btn.setFixedSize(20, 20)
+        self._remove_btn.setStyleSheet("QPushButton { border: none; font-size: 14px; color: #9ca3af; } QPushButton:hover { color: #ef4444; }")
+        self._remove_btn.setToolTip("Remove this task list")
+
+        top_bar.addWidget(self.drag_handle)
+        top_bar.addWidget(lbl)
+        top_bar.addStretch()
+        top_bar.addWidget(self._add_btn)
+        top_bar.addSpacing(4)
+        top_bar.addWidget(self._remove_btn)
+
+        layout.addLayout(top_bar)
+        layout.addWidget(task_widget)
+
+        self._add_btn.clicked.connect(task_widget._add_task)
+        self._remove_btn.clicked.connect(lambda: self.remove_requested.emit(self))
+
+        self.setStyleSheet("""
+            _EmbeddedTaskContainer {
+                border: 1px solid #d1d5db;
+                border-radius: 4px;
+                background: #ffffff;
+            }
+        """)
+
+
 class MarkdownBlock(QWidget):
     changed = pyqtSignal()
+    embedded_changed = pyqtSignal()
 
     def __init__(self, block_id, content="", parent=None, content_font_size=None):
         super().__init__(parent)
         self.block_id = block_id
         self.editing = False
         self.content_font_size = content_font_size or 13
+        self._embedded_lists = []
+        self._embedded_id_counter = -1
+        self._active_list = None
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        self.editor = MarkdownTextEdit(block_id, content)
+        text_content = self._extract_text_content(content)
+        self.editor = MarkdownTextEdit(block_id, text_content)
         self.editor.setVisible(False)
         self.editor.focus_lost.connect(self._switch_to_preview)
 
@@ -110,8 +171,17 @@ class MarkdownBlock(QWidget):
         self._pending_font_size = None
         self.editor.focused.connect(lambda: QTimer.singleShot(0, self._apply_pending_font))
 
-        layout.addWidget(self.preview)
-        layout.addWidget(self.editor)
+        self._text_stack = QStackedWidget()
+        self._text_stack.addWidget(self.preview)
+        self._text_stack.addWidget(self.editor)
+        self._text_stack.setCurrentWidget(self.preview)
+        layout.addWidget(self._text_stack)
+
+        self._embedded_container = QWidget()
+        self._embedded_layout = QVBoxLayout(self._embedded_container)
+        self._embedded_layout.setContentsMargins(0, 0, 0, 0)
+        self._embedded_layout.setSpacing(4)
+        layout.addWidget(self._embedded_container)
 
         self._update_preview()
         self.setStyleSheet("""
@@ -119,19 +189,142 @@ class MarkdownBlock(QWidget):
             QTextEdit { border: 1px solid #6366f1; border-radius: 4px; }
         """)
 
+        self._load_embedded_lists(content)
+
+    @staticmethod
+    def _extract_text_content(content):
+        if content and content.startswith("{"):
+            try:
+                data = json.loads(content)
+                if isinstance(data, dict) and "text" in data:
+                    return data["text"]
+            except (json.JSONDecodeError, TypeError):
+                pass
+        return content
+
+    def _load_embedded_lists(self, content):
+        if not content or not content.startswith("{"):
+            return
+        try:
+            data = json.loads(content)
+        except (json.JSONDecodeError, TypeError):
+            return
+        if not isinstance(data, dict) or "task_lists" not in data:
+            return
+        text_content = data.get("text", "")
+        if text_content:
+            self.editor.blockSignals(True)
+            self.editor.setHtml(text_content)
+            self.editor.blockSignals(False)
+        for task_list in data["task_lists"]:
+            self._restore_embedded_list(task_list)
+
+    def _next_embedded_id(self):
+        eid = self._embedded_id_counter
+        self._embedded_id_counter -= 1
+        return eid
+
+    def _restore_embedded_list(self, tasks_data):
+        eid = self._next_embedded_id()
+        from src.repositories.in_memory_task_repo import InMemoryTaskRepo
+        repo = InMemoryTaskRepo()
+        for td in tasks_data:
+            from src.models.task import Task
+            task = Task(
+                content_block_id=eid,
+                text=td.get("text", ""),
+                is_checked=td.get("is_checked", False),
+                recurrence_type=td.get("recurrence_type", "none"),
+                due_date=td.get("due_date"),
+            )
+            repo.create(task)
+        tw = TaskWidget(eid, parent=self, task_repo=repo)
+        tw.task_changed.connect(self._on_embedded_task_changed)
+        container = _EmbeddedTaskContainer(tw, self)
+        container.remove_requested.connect(self._remove_embedded_list)
+        self._embedded_layout.addWidget(container)
+        self._embedded_lists.append({"id": eid, "repo": repo, "tw": tw, "container": container})
+
+    def add_task_list(self):
+        eid = self._next_embedded_id()
+        from src.repositories.in_memory_task_repo import InMemoryTaskRepo
+        repo = InMemoryTaskRepo()
+        from src.models.task import Task
+        task = Task(content_block_id=eid, text="New task")
+        repo.create(task)
+        tw = TaskWidget(eid, parent=self, task_repo=repo)
+        tw.task_changed.connect(self._on_embedded_task_changed)
+        container = _EmbeddedTaskContainer(tw, self)
+        container.remove_requested.connect(self._remove_embedded_list)
+        self._embedded_layout.addWidget(container)
+        self._embedded_lists.append({"id": eid, "repo": repo, "tw": tw, "container": container})
+        self._active_list = len(self._embedded_lists) - 1
+        # Focus the first edit field
+        first_task_widget = tw.findChild(QTextEdit)
+        if first_task_widget:
+            first_task_widget.setFocus()
+        self.embedded_changed.emit()
+        self.changed.emit()
+
+    def _on_embedded_task_changed(self):
+        self.embedded_changed.emit()
+        self.changed.emit()
+
+    def _remove_embedded_list(self, container):
+        for i, el in enumerate(self._embedded_lists):
+            if el["container"] is container:
+                self._embedded_layout.removeWidget(container)
+                container.setParent(None)
+                container.deleteLater()
+                self._embedded_lists.pop(i)
+                if self._active_list is not None:
+                    if self._active_list >= len(self._embedded_lists):
+                        self._active_list = len(self._embedded_lists) - 1
+                self.embedded_changed.emit()
+                self.changed.emit()
+                return
+
+    def _add_task_to_active_list(self):
+        if self._active_list is not None and self._active_list < len(self._embedded_lists):
+            self._embedded_lists[self._active_list]["tw"]._add_task()
+
+    def set_active_list_from_widget(self, widget):
+        for i, el in enumerate(self._embedded_lists):
+            if el["container"] is widget or el["tw"] is widget:
+                self._active_list = i
+                return
+
+    def to_serialized_content(self):
+        if not self._embedded_lists:
+            return self.editor.toHtml()
+        task_lists = []
+        for el in self._embedded_lists:
+            tasks = el["repo"].get_by_block(el["id"])
+            task_lists.append([
+                {
+                    "text": t.text,
+                    "is_checked": t.is_checked,
+                    "recurrence_type": t.recurrence_type,
+                    "due_date": t.due_date,
+                }
+                for t in tasks
+            ])
+        return json.dumps({
+            "text": self.editor.toHtml(),
+            "task_lists": task_lists,
+        })
+
     def _switch_to_edit(self):
         if self.editing:
             return
         self.editing = True
-        self.preview.setVisible(False)
-        self.editor.setVisible(True)
+        self._text_stack.setCurrentWidget(self.editor)
         self.editor.setFocus()
         self.editor.moveCursor(QTextCursor.MoveOperation.End)
 
     def _switch_to_preview(self):
         self.editing = False
-        self.editor.setVisible(False)
-        self.preview.setVisible(True)
+        self._text_stack.setCurrentWidget(self.preview)
         self._update_preview()
 
     def _apply_pending_font(self):
@@ -195,16 +388,72 @@ class MarkdownBlock(QWidget):
         return self.editor.toPlainText()
 
 
-class TableCell(QTextEdit):
+class TableCell(QWidget):
+    textChanged = pyqtSignal()
+
     def __init__(self, text="", row=0, col=0, table_widget=None, parent=None):
         super().__init__(parent)
-        self.setPlainText(text)
-        self.setAcceptRichText(False)
-        self.setMinimumHeight(40)
-        self.setMaximumHeight(120)
         self._table_row = row
         self._table_col = col
         self._table = table_widget
+        self._task_widget = None
+        self._task_repo = None
+        self._task_block_id = -1
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+
+        self._edit = QTextEdit()
+        self._edit.setAcceptRichText(False)
+        self._edit.setPlainText(text)
+        self._edit.setMinimumHeight(40)
+        self._edit.setMaximumHeight(120)
+        self._edit.textChanged.connect(self.textChanged.emit)
+        self._edit.setFrameShape(QFrame.Shape.NoFrame)
+        layout.addWidget(self._edit)
+
+        self.setFocusProxy(self._edit)
+
+    def toPlainText(self):
+        if self._task_widget:
+            return self._serialize_tasks()
+        return self._edit.toPlainText()
+
+    def setPlainText(self, text):
+        if self._task_widget:
+            self._remove_task_widget()
+        self._edit.setPlainText(text)
+
+    def textCursor(self):
+        return self._edit.textCursor()
+
+    def setCurrentCharFormat(self, fmt):
+        self._edit.setCurrentCharFormat(fmt)
+
+    def font(self):
+        return self._edit.font()
+
+    def setAcceptRichText(self, val):
+        pass
+
+    def setMaximumHeight(self, h):
+        self._edit.setMaximumHeight(h)
+
+    def minimumHeight(self):
+        return self._edit.minimumHeight()
+
+    def hasFocus(self):
+        return self._edit.hasFocus() or (self._task_widget and self._task_widget.hasFocus())
+
+    def setFocus(self, reason=...):
+        if self._task_widget:
+            self._task_widget.setFocus()
+        else:
+            self._edit.setFocus()
+
+    def setFixedHeight(self, h):
+        self._edit.setFixedHeight(h)
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key.Key_Tab:
@@ -216,9 +465,128 @@ class TableCell(QTextEdit):
         else:
             super().keyPressEvent(event)
 
+    def add_task_list(self):
+        if self._task_widget:
+            return
+        self._task_block_id -= 1
+        from src.repositories.in_memory_task_repo import InMemoryTaskRepo
+        self._task_repo = InMemoryTaskRepo()
+        from src.models.task import Task
+        task = Task(content_block_id=self._task_block_id, text="New task")
+        self._task_repo.create(task)
+        self._task_widget = TaskWidget(self._task_block_id, parent=self, task_repo=self._task_repo)
+        self._task_widget.task_changed.connect(self._on_tasks_changed)
+        self.layout().addWidget(self._task_widget)
+        if self._table:
+            self._table.rows[self._table_row][self._table_col] = self.toPlainText()
+            self._table._mark_dirty()
+            self._table.tasks_changed.emit()
+        self._notify_block_widget()
+
+    def _remove_task_widget(self):
+        if self._task_widget:
+            self._task_widget.setParent(None)
+            self._task_widget.deleteLater()
+            self._task_widget = None
+            self._task_repo = None
+            self._edit.setVisible(True)
+            if self._table:
+                self._table.rows[self._table_row][self._table_col] = self._edit.toPlainText()
+
+    def _notify_block_widget(self):
+        p = self.parent()
+        while p:
+            if isinstance(p, ContentBlockWidget):
+                p._on_table_cell_activated(self)
+                return
+            p = p.parent()
+
+    def _serialize_tasks(self):
+        if not self._task_repo:
+            return self._edit.toPlainText()
+        tasks = self._task_repo.get_by_block(self._task_block_id)
+        return json.dumps({
+            "_type": "tasks",
+            "tasks": [
+                {
+                    "text": t.text,
+                    "is_checked": t.is_checked,
+                    "recurrence_type": t.recurrence_type,
+                    "due_date": t.due_date,
+                }
+                for t in tasks
+            ]
+        })
+
+    def _on_tasks_changed(self):
+        self.textChanged.emit()
+        if self._table:
+            self._table.tasks_changed.emit()
+            self._table.rows[self._table_row][self._table_col] = self.toPlainText()
+
+    @staticmethod
+    def from_task_data(tasks_data, row=0, col=0, table_widget=None):
+        cell = TableCell.__new__(TableCell)
+        cell.__init__("", row=row, col=col, table_widget=table_widget)
+        cell._task_block_id -= 1
+        from src.repositories.in_memory_task_repo import InMemoryTaskRepo
+        cell._task_repo = InMemoryTaskRepo()
+        for td in tasks_data:
+            from src.models.task import Task
+            task = Task(
+                content_block_id=cell._task_block_id,
+                text=td.get("text", ""),
+                is_checked=td.get("is_checked", False),
+                recurrence_type=td.get("recurrence_type", "none"),
+                due_date=td.get("due_date"),
+            )
+            cell._task_repo.create(task)
+        cell._task_widget = TaskWidget(cell._task_block_id, parent=cell, task_repo=cell._task_repo)
+        cell._task_widget.task_changed.connect(cell._on_tasks_changed)
+        cell.layout().addWidget(cell._task_widget)
+        if cell._table:
+            cell._table.rows[cell._table_row][cell._table_col] = cell.toPlainText()
+        cell._notify_block_widget()
+        return cell
+
+
+class TableHeaderCell(QTextEdit):
+    def __init__(self, text="", col=0, table_widget=None, parent=None):
+        super().__init__(parent)
+        self._col = col
+        self._table = table_widget
+        self.setPlainText(text)
+        self.setAcceptRichText(True)
+        self.setMinimumHeight(36)
+        self.setMaximumHeight(120)
+        self.setFrameShape(QFrame.Shape.NoFrame)
+        font = self.document().defaultFont()
+        font.setBold(True)
+        self.document().setDefaultFont(font)
+        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.setStyleSheet("QTextEdit { background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 2px; font-weight: bold; }")
+        self.textChanged.connect(self._on_changed)
+
+    def _on_changed(self):
+        if self._table:
+            self._table._mark_dirty()
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key.Key_Tab:
+            if self._table:
+                self._table._focus_next_header_cell(self._col)
+            event.accept()
+        elif event.key() == Qt.Key.Key_Backtab:
+            if self._table:
+                self._table._focus_prev_header_cell(self._col)
+            event.accept()
+        else:
+            super().keyPressEvent(event)
+
 
 class TableWidget(QWidget):
     changed = pyqtSignal()
+    tasks_changed = pyqtSignal()
 
     def __init__(self, block_id, content="", parent=None):
         super().__init__(parent)
@@ -230,6 +598,7 @@ class TableWidget(QWidget):
         self._build_toolbar(main_layout)
         main_layout.addLayout(self.grid)
         self.rows = []
+        self._headers = []
         self._parse_content(content)
         self._rebuild()
 
@@ -245,26 +614,42 @@ class TableWidget(QWidget):
         btn_add_col.setStyleSheet(btn_style)
         btn_del_col = QPushButton("- Col")
         btn_del_col.setStyleSheet(btn_style)
+        self._btn_header = QPushButton("+ Header")
+        self._btn_header.setStyleSheet(btn_style)
+        self._btn_header.setCheckable(True)
         btn_add_row.clicked.connect(self._add_row)
         btn_del_row.clicked.connect(self._delete_last_row)
         btn_add_col.clicked.connect(self._add_col)
         btn_del_col.clicked.connect(self._delete_last_col)
+        self._btn_header.clicked.connect(self._toggle_header)
         bar.addWidget(btn_add_row)
         bar.addWidget(btn_del_row)
         bar.addWidget(btn_add_col)
         bar.addWidget(btn_del_col)
+        bar.addSpacing(8)
+        bar.addWidget(self._btn_header)
         bar.addStretch()
         parent.addLayout(bar)
 
     def _parse_content(self, content):
         self.rows.clear()
+        self._headers = []
         lines = content.strip().split("\n")
         for line in lines:
+            if line.startswith("{") and '"headers"' in line:
+                try:
+                    data = json.loads(line)
+                    if isinstance(data, dict) and "headers" in data:
+                        self._headers = data["headers"]
+                        continue
+                except (json.JSONDecodeError, TypeError):
+                    pass
             if line.startswith("|") and line.endswith("|"):
                 cells = [c.strip() for c in line.strip("|").split("|")]
                 self.rows.append(cells)
         if not self.rows:
-            self.rows = [["", ""]]
+            cols = len(self._headers) if self._headers else 2
+            self.rows = [[""] * cols]
 
     def _rebuild(self):
         for i in reversed(range(self.grid.count())):
@@ -272,11 +657,39 @@ class TableWidget(QWidget):
             if w:
                 w.setParent(None)
 
+        offset = 0
+        if self._headers:
+            for c, hval in enumerate(self._headers):
+                hcell = TableHeaderCell(hval, col=c, table_widget=self)
+                self.grid.addWidget(hcell, 0, c)
+            offset = 1
+
         for r, row in enumerate(self.rows):
             for c, val in enumerate(row):
-                cell = TableCell(val, row=r, col=c, table_widget=self)
+                cell = self._create_cell(val, r + offset, c)
                 cell.textChanged.connect(self._mark_dirty)
-                self.grid.addWidget(cell, r, c)
+                self.grid.addWidget(cell, r + offset, c)
+
+    def _create_cell(self, val, r, c):
+        if isinstance(val, str) and val.startswith("{") and val.endswith("}"):
+            try:
+                data = json.loads(val)
+                if isinstance(data, dict) and data.get("_type") == "tasks":
+                    return TableCell.from_task_data(data.get("tasks", []), row=r, col=c, table_widget=self)
+            except (json.JSONDecodeError, TypeError):
+                pass
+        return TableCell(val, row=r, col=c, table_widget=self)
+
+    def _toggle_header(self, checked):
+        if checked:
+            cols = len(self.rows[0]) if self.rows else 2
+            self._headers = [f"Column {i+1}" for i in range(cols)]
+            self._btn_header.setText("- Header")
+        else:
+            self._headers = []
+            self._btn_header.setText("+ Header")
+        self._rebuild()
+        self._mark_dirty()
 
     def _add_row(self):
         cols = len(self.rows[0]) if self.rows else 2
@@ -285,29 +698,54 @@ class TableWidget(QWidget):
         self._mark_dirty()
 
     def _delete_last_row(self):
-        if len(self.rows) > 1:
+        if len(self.rows) > (0 if self._headers else 1):
             self.rows.pop()
             self._rebuild()
             self._mark_dirty()
 
     def _add_col(self):
+        if self._headers:
+            self._headers.append(f"Column {len(self._headers) + 1}")
         for row in self.rows:
             row.append("")
         self._rebuild()
         self._mark_dirty()
 
     def _delete_last_col(self):
+        if self._headers and len(self._headers) > 1:
+            self._headers.pop()
         if len(self.rows[0]) > 1:
             for row in self.rows:
                 row.pop()
+            self._rebuild()
+            self._mark_dirty()
+        elif self._headers and not self.rows[0]:
             self._rebuild()
             self._mark_dirty()
 
     def _mark_dirty(self):
         self.changed.emit()
 
+    def _focus_next_header_cell(self, c):
+        if c < len(self._headers) - 1:
+            w = self.grid.itemAtPosition(0, c + 1)
+            if w and w.widget():
+                w.widget().setFocus()
+        elif self.rows:
+            w = self.grid.itemAtPosition(1, 0)
+            if w and w.widget():
+                w.widget().setFocus()
+
+    def _focus_prev_header_cell(self, c):
+        if c > 0:
+            w = self.grid.itemAtPosition(0, c - 1)
+            if w and w.widget():
+                w.widget().setFocus()
+
     def to_markdown(self):
         lines = []
+        if self._headers:
+            lines.append(json.dumps({"headers": self._headers}))
         for r, row in enumerate(self.rows):
             cells = []
             for c in range(len(row)):
@@ -424,10 +862,11 @@ class _TaskRowSplitHandle(QWidget):
 class TaskWidget(QWidget):
     task_changed = pyqtSignal()
 
-    def __init__(self, block_id, content="", parent=None):
+    def __init__(self, block_id, content="", parent=None, task_repo=None):
         super().__init__(parent)
         self.block_id = block_id
-        self.task_repo = TaskRepo()
+        from src.repositories.task_repo import TaskRepo
+        self.task_repo = task_repo if task_repo is not None else TaskRepo()
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
@@ -673,11 +1112,16 @@ class ResizeHandle(QWidget):
                 self.block_widget._body.editor.setMinimumHeight(editor_h)
                 self.block_widget._body.preview.setMinimumHeight(editor_h)
             elif isinstance(self.block_widget._body, TableWidget):
+                data_rows = len(self.block_widget._body.rows)
                 for i in range(self.block_widget._body.grid.count()):
                     it = self.block_widget._body.grid.itemAt(i)
-                    if it and it.widget() and isinstance(it.widget(), TableCell):
-                        cell_h = max(30, (new_h - 80) // max(1, len(self.block_widget._body.rows)))
-                        it.widget().setMaximumHeight(cell_h + 20)
+                    if it and it.widget():
+                        if isinstance(it.widget(), TableCell):
+                            cell_h = max(30, (new_h - 80) // max(1, data_rows))
+                            it.widget().setMaximumHeight(cell_h + 20)
+                        elif isinstance(it.widget(), TableHeaderCell):
+                            hdr_h = max(36, (new_h - 80) // max(1, data_rows + 1))
+                            it.widget().setFixedHeight(hdr_h + 10)
         else:
             in_corner = self._is_in_corner(event.position().toPoint().x())
             if in_corner != self._in_corner:
@@ -775,6 +1219,7 @@ class ContentBlockWidget(QFrame):
         self._align_target_edit = None
         self._align_target_kind = None
         self._manual_resize = False
+        self._active_task_cell = None
 
         self._build_ui()
 
@@ -940,12 +1385,18 @@ class ContentBlockWidget(QFrame):
             content_size = self.block.content_font_size or 13
             self._body = MarkdownBlock(self.block.id, self.block.content_markdown, content_font_size=content_size)
             self._body.changed.connect(self._on_content_changed)
+            self._body.embedded_changed.connect(self._fit_to_content)
+            self._body.embedded_changed.connect(self._sync_add_task_btn)
             layout.addWidget(self._body)
             self._body.editor.focused.connect(lambda ed=self: self.content_focused.emit(ed))
+            self._add_task_btn.clicked.connect(self._body._add_task_to_active_list)
+            QTimer.singleShot(0, self._sync_add_task_btn)
         elif self.block.block_type == "table":
             self._body = TableWidget(self.block.id, self.block.content_markdown)
             self._body.changed.connect(self._on_content_changed)
+            self._body.tasks_changed.connect(self._fit_to_content)
             layout.addWidget(self._body)
+            self._add_task_btn.clicked.connect(self._add_task_to_active_cell)
         elif self.block.block_type in ("list", "checkbox"):
             self._body = TaskWidget(self.block.id, self.block.content_markdown)
             self._body.task_changed.connect(self._on_content_changed)
@@ -983,11 +1434,15 @@ class ContentBlockWidget(QFrame):
             self._body.editor.setMinimumHeight(inner_h)
             self._body.preview.setMinimumHeight(inner_h)
         elif isinstance(self._body, TableWidget):
+            data_rows = len(self._body.rows)
             for i in range(self._body.grid.count()):
                 w = self._body.grid.itemAt(i)
-                if w and w.widget() and isinstance(w.widget(), TableCell):
-                    cell_h = max(30, (h - 64) // max(1, len(self._body.rows)))
-                    w.widget().setMaximumHeight(cell_h)
+                if w and w.widget():
+                    if isinstance(w.widget(), TableCell):
+                        cell_h = max(30, (h - 64) // max(1, data_rows))
+                        w.widget().setMaximumHeight(cell_h)
+                    elif isinstance(w.widget(), TableHeaderCell):
+                        w.widget().setFixedHeight(max(36, (h - 64) // max(1, data_rows + 1)))
         elif isinstance(self._body, TaskWidget):
             inner_h = max(30, h - 64)
             self._body_scroll.setMinimumHeight(inner_h)
@@ -998,6 +1453,23 @@ class ContentBlockWidget(QFrame):
         p = self.parent()
         if p:
             self.setFixedWidth(int(p.width() / 3))
+
+    def _sync_add_task_btn(self):
+        if isinstance(self._body, MarkdownBlock) and self._body._embedded_lists:
+            self._add_task_btn.setVisible(True)
+        elif isinstance(self._body, MarkdownBlock):
+            self._add_task_btn.setVisible(False)
+
+    def _add_task_to_active_cell(self):
+        if self._active_task_cell and self._active_task_cell._task_widget:
+            self._active_task_cell._task_widget._add_task()
+
+    def _on_table_cell_activated(self, cell):
+        self._active_task_cell = cell
+        if cell and cell._task_widget:
+            self._add_task_btn.setVisible(True)
+        else:
+            self._add_task_btn.setVisible(False)
 
     def _on_content_changed(self):
         self.changed.emit()
@@ -1176,7 +1648,7 @@ class ContentBlockWidget(QFrame):
             self.block.content_markdown = self._body.to_markdown()
             BlockRepo().update(self.block)
         elif self.block.block_type == "text" and self._body:
-            self.block.content_markdown = self._body.editor.toHtml()
+            self.block.content_markdown = self._body.to_serialized_content()
             BlockRepo().update(self.block)
         elif self.block.block_type in ("list", "checkbox"):
             BlockRepo().update(self.block)
@@ -1207,6 +1679,8 @@ class PageEditor(QWidget):
         self._block_widgets: list[ContentBlockWidget] = []
         self._selected_block_widgets: set[ContentBlockWidget] = set()
         self._font_target: tuple[ContentBlockWidget, str] | None = None
+        self._active_text_body = None
+        self._active_table_cell = None
         self.setStyleSheet("background: #ffffff;")
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
 
@@ -1342,7 +1816,7 @@ class PageEditor(QWidget):
 
         self._add_block_btn.clicked.connect(lambda: self._add_block("text"))
         self._table_btn.clicked.connect(lambda: self._add_block("table"))
-        self._list_btn.clicked.connect(lambda: self._add_block("checkbox"))
+        self._list_btn.clicked.connect(self._on_add_list)
         self._template_btn.clicked.connect(self._insert_template)
         self._bold_btn.clicked.connect(lambda: self._apply_format("bold"))
         self._italic_btn.clicked.connect(lambda: self._apply_format("italic"))
@@ -1408,20 +1882,47 @@ class PageEditor(QWidget):
             block_w._set_align_target("header", block_w._header_edit)
         elif isinstance(new, QLineEdit) and hasattr(block_w, '_body') and isinstance(block_w._body, TaskWidget):
             block_w._active_line = new
+            self._active_text_body = None
+            self._active_table_cell = None
             self._font_target = (block_w, "list_item")
             self._set_font_combo_from_target()
-        elif isinstance(new, TableCell):
-            block_w._active_cell = new
+        elif hasattr(block_w, '_body') and isinstance(block_w._body, TaskWidget):
+            self._active_text_body = None
+            self._active_table_cell = None
+        elif isinstance(new, TableCell) or (isinstance(new, QTextEdit) and isinstance(new.parent(), TableCell)):
+            tc = new if isinstance(new, TableCell) else new.parent()
+            block_w._active_cell = tc
+            self._active_table_cell = tc
+            self._active_text_body = None
             self._font_target = (block_w, "table_cell")
             self._set_font_combo_from_target()
-            block_w._set_align_target("table_cell", new)
+            block_w._set_align_target("table_cell", tc._edit)
+            block_w._on_table_cell_activated(tc)
         elif isinstance(new, (MarkdownTextEdit, QTextBrowser)):
             try:
                 self._font_target = (block_w, "content")
                 self._set_font_combo_from_target()
             except AttributeError:
                 pass
+            if hasattr(block_w, '_body') and isinstance(block_w._body, MarkdownBlock):
+                self._active_text_body = block_w._body
+                self._active_table_cell = None
             block_w._set_align_target("content", block_w._body.editor)
+        elif isinstance(new, TableHeaderCell):
+            block_w._active_cell = new
+            self._active_table_cell = None
+            self._active_text_body = None
+            self._font_target = (block_w, "table_cell")
+            self._set_font_combo_from_target()
+            block_w._set_align_target("table_cell", new)
+        elif isinstance(new, QTextEdit) and hasattr(block_w, '_body') and isinstance(block_w._body, MarkdownBlock):
+            # Focus inside an embedded task list — find which one
+            p = new.parent()
+            while p:
+                if isinstance(p, _EmbeddedTaskContainer):
+                    block_w._body.set_active_list_from_widget(p)
+                    break
+                p = p.parent()
 
     def _on_font_size_changed(self, val_str):
         if not self._font_target:
@@ -1670,6 +2171,26 @@ class PageEditor(QWidget):
 
     def _on_canvas_clicked(self, x, y):
         self._canvas_click_pos = (x, y)
+
+    def _on_add_list(self):
+        focus_widget = QApplication.focusWidget()
+        if focus_widget:
+            if isinstance(focus_widget, QTextEdit) and isinstance(focus_widget.parent(), TableCell):
+                focus_widget.parent().add_task_list()
+                return
+            block_w = self._find_block_widget(focus_widget)
+            if block_w and hasattr(block_w, '_body'):
+                body = block_w._body
+                if isinstance(body, MarkdownBlock):
+                    body.add_task_list()
+                    return
+        if self._active_text_body:
+            self._active_text_body.add_task_list()
+            return
+        if self._active_table_cell:
+            self._active_table_cell.add_task_list()
+            return
+        self._add_block("checkbox")
 
     def _add_block(self, block_type: str):
         if not self.current_page_id:
