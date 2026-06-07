@@ -25,6 +25,7 @@ class BlockRepo:
         )
         conn.commit()
         block_id = cursor.lastrowid
+        block.id = block_id
         conn.close()
         return block_id
 

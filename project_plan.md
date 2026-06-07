@@ -83,19 +83,23 @@ Core features for initial delivery:
 - **Keyboard shortcuts:** `Ctrl+B` bold, `Ctrl+I` italic, formatting buttons for H1/H2/code/link/bullet
 - Stored in `content_blocks` table (id, page_id, block_type, content_markdown, sort_order, pos_x, pos_y, width, height, header, header_font_size, content_font_size)
 - Auto-save on content change (debounced, default 1s interval)
-- **Free-form positioning** — drag "⋮⋮" handle to move blocks anywhere on the canvas; overlapping allowed
+- **Free-form positioning** — drag "⋮⋮" handle to move blocks anywhere within canvas bounds
 - **Z-order** — clicking a block brings it to the front
 - **Resize handle** at bottom: height (vertical drag), width (horizontal drag)
 - **Right-edge resize** — hover right edge (↔ cursor), click and drag to change width
 - **Corner resize** — bottom-right 24px corner does 2D resize (width + height simultaneously)
+- **Infinite vertical scroll** — canvas extends when scrolling near the bottom; no horizontal scrollbar
+- **Right-edge boundary** — blocks cannot be dragged or resized past the right edge of the canvas
 - Block position (`pos_x`, `pos_y`) persisted in DB and restored on page load
 
 **Acceptance criteria:**
 - Text blocks persist Markdown content and render formatted output
 - Toolbar buttons apply correct Markdown wrapping
-- Blocks can be freely dragged and positioned anywhere; overlapping supported
+- Blocks can be freely dragged and positioned within canvas bounds; overlapping supported
 - Clicking a block brings it to the front
 - Blocks can be resized: vertically (bottom), horizontally (bottom or right edge), or both (corner)
+- Canvas extends vertically on scroll (even with no blocks); no horizontal scrollbar
+- Right edge acts as a hard boundary for both drag and resize
 - Auto-save triggers within 1 second of stopping typing
 - Block positions survive app restart
 

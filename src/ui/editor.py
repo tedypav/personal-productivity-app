@@ -10,7 +10,7 @@ from PyQt6.QtWidgets import (
     QListWidget, QFrame, QTextBrowser, QSizePolicy,
     QToolButton, QApplication
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QPoint
+from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QPoint, QEvent
 from PyQt6.QtGui import (
     QFont, QAction, QKeySequence, QTextCursor, QTextCharFormat,
     QPainter, QColor
@@ -469,6 +469,9 @@ class ResizeHandle(QWidget):
             delta_x = event.globalPosition().toPoint().x() - self._start_x
             new_h = max(60, self._start_height + delta_y)
             new_w = max(200, self._start_width + delta_x)
+            parent = self.block_widget.parent()
+            if parent:
+                new_w = min(new_w, parent.width() - self.block_widget.x())
             if self._in_corner:
                 self.block_widget.setFixedWidth(new_w)
                 self.block_widget.setFixedHeight(new_h)
@@ -504,6 +507,7 @@ class ContentBlockWidget(QFrame):
     clicked = pyqtSignal(object, bool)  # (self, add_to_selection)
     header_focused = pyqtSignal(object)  # self
     content_focused = pyqtSignal(object)  # self
+    saved = pyqtSignal()
 
     def __init__(self, block: ContentBlock, index=0, parent=None):
         super().__init__(parent)
@@ -534,16 +538,23 @@ class ContentBlockWidget(QFrame):
                 self._right_resizing = True
                 self._right_resize_start_x = event.globalPosition().toPoint().x()
                 self._right_resize_start_w = self.width()
+                event.accept()
                 return
             mods = QApplication.keyboardModifiers()
             add_to_selection = mods in (Qt.KeyboardModifier.ShiftModifier, Qt.KeyboardModifier.ControlModifier)
             self.clicked.emit(self, add_to_selection)
         super().mousePressEvent(event)
+        event.accept()
 
     def mouseMoveEvent(self, event):
         if self._right_resizing:
             delta = event.globalPosition().toPoint().x() - self._right_resize_start_x
-            self.setFixedWidth(max(200, self._right_resize_start_w + delta))
+            new_w = max(200, self._right_resize_start_w + delta)
+            parent = self.parent()
+            if parent:
+                max_w = parent.width() - self.x()
+                new_w = min(new_w, max_w)
+            self.setFixedWidth(new_w)
         elif event.position().toPoint().x() >= self.width() - 8:
             self.setCursor(Qt.CursorShape.SizeHorCursor)
         else:
@@ -676,13 +687,21 @@ class ContentBlockWidget(QFrame):
             BlockRepo().update(self.block)
         else:
             BlockRepo().update(self.block)
+        self.saved.emit()
 
 
 class Canvas(QWidget):
+    clicked_at = pyqtSignal(int, int)
+
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setMinimumSize(2000, 2000)
         self.setStyleSheet("background: #ffffff;")
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.clicked_at.emit(int(event.position().x()), int(event.position().y()))
+        event.accept()
+        super().mousePressEvent(event)
 
 
 class PageEditor(QWidget):
@@ -701,19 +720,50 @@ class PageEditor(QWidget):
 
         self._build_toolbar(main_layout)
 
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll.setStyleSheet("QScrollArea { border: none; background: #ffffff; }")
+        self.scroll = QScrollArea()
+        self.scroll.setWidgetResizable(False)
+        self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.scroll.setStyleSheet("QScrollArea { border: none; background: #ffffff; }")
 
         self.content = Canvas()
-        scroll.setWidget(self.content)
+        self.content.clicked_at.connect(self._on_canvas_clicked)
+        self.scroll.setWidget(self.content)
+        self.scroll.viewport().installEventFilter(self)
+        self.scroll.verticalScrollBar().valueChanged.connect(self._on_scroll)
 
-        main_layout.addWidget(scroll, 1)
+        main_layout.addWidget(self.scroll, 1)
 
         self._drag_data = None  # (widget, start_x, start_y, start_mouse_x, start_mouse_y)
+        self._canvas_click_pos: tuple[int, int] | None = None
 
         QApplication.instance().focusChanged.connect(self._on_focus_changed)
+
+    def eventFilter(self, obj, event):
+        if obj is self.scroll.viewport() and event.type() == QEvent.Type.Resize:
+            self._update_canvas_size()
+        return super().eventFilter(obj, event)
+
+    def _update_canvas_size(self, extend=False):
+        vp = self.scroll.viewport()
+        vp_w = vp.width()
+        max_bottom = 100
+        for w in self._block_widgets:
+            b = w.y() + w.height()
+            if b > max_bottom:
+                max_bottom = b
+        desired_h = max(vp.height() + 300, max_bottom + 400)
+        if extend:
+            desired_h = max(desired_h, self.content.height() + 500)
+        if desired_h != self.content.height() or vp_w != self.content.width():
+            self.content.setFixedWidth(max(1, vp_w))
+            self.content.resize(max(1, vp_w), desired_h)
+
+    def _on_scroll(self, value):
+        sb = self.scroll.verticalScrollBar()
+        if sb.maximum() > 0 and value >= sb.maximum() - 300:
+            self._update_canvas_size(extend=True)
 
     def _build_toolbar(self, parent_layout):
         toolbar_widget = QWidget()
@@ -925,10 +975,12 @@ class PageEditor(QWidget):
             w.header_focused.connect(self._on_block_header_focused)
             w.content_focused.connect(self._on_block_content_focused)
             self._setup_drag(w)
+            w.saved.connect(self._update_canvas_size)
             w.setParent(self.content)
             w.move(block.pos_x, block.pos_y)
             w.show()
             self._block_widgets.append(w)
+        self._update_canvas_size()
 
     def _setup_drag(self, widget):
         orig_mouse_press = widget.drag_handle.mousePressEvent
@@ -945,7 +997,12 @@ class PageEditor(QWidget):
             if self._drag_data and self._drag_data[0] is w:
                 dx = ev.globalPosition().toPoint().x() - self._drag_data[3]
                 dy = ev.globalPosition().toPoint().y() - self._drag_data[4]
-                w.move(self._drag_data[1] + dx, self._drag_data[2] + dy)
+                new_x = max(0, self._drag_data[1] + dx)
+                new_y = self._drag_data[2] + dy
+                max_x = self.content.width() - w.width()
+                if new_x > max_x:
+                    new_x = max_x
+                w.move(new_x, new_y)
                 ev.accept()
             else:
                 orig_mouse_move(ev)
@@ -1020,19 +1077,37 @@ class PageEditor(QWidget):
         else:
             super().keyPressEvent(event)
 
+    def _scroll_to_newest_block(self):
+        if self._block_widgets:
+            self.scroll.ensureWidgetVisible(self._block_widgets[-1], 50, 50)
+
+    def _on_canvas_clicked(self, x, y):
+        self._canvas_click_pos = (x, y)
+
     def _add_block(self, block_type: str):
         if not self.current_page_id:
             return
         try:
-            offset = 20 * (len(self._block_widgets) % 15)
+            if self._canvas_click_pos is not None:
+                pos_x, pos_y = self._canvas_click_pos
+                self._canvas_click_pos = None
+            else:
+                max_bottom = 50
+                for w in self._block_widgets:
+                    b = w.y() + w.height()
+                    if b > max_bottom:
+                        max_bottom = b
+                pos_x = 50
+                pos_y = max_bottom + 20
             block = ContentBlock(
                 page_id=self.current_page_id,
                 block_type=block_type,
-                pos_x=50 + offset,
-                pos_y=50 + offset,
+                pos_x=pos_x,
+                pos_y=pos_y,
             )
             self.block_repo.create(block)
             self.load_page(self.current_page_id)
+            QTimer.singleShot(0, self._scroll_to_newest_block)
         except Exception as e:
             traceback.print_exc()
             QMessageBox.critical(self, "Error", f"Failed to add block:\n{e}")
