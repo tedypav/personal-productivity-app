@@ -35,8 +35,8 @@ class PageRepo:
             (page.parent_id,)
         ).fetchone()[0]
         cursor = conn.execute(
-            "INSERT INTO pages (title, parent_id, sort_order) VALUES (?, ?, ?)",
-            (page.title, page.parent_id, page.sort_order if page.sort_order else max_order)
+            "INSERT INTO pages (title, parent_id, sort_order, page_type) VALUES (?, ?, ?, ?)",
+            (page.title, page.parent_id, page.sort_order if page.sort_order else max_order, page.page_type)
         )
         conn.commit()
         page_id = cursor.lastrowid
@@ -47,8 +47,8 @@ class PageRepo:
     def update(page: Page):
         conn = get_connection()
         conn.execute(
-            "UPDATE pages SET title=?, parent_id=?, sort_order=?, updated_at=datetime('now') WHERE id=?",
-            (page.title, page.parent_id, page.sort_order, page.id)
+            "UPDATE pages SET title=?, parent_id=?, sort_order=?, page_type=?, updated_at=datetime('now') WHERE id=?",
+            (page.title, page.parent_id, page.sort_order, page.page_type, page.id)
         )
         conn.commit()
         conn.close()

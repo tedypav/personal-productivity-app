@@ -104,5 +104,10 @@ def init_db():
     except sqlite3.OperationalError:
         pass
 
+    try:
+        conn.execute("ALTER TABLE pages ADD COLUMN page_type TEXT NOT NULL DEFAULT 'page'")
+    except sqlite3.OperationalError:
+        pass
+
     conn.commit()
     conn.close()

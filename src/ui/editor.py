@@ -1,5 +1,7 @@
 import json
+import os
 import traceback
+import uuid
 from datetime import datetime, timedelta
 
 import markdown
@@ -8,12 +10,14 @@ from PyQt6.QtWidgets import (
     QComboBox, QLabel, QCheckBox, QGridLayout, QLineEdit,
     QScrollArea, QDialog, QDialogButtonBox, QMessageBox,
     QListWidget, QFrame, QTextBrowser, QSizePolicy,
-    QToolButton, QApplication, QButtonGroup, QStackedWidget
+    QToolButton, QApplication, QButtonGroup, QStackedWidget,
+    QFileDialog, QInputDialog
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QPoint, QEvent
+from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QPoint, QEvent, QMimeData, QUrl
 from PyQt6.QtGui import (
     QFont, QAction, QKeySequence, QTextCursor, QTextCharFormat,
-    QPainter, QColor
+    QPainter, QColor, QImage, QClipboard, QTextBlockFormat,
+    QTextListFormat, QTextDocument, QTextImageFormat
 )
 
 from src.repositories.block_repo import BlockRepo
@@ -48,6 +52,209 @@ QFrame#block[selected="true"] {
 """
 
 
+def _get_edit_html_body(edit):
+    html = edit.toHtml()
+    import re
+    body_match = re.search(r'<body[^>]*>(.*)</body>', html, re.DOTALL)
+    if body_match:
+        return body_match.group(1).strip()
+    return html
+
+
+def _apply_format_to_edit(edit, fmt_name, parent_widget=None):
+    cursor = edit.textCursor()
+    if fmt_name == "bold":
+        if cursor.hasSelection():
+            fmt = QTextCharFormat()
+            current_weight = cursor.charFormat().fontWeight()
+            fmt.setFontWeight(QFont.Weight.Normal if current_weight >= QFont.Weight.Bold else QFont.Weight.Bold)
+            cursor.mergeCharFormat(fmt)
+        else:
+            fmt = edit.currentCharFormat()
+            fmt.setFontWeight(QFont.Weight.Normal if fmt.fontWeight() >= QFont.Weight.Bold else QFont.Weight.Bold)
+            edit.setCurrentCharFormat(fmt)
+    elif fmt_name == "italic":
+        if cursor.hasSelection():
+            fmt = QTextCharFormat()
+            fmt.setFontItalic(not cursor.charFormat().fontItalic())
+            cursor.mergeCharFormat(fmt)
+        else:
+            fmt = edit.currentCharFormat()
+            fmt.setFontItalic(not fmt.fontItalic())
+            edit.setCurrentCharFormat(fmt)
+    elif fmt_name == "h1":
+        if cursor.hasSelection():
+            fmt = QTextCharFormat()
+            char_fmt = cursor.charFormat()
+            pt = char_fmt.fontPointSize()
+            if pt < 1:
+                pt = edit.font().pointSize()
+            if pt >= 19 and char_fmt.fontWeight() >= QFont.Weight.Bold:
+                fmt.setFontPointSize(13)
+                fmt.setFontWeight(QFont.Weight.Normal)
+            else:
+                fmt.setFontPointSize(20)
+                fmt.setFontWeight(QFont.Weight.Bold)
+            cursor.mergeCharFormat(fmt)
+        else:
+            fmt = edit.currentCharFormat()
+            pt = fmt.fontPointSize()
+            if pt < 1:
+                pt = edit.font().pointSize()
+            if pt >= 19 and fmt.fontWeight() >= QFont.Weight.Bold:
+                fmt.setFontPointSize(13)
+                fmt.setFontWeight(QFont.Weight.Normal)
+            else:
+                fmt.setFontPointSize(20)
+                fmt.setFontWeight(QFont.Weight.Bold)
+            edit.setCurrentCharFormat(fmt)
+    elif fmt_name == "h2":
+        if cursor.hasSelection():
+            fmt = QTextCharFormat()
+            char_fmt = cursor.charFormat()
+            pt = char_fmt.fontPointSize()
+            if pt < 1:
+                pt = edit.font().pointSize()
+            if 15 <= pt < 19 and char_fmt.fontWeight() >= QFont.Weight.Bold:
+                fmt.setFontPointSize(13)
+                fmt.setFontWeight(QFont.Weight.Normal)
+            else:
+                fmt.setFontPointSize(16)
+                fmt.setFontWeight(QFont.Weight.Bold)
+            cursor.mergeCharFormat(fmt)
+        else:
+            fmt = edit.currentCharFormat()
+            pt = fmt.fontPointSize()
+            if pt < 1:
+                pt = edit.font().pointSize()
+            if 15 <= pt < 19 and fmt.fontWeight() >= QFont.Weight.Bold:
+                fmt.setFontPointSize(13)
+                fmt.setFontWeight(QFont.Weight.Normal)
+            else:
+                fmt.setFontPointSize(16)
+                fmt.setFontWeight(QFont.Weight.Bold)
+            edit.setCurrentCharFormat(fmt)
+    elif fmt_name == "code":
+        if cursor.hasSelection():
+            fmt = QTextCharFormat()
+            current = cursor.charFormat().fontFamily()
+            if current and "consol" in current.lower():
+                fmt.setFontFamily("Segoe UI")
+                fmt.setBackground(QColor("#ffffff"))
+            else:
+                fmt.setFontFamily("Consolas")
+                fmt.setBackground(QColor("#f3f4f6"))
+            cursor.mergeCharFormat(fmt)
+        else:
+            fmt = edit.currentCharFormat()
+            current = fmt.fontFamily()
+            if current and "consol" in current.lower():
+                fmt.setFontFamily("Segoe UI")
+                fmt.setBackground(QColor("#ffffff"))
+            else:
+                fmt.setFontFamily("Consolas")
+                fmt.setBackground(QColor("#f3f4f6"))
+            edit.setCurrentCharFormat(fmt)
+    elif fmt_name == "link":
+        _insert_link_dialog(edit, parent_widget)
+    elif fmt_name == "bullet":
+        _toggle_bullet(cursor, edit)
+    elif fmt_name == "attach":
+        _attach_file(edit, parent_widget)
+
+
+def _insert_link_dialog(edit, parent_widget=None):
+    cursor = edit.textCursor()
+    selected = cursor.selectedText()
+    url, ok = QInputDialog.getText(
+        parent_widget or edit, "Insert Link",
+        "URL:", QLineEdit.EchoMode.Normal, "https://"
+    )
+    if not ok or not url.strip():
+        return
+    url = url.strip()
+    if selected:
+        fmt = QTextCharFormat()
+        fmt.setAnchor(True)
+        fmt.setAnchorHref(url)
+        fmt.setForeground(QColor("#4f46e5"))
+        fmt.setFontUnderline(True)
+        cursor.mergeCharFormat(fmt)
+    else:
+        fmt = QTextCharFormat()
+        fmt.setAnchor(True)
+        fmt.setAnchorHref(url)
+        fmt.setForeground(QColor("#4f46e5"))
+        fmt.setFontUnderline(True)
+        cursor.insertText(url, fmt)
+
+
+def _insert_bullet(cursor, edit):
+    block_fmt = QTextBlockFormat()
+    list_fmt = QTextListFormat()
+    list_fmt.setStyle(QTextListFormat.Style.ListDisc)
+    list_fmt.setIndent(1)
+    cursor.beginEditBlock()
+    block_fmt = cursor.blockFormat()
+    list_fmt.setIndent(block_fmt.indent() + 1 if block_fmt.indent() else 1)
+    cursor.setBlockFormat(block_fmt)
+    cursor.createList(list_fmt)
+    cursor.endEditBlock()
+
+
+def _toggle_bullet(cursor, edit):
+    text_list = cursor.block().textList()
+    if text_list is not None and text_list.format().style() == QTextListFormat.Style.ListDisc:
+        cursor.beginEditBlock()
+        new_fmt = QTextBlockFormat()
+        new_fmt.setIndent(0)
+        cursor.setBlockFormat(new_fmt)
+        cursor.endEditBlock()
+    else:
+        _insert_bullet(cursor, edit)
+
+
+def _attach_file(edit, parent_widget=None):
+    file_path, _ = QFileDialog.getOpenFileName(
+        parent_widget or edit, "Attach File", "",
+        "All Files (*);;Images (*.png *.jpg *.jpeg *.gif *.bmp *.svg);;Documents (*.pdf *.doc *.docx *.txt)"
+    )
+    if not file_path:
+        return
+    cursor = edit.textCursor()
+    _embed_file_at_cursor(cursor, file_path, edit)
+
+
+def _embed_file_at_cursor(cursor, file_path, edit):
+    ext = os.path.splitext(file_path)[1].lower()
+    image_exts = {".png", ".jpg", ".jpeg", ".gif", ".bmp", ".svg", ".webp"}
+    if ext in image_exts:
+        img = QImage(file_path)
+        if not img.isNull():
+            doc = edit.document()
+            img_name = f"img_{uuid.uuid4().hex}{ext}"
+            doc.addResource(QTextDocument.ResourceType.ImageResource, QUrl(img_name), img)
+            img_fmt = QTextImageFormat()
+            max_w = min(img.width(), edit.viewport().width() - 40) if edit.viewport().width() > 60 else img.width()
+            if img.width() > max_w:
+                ratio = max_w / img.width()
+                img_fmt.setWidth(int(max_w))
+                img_fmt.setHeight(int(img.height() * ratio))
+            else:
+                img_fmt.setWidth(img.width())
+                img_fmt.setHeight(img.height())
+            img_fmt.setName(img_name)
+            cursor.insertImage(img_fmt)
+            return
+    display_name = os.path.basename(file_path)
+    fmt = QTextCharFormat()
+    fmt.setAnchor(True)
+    fmt.setAnchorHref(file_path)
+    fmt.setForeground(QColor("#4f46e5"))
+    fmt.setFontUnderline(True)
+    cursor.insertText(f"[{display_name}]", fmt)
+
+
 class MarkdownTextEdit(QTextEdit):
     focus_lost = pyqtSignal()
     focused = pyqtSignal()
@@ -77,6 +284,56 @@ class MarkdownTextEdit(QTextEdit):
     def focusOutEvent(self, event):
         super().focusOutEvent(event)
         self.focus_lost.emit()
+
+    def insertFromMimeData(self, source):
+        if source and source.hasImage():
+            img = source.imageData()
+            if isinstance(img, QImage) and not img.isNull():
+                cursor = self.textCursor()
+                doc = self.document()
+                img_name = f"img_{uuid.uuid4().hex}.png"
+                doc.addResource(QTextDocument.ResourceType.ImageResource, QUrl(img_name), img)
+                img_fmt = QTextImageFormat()
+                max_w = min(img.width(), self.viewport().width() - 40) if self.viewport().width() > 60 else img.width()
+                if img.width() > max_w:
+                    ratio = max_w / img.width()
+                    img_fmt.setWidth(int(max_w))
+                    img_fmt.setHeight(int(img.height() * ratio))
+                else:
+                    img_fmt.setWidth(img.width())
+                    img_fmt.setHeight(img.height())
+                img_fmt.setName(img_name)
+                cursor.insertImage(img_fmt)
+                return
+        super().insertFromMimeData(source)
+
+
+class FormattedTextEdit(QTextEdit):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setAcceptRichText(True)
+
+    def insertFromMimeData(self, source):
+        if source and source.hasImage():
+            img = source.imageData()
+            if isinstance(img, QImage) and not img.isNull():
+                cursor = self.textCursor()
+                doc = self.document()
+                img_name = f"img_{uuid.uuid4().hex}.png"
+                doc.addResource(QTextDocument.ResourceType.ImageResource, QUrl(img_name), img)
+                img_fmt = QTextImageFormat()
+                max_w = min(img.width(), self.viewport().width() - 40) if self.viewport().width() > 60 else img.width()
+                if img.width() > max_w:
+                    ratio = max_w / img.width()
+                    img_fmt.setWidth(int(max_w))
+                    img_fmt.setHeight(int(img.height() * ratio))
+                else:
+                    img_fmt.setWidth(img.width())
+                    img_fmt.setHeight(img.height())
+                img_fmt.setName(img_name)
+                cursor.insertImage(img_fmt)
+                return
+        super().insertFromMimeData(source)
 
 
 class _EmbeddedTaskContainer(QWidget):
@@ -384,6 +641,10 @@ class MarkdownBlock(QWidget):
         self._switch_to_edit()
         self.editor.textCursor().insertText("- ")
 
+    def apply_rich_format(self, fmt_name):
+        self._switch_to_edit()
+        _apply_format_to_edit(self.editor, fmt_name)
+
     def toPlainText(self):
         return self.editor.toPlainText()
 
@@ -404,26 +665,55 @@ class TableCell(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        self._edit = QTextEdit()
-        self._edit.setAcceptRichText(False)
-        self._edit.setPlainText(text)
+        self._edit = FormattedTextEdit()
+        self._edit.setAcceptRichText(True)
+        if text and text.strip().startswith("<") and ">" in text.strip():
+            self._edit.setHtml(text)
+        else:
+            self._edit.setPlainText(text)
         self._edit.setMinimumHeight(40)
         self._edit.setMaximumHeight(120)
         self._edit.textChanged.connect(self.textChanged.emit)
         self._edit.setFrameShape(QFrame.Shape.NoFrame)
+        self._edit.installEventFilter(self)
         layout.addWidget(self._edit)
 
         self.setFocusProxy(self._edit)
 
+    def _set_selected(self, selected: bool):
+        if selected:
+            self._edit.setStyleSheet("QTextEdit { border: 2px solid #6366f1; border-radius: 3px; background: #eef2ff; }")
+        else:
+            self._edit.setStyleSheet("")
+
+    def eventFilter(self, obj, event):
+        if obj is self._edit:
+            if event.type() == QEvent.Type.MouseButtonPress and event.button() == Qt.MouseButton.LeftButton:
+                if self._table:
+                    ctrl = bool(event.modifiers() & Qt.KeyboardModifier.ControlModifier)
+                    shift = bool(event.modifiers() & Qt.KeyboardModifier.ShiftModifier)
+                    self._table._cell_clicked(self._table_row, self._table_col, ctrl, shift)
+            elif event.type() == QEvent.Type.KeyPress:
+                if event.key() in (Qt.Key.Key_Delete, Qt.Key.Key_Backspace) and self._table and self._table._selected_cells:
+                    self._table._delete_selected_cells()
+                    return True
+                elif event.key() == Qt.Key.Key_Escape and self._table and self._table._selected_cells:
+                    self._table._clear_selection()
+                    return True
+        return super().eventFilter(obj, event)
+
     def toPlainText(self):
         if self._task_widget:
             return self._serialize_tasks()
-        return self._edit.toPlainText()
+        return _get_edit_html_body(self._edit)
 
     def setPlainText(self, text):
         if self._task_widget:
             self._remove_task_widget()
-        self._edit.setPlainText(text)
+        if text and text.strip().startswith("<") and ">" in text.strip():
+            self._edit.setHtml(text)
+        else:
+            self._edit.setPlainText(text)
 
     def textCursor(self):
         return self._edit.textCursor()
@@ -584,6 +874,15 @@ class TableHeaderCell(QTextEdit):
             super().keyPressEvent(event)
 
 
+class RowNumCell(QLabel):
+    def __init__(self, text="", parent=None):
+        super().__init__(text, parent)
+        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.setMinimumHeight(30)
+        self.setFixedWidth(40)
+        self.setStyleSheet("QLabel { background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 2px; font-weight: bold; color: #6b7280; font-size: 11px; padding: 2px; }")
+
+
 class TableWidget(QWidget):
     changed = pyqtSignal()
     tasks_changed = pyqtSignal()
@@ -599,7 +898,14 @@ class TableWidget(QWidget):
         main_layout.addLayout(self.grid)
         self.rows = []
         self._headers = []
+        self._show_row_numbers = False
+        self._selected_cells: set[tuple[int, int]] = set()
+        self._selection_anchor: tuple[int, int] | None = None
         self._parse_content(content)
+        self._btn_header.setChecked(bool(self._headers))
+        self._btn_header.setText("- Header" if self._headers else "+ Header")
+        self._btn_row_nums.setChecked(self._show_row_numbers)
+        self._btn_row_nums.setText("- Row #" if self._show_row_numbers else "+ Row #")
         self._rebuild()
 
     def _build_toolbar(self, parent):
@@ -617,31 +923,40 @@ class TableWidget(QWidget):
         self._btn_header = QPushButton("+ Header")
         self._btn_header.setStyleSheet(btn_style)
         self._btn_header.setCheckable(True)
+        self._btn_row_nums = QPushButton("+ Row #")
+        self._btn_row_nums.setStyleSheet(btn_style)
+        self._btn_row_nums.setCheckable(True)
         btn_add_row.clicked.connect(self._add_row)
         btn_del_row.clicked.connect(self._delete_last_row)
         btn_add_col.clicked.connect(self._add_col)
         btn_del_col.clicked.connect(self._delete_last_col)
         self._btn_header.clicked.connect(self._toggle_header)
+        self._btn_row_nums.clicked.connect(self._toggle_row_numbers)
         bar.addWidget(btn_add_row)
         bar.addWidget(btn_del_row)
         bar.addWidget(btn_add_col)
         bar.addWidget(btn_del_col)
         bar.addSpacing(8)
         bar.addWidget(self._btn_header)
+        bar.addWidget(self._btn_row_nums)
         bar.addStretch()
         parent.addLayout(bar)
 
     def _parse_content(self, content):
         self.rows.clear()
         self._headers = []
+        self._show_row_numbers = False
         lines = content.strip().split("\n")
         for line in lines:
-            if line.startswith("{") and '"headers"' in line:
+            if line.startswith("{") and ('"headers"' in line or '"row_numbers"' in line):
                 try:
                     data = json.loads(line)
-                    if isinstance(data, dict) and "headers" in data:
-                        self._headers = data["headers"]
-                        continue
+                    if isinstance(data, dict):
+                        if "headers" in data:
+                            self._headers = data["headers"]
+                        if "row_numbers" in data:
+                            self._show_row_numbers = data["row_numbers"]
+                    continue
                 except (json.JSONDecodeError, TypeError):
                     pass
             if line.startswith("|") and line.endswith("|"):
@@ -657,18 +972,26 @@ class TableWidget(QWidget):
             if w:
                 w.setParent(None)
 
-        offset = 0
+        col_offset = 1 if self._show_row_numbers else 0
+        row_offset = 0
+
         if self._headers:
+            if self._show_row_numbers:
+                hdr_cell = RowNumCell("#")
+                self.grid.addWidget(hdr_cell, 0, 0)
             for c, hval in enumerate(self._headers):
-                hcell = TableHeaderCell(hval, col=c, table_widget=self)
-                self.grid.addWidget(hcell, 0, c)
-            offset = 1
+                hcell = TableHeaderCell(hval, col=c + col_offset, table_widget=self)
+                self.grid.addWidget(hcell, 0, c + col_offset)
+            row_offset = 1
 
         for r, row in enumerate(self.rows):
+            if self._show_row_numbers:
+                num_cell = RowNumCell(str(r + 1))
+                self.grid.addWidget(num_cell, r + row_offset, 0)
             for c, val in enumerate(row):
-                cell = self._create_cell(val, r + offset, c)
+                cell = self._create_cell(val, r, c)
                 cell.textChanged.connect(self._mark_dirty)
-                self.grid.addWidget(cell, r + offset, c)
+                self.grid.addWidget(cell, r + row_offset, c + col_offset)
 
     def _create_cell(self, val, r, c):
         if isinstance(val, str) and val.startswith("{") and val.endswith("}"):
@@ -688,6 +1011,12 @@ class TableWidget(QWidget):
         else:
             self._headers = []
             self._btn_header.setText("+ Header")
+        self._rebuild()
+        self._mark_dirty()
+
+    def _toggle_row_numbers(self, checked):
+        self._show_row_numbers = checked
+        self._btn_row_nums.setText("- Row #" if checked else "+ Row #")
         self._rebuild()
         self._mark_dirty()
 
@@ -727,35 +1056,44 @@ class TableWidget(QWidget):
         self.changed.emit()
 
     def _focus_next_header_cell(self, c):
-        if c < len(self._headers) - 1:
+        col_offset = 1 if self._show_row_numbers else 0
+        if c < len(self._headers) - 1 + col_offset:
             w = self.grid.itemAtPosition(0, c + 1)
             if w and w.widget():
                 w.widget().setFocus()
         elif self.rows:
-            w = self.grid.itemAtPosition(1, 0)
+            w = self.grid.itemAtPosition(1, col_offset)
             if w and w.widget():
                 w.widget().setFocus()
 
     def _focus_prev_header_cell(self, c):
-        if c > 0:
+        col_offset = 1 if self._show_row_numbers else 0
+        if c > col_offset:
             w = self.grid.itemAtPosition(0, c - 1)
             if w and w.widget():
                 w.widget().setFocus()
 
     def to_markdown(self):
         lines = []
-        if self._headers:
-            lines.append(json.dumps({"headers": self._headers}))
+        if self._headers or self._show_row_numbers:
+            meta = {}
+            if self._headers:
+                meta["headers"] = self._headers
+            if self._show_row_numbers:
+                meta["row_numbers"] = True
+            lines.append(json.dumps(meta))
         for r, row in enumerate(self.rows):
             cells = []
             for c in range(len(row)):
-                w = self.grid.itemAtPosition(r, c)
+                w = self.grid.itemAtPosition(r + (1 if self._headers else 0), c + (1 if self._show_row_numbers else 0))
                 text = w.widget().toPlainText() if w and w.widget() else ""
                 cells.append(text)
             lines.append("| " + " | ".join(cells) + " |")
         return "\n".join(lines)
 
     def _focus_next_cell(self, r, c):
+        col_offset = 1 if self._show_row_numbers else 0
+        row_offset = 1 if self._headers else 0
         if r == len(self.rows) - 1 and c == len(self.rows[0]) - 1:
             self._add_row()
             r = len(self.rows) - 1
@@ -765,11 +1103,13 @@ class TableWidget(QWidget):
         else:
             r += 1
             c = 0
-        w = self.grid.itemAtPosition(r, c)
+        w = self.grid.itemAtPosition(r + row_offset, c + col_offset)
         if w and w.widget():
             w.widget().setFocus()
 
     def _focus_prev_cell(self, r, c):
+        col_offset = 1 if self._show_row_numbers else 0
+        row_offset = 1 if self._headers else 0
         if c > 0:
             c -= 1
         elif r > 0:
@@ -777,7 +1117,7 @@ class TableWidget(QWidget):
             c = len(self.rows[0]) - 1
         else:
             return
-        w = self.grid.itemAtPosition(r, c)
+        w = self.grid.itemAtPosition(r + row_offset, c + col_offset)
         if w and w.widget():
             w.widget().setFocus()
 
@@ -907,16 +1247,21 @@ class TaskWidget(QWidget):
             cb.stateChanged.connect(lambda state, t=task: self._toggle_task(t, state))
             h_layout.addWidget(cb)
 
-            edit = QTextEdit()
+            edit = FormattedTextEdit()
             edit.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
             edit.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
             edit.setFrameShape(QFrame.Shape.NoFrame)
+            edit.setAcceptRichText(True)
             edit.setMinimumHeight(26)
             edit.blockSignals(True)
-            edit.setPlainText(task.text)
+            task_text = task.text or ""
+            if task_text.strip().startswith("<") and ">" in task_text.strip():
+                edit.setHtml(task_text)
+            else:
+                edit.setPlainText(task_text)
             edit.blockSignals(False)
             edit.textChanged.connect(lambda t=task, e=edit: (
-                self._update_text(t, e.toPlainText()),
+                self._update_text(t, _get_edit_html_body(e)),
                 self._auto_grow_edit(e, container)
             ))
 
@@ -1113,14 +1458,15 @@ class ResizeHandle(QWidget):
                 self.block_widget._body.preview.setMinimumHeight(editor_h)
             elif isinstance(self.block_widget._body, TableWidget):
                 data_rows = len(self.block_widget._body.rows)
+                total_rows = data_rows + (1 if self.block_widget._body._headers else 0)
                 for i in range(self.block_widget._body.grid.count()):
                     it = self.block_widget._body.grid.itemAt(i)
                     if it and it.widget():
                         if isinstance(it.widget(), TableCell):
                             cell_h = max(30, (new_h - 80) // max(1, data_rows))
                             it.widget().setMaximumHeight(cell_h + 20)
-                        elif isinstance(it.widget(), TableHeaderCell):
-                            hdr_h = max(36, (new_h - 80) // max(1, data_rows + 1))
+                        elif isinstance(it.widget(), (TableHeaderCell, RowNumCell)):
+                            hdr_h = max(36, (new_h - 80) // max(1, total_rows))
                             it.widget().setFixedHeight(hdr_h + 10)
         else:
             in_corner = self._is_in_corner(event.position().toPoint().x())
@@ -1435,14 +1781,15 @@ class ContentBlockWidget(QFrame):
             self._body.preview.setMinimumHeight(inner_h)
         elif isinstance(self._body, TableWidget):
             data_rows = len(self._body.rows)
+            total_rows = data_rows + (1 if self._body._headers else 0)
             for i in range(self._body.grid.count()):
                 w = self._body.grid.itemAt(i)
                 if w and w.widget():
                     if isinstance(w.widget(), TableCell):
                         cell_h = max(30, (h - 64) // max(1, data_rows))
                         w.widget().setMaximumHeight(cell_h)
-                    elif isinstance(w.widget(), TableHeaderCell):
-                        w.widget().setFixedHeight(max(36, (h - 64) // max(1, data_rows + 1)))
+                    elif isinstance(w.widget(), (TableHeaderCell, RowNumCell)):
+                        w.widget().setFixedHeight(max(36, (h - 64) // max(1, total_rows)))
         elif isinstance(self._body, TaskWidget):
             inner_h = max(30, h - 64)
             self._body_scroll.setMinimumHeight(inner_h)
@@ -1659,10 +2006,12 @@ class ContentBlockWidget(QFrame):
 
 class Canvas(QWidget):
     clicked_at = pyqtSignal(int, int)
+    image_pasted = pyqtSignal(object)
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setStyleSheet("background: #ffffff;")
+        self.setAcceptDrops(True)
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
@@ -1681,6 +2030,7 @@ class PageEditor(QWidget):
         self._font_target: tuple[ContentBlockWidget, str] | None = None
         self._active_text_body = None
         self._active_table_cell = None
+        self._tracked_edit: QTextEdit | None = None
         self.setStyleSheet("background: #ffffff;")
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
 
@@ -1763,40 +2113,48 @@ class PageEditor(QWidget):
         toolbar.addWidget(sep)
 
         tb_style = "QToolButton { font-size: 12px; border: 1px solid transparent; border-radius: 3px; padding: 2px 6px; } QToolButton:hover { border-color: #d1d5db; background: white; }"
+        tb_checked_style = "QToolButton { font-size: 12px; border: 1px solid #6366f1; border-radius: 3px; padding: 2px 6px; background: #eef2ff; color: #4f46e5; } QToolButton:hover { border-color: #4f46e5; background: #e0e7ff; }"
+
         self._bold_btn = QToolButton()
         self._bold_btn.setText("B")
+        self._bold_btn.setCheckable(True)
         self._bold_btn.setToolTip("Bold (Ctrl+B)")
-        self._bold_btn.setStyleSheet("QToolButton { font-weight: bold; font-size: 12px; border: 1px solid transparent; border-radius: 3px; padding: 2px 6px; } QToolButton:hover { border-color: #d1d5db; background: white; }")
+        self._bold_btn.setStyleSheet("QToolButton { font-weight: bold; font-size: 12px; border: 1px solid transparent; border-radius: 3px; padding: 2px 6px; } QToolButton:hover { border-color: #d1d5db; background: white; } QToolButton:checked { border-color: #6366f1; background: #eef2ff; color: #4f46e5; }")
 
         self._italic_btn = QToolButton()
         self._italic_btn.setText("I")
+        self._italic_btn.setCheckable(True)
         self._italic_btn.setToolTip("Italic (Ctrl+I)")
-        self._italic_btn.setStyleSheet("QToolButton { font-style: italic; font-size: 12px; border: 1px solid transparent; border-radius: 3px; padding: 2px 6px; } QToolButton:hover { border-color: #d1d5db; background: white; }")
+        self._italic_btn.setStyleSheet("QToolButton { font-style: italic; font-size: 12px; border: 1px solid transparent; border-radius: 3px; padding: 2px 6px; } QToolButton:hover { border-color: #d1d5db; background: white; } QToolButton:checked { border-color: #6366f1; background: #eef2ff; color: #4f46e5; }")
 
         self._h1_btn = QToolButton()
         self._h1_btn.setText("H1")
+        self._h1_btn.setCheckable(True)
         self._h1_btn.setToolTip("Heading 1")
-        self._h1_btn.setStyleSheet(tb_style)
+        self._h1_btn.setStyleSheet(tb_style + " QToolButton:checked { border-color: #6366f1; background: #eef2ff; color: #4f46e5; }")
 
         self._h2_btn = QToolButton()
         self._h2_btn.setText("H2")
+        self._h2_btn.setCheckable(True)
         self._h2_btn.setToolTip("Heading 2")
-        self._h2_btn.setStyleSheet(tb_style)
+        self._h2_btn.setStyleSheet(tb_style + " QToolButton:checked { border-color: #6366f1; background: #eef2ff; color: #4f46e5; }")
 
         self._code_btn = QToolButton()
         self._code_btn.setText("<>")
+        self._code_btn.setCheckable(True)
         self._code_btn.setToolTip("Code")
-        self._code_btn.setStyleSheet(tb_style)
+        self._code_btn.setStyleSheet(tb_style + " QToolButton:checked { border-color: #6366f1; background: #eef2ff; color: #4f46e5; }")
 
         self._link_btn = QToolButton()
         self._link_btn.setText("🔗")
-        self._link_btn.setToolTip("Insert Link")
+        self._link_btn.setToolTip("Attach File / Insert Link")
         self._link_btn.setStyleSheet(tb_style)
 
         self._bullet_btn = QToolButton()
         self._bullet_btn.setText("•")
+        self._bullet_btn.setCheckable(True)
         self._bullet_btn.setToolTip("Bullet List")
-        self._bullet_btn.setStyleSheet(tb_style)
+        self._bullet_btn.setStyleSheet(tb_style + " QToolButton:checked { border-color: #6366f1; background: #eef2ff; color: #4f46e5; }")
 
         for b in [self._bold_btn, self._italic_btn, self._h1_btn, self._h2_btn, self._code_btn, self._link_btn, self._bullet_btn]:
             toolbar.addWidget(b)
@@ -1823,15 +2181,18 @@ class PageEditor(QWidget):
         self._h1_btn.clicked.connect(lambda: self._apply_format("h1"))
         self._h2_btn.clicked.connect(lambda: self._apply_format("h2"))
         self._code_btn.clicked.connect(lambda: self._apply_format("code"))
-        self._link_btn.clicked.connect(lambda: self._apply_format("link"))
+        self._link_btn.clicked.connect(lambda: self._apply_format("attach"))
         self._bullet_btn.clicked.connect(lambda: self._apply_format("bullet"))
 
     @staticmethod
     def _find_block_widget(widget):
-        while widget:
-            if isinstance(widget, ContentBlockWidget):
-                return widget
-            widget = widget.parent()
+        try:
+            while widget:
+                if isinstance(widget, ContentBlockWidget):
+                    return widget
+                widget = widget.parent()
+        except Exception:
+            pass
         return None
 
     def _set_font_combo_from_target(self):
@@ -1844,7 +2205,16 @@ class PageEditor(QWidget):
             size = int(pt) if pt >= 1 else block_w._header_edit.font().pointSize()
         elif part == "list_item":
             line = getattr(block_w, '_active_line', None)
-            size = line.font().pointSize() if line else 13
+            if line:
+                size = line.font().pointSize() if line else 13
+            else:
+                focus_widget = QApplication.focusWidget()
+                if isinstance(focus_widget, QTextEdit):
+                    cursor = focus_widget.textCursor()
+                    pt = cursor.charFormat().fontPointSize()
+                    size = int(pt) if pt >= 1 else focus_widget.font().pointSize() or 13
+                else:
+                    size = 13
         elif part == "table_cell":
             cell = getattr(block_w, '_active_cell', None)
             if cell:
@@ -1873,8 +2243,15 @@ class PageEditor(QWidget):
     def _on_focus_changed(self, old, new):
         if not new:
             return
-        block_w = self._find_block_widget(new)
+        if isinstance(new, RowNumCell):
+            return
+        try:
+            block_w = self._find_block_widget(new)
+        except Exception:
+            return
         if not block_w:
+            # Defer format button sync to avoid crashes during focus transition
+            QTimer.singleShot(0, self._sync_format_buttons)
             return
         if isinstance(new, QTextEdit) and new.objectName() == "block_header_edit":
             self._font_target = (block_w, "header")
@@ -1886,11 +2263,8 @@ class PageEditor(QWidget):
             self._active_table_cell = None
             self._font_target = (block_w, "list_item")
             self._set_font_combo_from_target()
-        elif hasattr(block_w, '_body') and isinstance(block_w._body, TaskWidget):
-            self._active_text_body = None
-            self._active_table_cell = None
-        elif isinstance(new, TableCell) or (isinstance(new, QTextEdit) and isinstance(new.parent(), TableCell)):
-            tc = new if isinstance(new, TableCell) else new.parent()
+        elif isinstance(new, QTextEdit) and isinstance(new.parent(), TableCell):
+            tc = new.parent()
             block_w._active_cell = tc
             self._active_table_cell = tc
             self._active_text_body = None
@@ -1898,6 +2272,11 @@ class PageEditor(QWidget):
             self._set_font_combo_from_target()
             block_w._set_align_target("table_cell", tc._edit)
             block_w._on_table_cell_activated(tc)
+        elif isinstance(new, QTextEdit) and hasattr(block_w, '_body') and isinstance(block_w._body, TaskWidget):
+            self._active_text_body = None
+            self._active_table_cell = None
+            self._font_target = (block_w, "list_item")
+            self._set_font_combo_from_target()
         elif isinstance(new, (MarkdownTextEdit, QTextBrowser)):
             try:
                 self._font_target = (block_w, "content")
@@ -1916,13 +2295,60 @@ class PageEditor(QWidget):
             self._set_font_combo_from_target()
             block_w._set_align_target("table_cell", new)
         elif isinstance(new, QTextEdit) and hasattr(block_w, '_body') and isinstance(block_w._body, MarkdownBlock):
-            # Focus inside an embedded task list — find which one
             p = new.parent()
             while p:
                 if isinstance(p, _EmbeddedTaskContainer):
                     block_w._body.set_active_list_from_widget(p)
                     break
                 p = p.parent()
+        elif isinstance(new, QTextEdit):
+            block_w_parent = self._find_block_widget(new)
+            if block_w_parent and hasattr(block_w_parent, '_body'):
+                if isinstance(block_w_parent._body, TableWidget):
+                    tc = None
+                    p = new.parent()
+                    while p:
+                        if isinstance(p, TableCell):
+                            tc = p
+                            break
+                        p = p.parent()
+                    if tc:
+                        block_w_parent._active_cell = tc
+                        self._active_table_cell = tc
+                        self._active_text_body = None
+                        self._font_target = (block_w_parent, "table_cell")
+                        self._set_font_combo_from_target()
+        # Defer cursor tracking and format button sync to avoid crashes
+        QTimer.singleShot(0, self._connect_cursor_tracking)
+        QTimer.singleShot(0, self._sync_format_buttons)
+
+    def _connect_cursor_tracking(self):
+        try:
+            edit, _ = self._get_active_text_edit()
+            if not edit:
+                return
+            
+            # Check if edit is still a valid widget
+            if not edit.isVisible() or not edit.isEnabled():
+                return
+            
+            # Disconnect previous edit if different
+            if self._tracked_edit and self._tracked_edit is not edit:
+                try:
+                    self._tracked_edit.cursorPositionChanged.disconnect(self._sync_format_buttons)
+                except (TypeError, RuntimeError, AttributeError):
+                    pass
+            
+            # Connect new edit if not already connected
+            if self._tracked_edit is not edit:
+                try:
+                    edit.cursorPositionChanged.disconnect(self._sync_format_buttons)
+                except (TypeError, RuntimeError, AttributeError):
+                    pass
+                edit.cursorPositionChanged.connect(self._sync_format_buttons)
+                self._tracked_edit = edit
+        except Exception:
+            pass
 
     def _on_font_size_changed(self, val_str):
         if not self._font_target:
@@ -1952,6 +2378,18 @@ class PageEditor(QWidget):
                 font = line.font()
                 font.setPointSize(size)
                 line.setFont(font)
+            else:
+                focus_widget = QApplication.focusWidget()
+                if isinstance(focus_widget, QTextEdit):
+                    cursor = focus_widget.textCursor()
+                    if cursor.hasSelection():
+                        fmt = QTextCharFormat()
+                        fmt.setFontPointSize(size)
+                        cursor.mergeCharFormat(fmt)
+                    else:
+                        fmt = QTextCharFormat()
+                        fmt.setFontPointSize(size)
+                        focus_widget.setCurrentCharFormat(fmt)
         elif part == "table_cell":
             cell = getattr(block_w, '_active_cell', None)
             if cell:
@@ -1972,31 +2410,104 @@ class PageEditor(QWidget):
             block_w.block.content_font_size = size
             block_w.save()
 
-    def _get_active_text_block(self):
-        for w in self._block_widgets:
-            if hasattr(w, '_body') and isinstance(w._body, MarkdownBlock):
-                if w._body.editor.hasFocus():
-                    return w._body
-        return None
+    def _get_active_text_edit(self):
+        try:
+            focus_widget = QApplication.focusWidget()
+            if focus_widget:
+                if isinstance(focus_widget, MarkdownTextEdit):
+                    for w in self._block_widgets:
+                        if hasattr(w, '_body') and isinstance(w._body, MarkdownBlock):
+                            if w._body.editor.hasFocus():
+                                return w._body.editor, w
+                elif isinstance(focus_widget, QTextEdit):
+                    block_w = self._find_block_widget(focus_widget)
+                    if block_w:
+                        if isinstance(focus_widget.parent(), TableCell):
+                            return focus_widget, block_w
+                        if isinstance(block_w._body, TaskWidget):
+                            return focus_widget, block_w
+                        if isinstance(block_w._body, MarkdownBlock):
+                            p = focus_widget.parent()
+                            while p:
+                                if isinstance(p, _EmbeddedTaskContainer):
+                                    return focus_widget, block_w
+                                p = p.parent()
+                        if isinstance(block_w._body, TableWidget):
+                            return focus_widget, block_w
+            if self._active_text_body and hasattr(self._active_text_body, 'editor'):
+                return self._active_text_body.editor, self._find_block_widget(self._active_text_body)
+            if self._active_table_cell and hasattr(self._active_table_cell, '_edit'):
+                block_w = self._find_block_widget(self._active_table_cell)
+                return self._active_table_cell._edit, block_w
+        except Exception:
+            pass
+        return None, None
 
     def _apply_format(self, fmt):
-        body = self._get_active_text_block()
-        if not body:
+        edit, block_w = self._get_active_text_edit()
+        if not edit:
             return
-        if fmt == "bold":
-            body.insert_formatting("**", "**")
-        elif fmt == "italic":
-            body.insert_formatting("*", "*")
-        elif fmt == "h1":
-            body.insert_heading(1)
-        elif fmt == "h2":
-            body.insert_heading(2)
-        elif fmt == "code":
-            body.insert_formatting("`", "`")
-        elif fmt == "link":
-            body.insert_link()
-        elif fmt == "bullet":
-            body.insert_bullet_list()
+        if isinstance(edit, MarkdownTextEdit) and block_w and hasattr(block_w, '_body') and isinstance(block_w._body, MarkdownBlock):
+            block_w._body._switch_to_edit()
+        _apply_format_to_edit(edit, fmt, self)
+        QTimer.singleShot(10, self._sync_format_buttons)
+
+    def _sync_format_buttons(self):
+        try:
+            # Check if buttons exist (might not during initialization)
+            if not hasattr(self, '_bold_btn') or not self._bold_btn:
+                return
+            
+            edit, _ = self._get_active_text_edit()
+            if not edit:
+                self._bold_btn.blockSignals(True)
+                self._italic_btn.blockSignals(True)
+                self._h1_btn.blockSignals(True)
+                self._h2_btn.blockSignals(True)
+                self._code_btn.blockSignals(True)
+                self._bullet_btn.blockSignals(True)
+                self._bold_btn.setChecked(False)
+                self._italic_btn.setChecked(False)
+                self._h1_btn.setChecked(False)
+                self._h2_btn.setChecked(False)
+                self._code_btn.setChecked(False)
+                self._bullet_btn.setChecked(False)
+                self._bold_btn.blockSignals(False)
+                self._italic_btn.blockSignals(False)
+                self._h1_btn.blockSignals(False)
+                self._h2_btn.blockSignals(False)
+                self._code_btn.blockSignals(False)
+                self._bullet_btn.blockSignals(False)
+                return
+
+            cursor = edit.textCursor()
+            char_fmt = cursor.charFormat()
+
+            is_bold = char_fmt.fontWeight() >= QFont.Weight.Bold
+            is_italic = char_fmt.fontItalic()
+            pt_size = char_fmt.fontPointSize()
+            if pt_size < 1:
+                pt_size = edit.font().pointSize()
+            is_h1 = pt_size >= 19 and is_bold
+            is_h2 = not is_h1 and pt_size >= 15 and is_bold
+            font_family = char_fmt.fontFamily() or edit.font().family()
+            is_code = font_family and "consol" in font_family.lower()
+
+            text_list = cursor.block().textList()
+            is_bullet = text_list is not None and text_list.format().style() == QTextListFormat.Style.ListDisc
+
+            for btn in (self._bold_btn, self._italic_btn, self._h1_btn, self._h2_btn, self._code_btn, self._bullet_btn):
+                btn.blockSignals(True)
+            self._bold_btn.setChecked(is_bold)
+            self._italic_btn.setChecked(is_italic)
+            self._h1_btn.setChecked(is_h1)
+            self._h2_btn.setChecked(is_h2)
+            self._code_btn.setChecked(is_code)
+            self._bullet_btn.setChecked(is_bullet)
+            for btn in (self._bold_btn, self._italic_btn, self._h1_btn, self._h2_btn, self._code_btn, self._bullet_btn):
+                btn.blockSignals(False)
+        except Exception:
+            pass
 
     def clear_editor(self):
         self.current_page_id = None
@@ -2162,8 +2673,75 @@ class PageEditor(QWidget):
                 return
             self._delete_selected_blocks()
             event.accept()
+        elif event.key() == Qt.Key.Key_V and event.modifiers() == Qt.KeyboardModifier.ControlModifier:
+            focus_widget = QApplication.focusWidget()
+            if focus_widget and isinstance(focus_widget, (QTextEdit, QLineEdit, FormattedTextEdit, MarkdownTextEdit)):
+                event.ignore()
+                return
+            clipboard = QApplication.clipboard()
+            mime = clipboard.mimeData()
+            if mime and mime.hasImage():
+                img = mime.imageData()
+                if isinstance(img, QImage) and not img.isNull():
+                    self._paste_image_to_new_block(img)
+                    event.accept()
+                    return
+            super().keyPressEvent(event)
         else:
             super().keyPressEvent(event)
+
+    def _paste_image_to_new_block(self, img):
+        if not self.current_page_id:
+            return
+        try:
+            if self._canvas_click_pos is not None:
+                pos_x, pos_y = self._canvas_click_pos
+                self._canvas_click_pos = None
+            else:
+                max_bottom = 50
+                for w in self._block_widgets:
+                    b = w.y() + w.height()
+                    if b > max_bottom:
+                        max_bottom = b
+                pos_x = 50
+                pos_y = max_bottom + 20
+            block = ContentBlock(
+                page_id=self.current_page_id,
+                block_type="text",
+                pos_x=pos_x,
+                pos_y=pos_y,
+            )
+            self.block_repo.create(block)
+            self.load_page(self.current_page_id)
+            QTimer.singleShot(0, lambda: self._embed_image_in_last_block(img))
+        except Exception as e:
+            traceback.print_exc()
+
+    def _embed_image_in_last_block(self, img):
+        if not self._block_widgets:
+            return
+        last_block = self._block_widgets[-1]
+        if hasattr(last_block, '_body') and isinstance(last_block._body, MarkdownBlock):
+            edit = last_block._body.editor
+            last_block._body._switch_to_edit()
+            cursor = edit.textCursor()
+            cursor.movePosition(QTextCursor.MoveOperation.End)
+            doc = edit.document()
+            img_name = f"img_{uuid.uuid4().hex}.png"
+            doc.addResource(QTextDocument.ResourceType.ImageResource, QUrl(img_name), img)
+            img_fmt = QTextImageFormat()
+            max_w = min(img.width(), edit.viewport().width() - 40) if edit.viewport().width() > 60 else img.width()
+            if img.width() > max_w:
+                ratio = max_w / img.width()
+                img_fmt.setWidth(int(max_w))
+                img_fmt.setHeight(int(img.height() * ratio))
+            else:
+                img_fmt.setWidth(img.width())
+                img_fmt.setHeight(img.height())
+            img_fmt.setName(img_name)
+            cursor.insertImage(img_fmt)
+            last_block.save()
+            QTimer.singleShot(0, self._scroll_to_newest_block)
 
     def _scroll_to_newest_block(self):
         if self._block_widgets:

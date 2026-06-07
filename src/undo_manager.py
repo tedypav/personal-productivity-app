@@ -50,8 +50,8 @@ def _capture_children(parent_id: int) -> list:
 def _page_dict(page):
     return {
         "id": page.id, "title": page.title, "parent_id": page.parent_id,
-        "sort_order": page.sort_order, "created_at": page.created_at,
-        "updated_at": page.updated_at,
+        "sort_order": page.sort_order, "page_type": page.page_type,
+        "created_at": page.created_at, "updated_at": page.updated_at,
     }
 
 
@@ -117,10 +117,10 @@ class UndoManager:
     def _restore_page(self, conn, action):
         p = action["page"]
         conn.execute(
-            """INSERT INTO pages (id, title, parent_id, sort_order, created_at, updated_at)
-               VALUES (?, ?, ?, ?, COALESCE(?, datetime('now')), COALESCE(?, datetime('now')))""",
+            """INSERT INTO pages (id, title, parent_id, sort_order, page_type, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, COALESCE(?, datetime('now')), COALESCE(?, datetime('now')))""",
             (p["id"], p["title"], p.get("parent_id"), p.get("sort_order", 0),
-             p.get("created_at"), p.get("updated_at"))
+             p.get("page_type", "page"), p.get("created_at"), p.get("updated_at"))
         )
         for b in action["blocks"]:
             conn.execute(
