@@ -1,15 +1,22 @@
+import os
+
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QTreeWidget, QTreeWidgetItem,
     QPushButton, QHBoxLayout, QInputDialog, QMessageBox, QMenu,
     QDialog, QListWidget, QDialogButtonBox, QLabel, QLineEdit, QSpinBox,
-    QAbstractItemView
+    QAbstractItemView, QSizePolicy
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QDate, QMimeData
-from PyQt6.QtGui import QKeySequence, QAction, QDrag
+from PyQt6.QtCore import Qt, pyqtSignal, QDate, QMimeData, QSize
+from PyQt6.QtGui import QKeySequence, QAction, QDrag, QIcon
 from src.repositories.page_repo import PageRepo
 from src.models.page import Page
 from src.settings import load_settings
 from src.undo_manager import undo_manager, capture_page_tree
+
+
+def _get_icon_path(name):
+    """Get path to an icon file."""
+    return os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "assets", "icons", f"{name}.svg")
 
 
 class PageTreeWidget(QTreeWidget):
@@ -185,11 +192,13 @@ class Sidebar(QWidget):
         self.tree.setHeaderHidden(True)
         self.tree.setIndentation(16)
         self.tree.setAnimated(True)
+        self.tree.setIconSize(QSize(20, 20))
         self.tree.setSelectionMode(QTreeWidget.SelectionMode.ExtendedSelection)
         self.tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.tree.customContextMenuRequested.connect(self._show_context_menu)
         self.tree.itemClicked.connect(self._on_item_clicked)
-        layout.addWidget(self.tree)
+        self.tree.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        layout.addWidget(self.tree, 1)  # Stretch factor 1 to fill remaining space
 
         self.btn_expand.clicked.connect(self.tree.expandAll)
         self.btn_collapse.clicked.connect(self.tree.collapseAll)
@@ -221,17 +230,22 @@ class Sidebar(QWidget):
         pages = self.repo.get_all()
         root_pages = [p for p in pages if p.parent_id is None]
 
+        folder_icon = QIcon(_get_icon_path("folder"))
+        page_icon = QIcon(_get_icon_path("page"))
+
         def add_children(parent_item, parent_id):
             children = [p for p in pages if p.parent_id == parent_id]
             for page in sorted(children, key=lambda x: x.sort_order):
                 item = QTreeWidgetItem(parent_item)
                 if page.page_type == "folder":
-                    item.setText(0, f"📁 {page.title}")
+                    item.setIcon(0, folder_icon)
+                    item.setText(0, page.title)
                     # Make folders bold
                     font = item.font(0)
                     font.setBold(True)
                     item.setFont(0, font)
                 else:
+                    item.setIcon(0, page_icon)
                     item.setText(0, page.title)
                 item.setData(0, Qt.ItemDataRole.UserRole, page.id)
                 item.setData(0, Qt.ItemDataRole.UserRole + 1, page.page_type)
@@ -240,12 +254,14 @@ class Sidebar(QWidget):
         for page in sorted(root_pages, key=lambda x: x.sort_order):
             item = QTreeWidgetItem(self.tree)
             if page.page_type == "folder":
-                item.setText(0, f"📁 {page.title}")
+                item.setIcon(0, folder_icon)
+                item.setText(0, page.title)
                 # Make folders bold
                 font = item.font(0)
                 font.setBold(True)
                 item.setFont(0, font)
             else:
+                item.setIcon(0, page_icon)
                 item.setText(0, page.title)
             item.setData(0, Qt.ItemDataRole.UserRole, page.id)
             item.setData(0, Qt.ItemDataRole.UserRole + 1, page.page_type)
@@ -317,10 +333,26 @@ class Sidebar(QWidget):
         self._bulk_create_dialog()
 
     def _bulk_create_dialog(self):
-        from PyQt6.QtWidgets import QDialog, QVBoxLayout, QComboBox, QDateEdit, QLabel, QDialogButtonBox
+        from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QComboBox, QDateEdit, QLabel, QDialogButtonBox
+        from PyQt6.QtGui import QIcon
+        import os
         dialog = QDialog(self)
         dialog.setWindowTitle("Bulk Create Pages")
+        
+        # Title with logo
+        title_layout = QHBoxLayout()
+        logo_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "assets", "icons", "logo_icon.svg")
+        if os.path.exists(logo_path):
+            logo_label = QLabel()
+            logo_label.setPixmap(QIcon(logo_path).pixmap(28, 28))
+            title_layout.addWidget(logo_label)
+        title_label = QLabel("Bulk Create Pages")
+        title_label.setStyleSheet("font-size: 16px; font-weight: 600; color: #2E2B2B; font-family: 'Playfair Display', serif;")
+        title_layout.addWidget(title_label)
+        title_layout.addStretch()
+        
         layout = QVBoxLayout(dialog)
+        layout.addLayout(title_layout)
 
         mode_combo = QComboBox()
         mode_combo.addItems(["Days", "Weeks", "Years"])
@@ -553,9 +585,25 @@ class Sidebar(QWidget):
             self.pages_changed.emit()
 
     def _bulk_named_dialog(self):
+        from PyQt6.QtGui import QIcon
+        import os
         dialog = QDialog(self)
         dialog.setWindowTitle("Bulk Create Named Pages")
+        
+        # Title with logo
+        title_layout = QHBoxLayout()
+        logo_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "assets", "icons", "logo_icon.svg")
+        if os.path.exists(logo_path):
+            logo_label = QLabel()
+            logo_label.setPixmap(QIcon(logo_path).pixmap(28, 28))
+            title_layout.addWidget(logo_label)
+        title_label = QLabel("Bulk Create Named Pages")
+        title_label.setStyleSheet("font-size: 16px; font-weight: 600; color: #2E2B2B; font-family: 'Playfair Display', serif;")
+        title_layout.addWidget(title_label)
+        title_layout.addStretch()
+        
         layout = QVBoxLayout(dialog)
+        layout.addLayout(title_layout)
 
         layout.addWidget(QLabel("Base name:"))
         name_edit = QLineEdit("Page")
@@ -679,7 +727,20 @@ class Sidebar(QWidget):
         dialog.setMinimumWidth(300)
         dialog.setMinimumHeight(400)
         
+        # Title with logo
+        title_layout = QHBoxLayout()
+        logo_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "assets", "icons", "logo_icon.svg")
+        if os.path.exists(logo_path):
+            logo_label = QLabel()
+            logo_label.setPixmap(QIcon(logo_path).pixmap(28, 28))
+            title_layout.addWidget(logo_label)
+        title_label = QLabel("Move to Folder")
+        title_label.setStyleSheet("font-size: 16px; font-weight: 600; color: #2E2B2B; font-family: 'Playfair Display', serif;")
+        title_layout.addWidget(title_label)
+        title_layout.addStretch()
+        
         layout = QVBoxLayout(dialog)
+        layout.addLayout(title_layout)
         
         # Add tree widget to show folder structure
         folder_tree = QTreeWidget()
@@ -688,7 +749,8 @@ class Sidebar(QWidget):
         
         # Add root option
         root_item = QTreeWidgetItem(folder_tree)
-        root_item.setText(0, "📂 Root (no folder)")
+        root_item.setIcon(0, QIcon(_get_icon_path("folder")))
+        root_item.setText(0, "Root (no folder)")
         root_item.setData(0, Qt.ItemDataRole.UserRole, None)
         
         # Get all folders
@@ -699,15 +761,17 @@ class Sidebar(QWidget):
             children = [f for f in folders if f.parent_id == parent_id]
             for folder in sorted(children, key=lambda x: x.sort_order):
                 item = QTreeWidgetItem(parent_item)
-                item.setText(0, f"📁 {folder.title}")
+                item.setIcon(0, QIcon(_get_icon_path("folder")))
+                item.setText(0, folder.title)
                 item.setData(0, Qt.ItemDataRole.UserRole, folder.id)
                 add_folder_children(item, folder.id)
-        
+
         # Add all root-level folders
         root_folders = [f for f in folders if f.parent_id is None]
         for folder in sorted(root_folders, key=lambda x: x.sort_order):
             item = QTreeWidgetItem(folder_tree)
-            item.setText(0, f"📁 {folder.title}")
+            item.setIcon(0, QIcon(_get_icon_path("folder")))
+            item.setText(0, folder.title)
             item.setData(0, Qt.ItemDataRole.UserRole, folder.id)
             add_folder_children(item, folder.id)
         
@@ -799,7 +863,21 @@ class Sidebar(QWidget):
 
         dialog = QDialog(self)
         dialog.setWindowTitle("Insert Template into Selected Pages")
+        
+        # Title with logo
+        title_layout = QHBoxLayout()
+        logo_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "assets", "icons", "logo_icon.svg")
+        if os.path.exists(logo_path):
+            logo_label = QLabel()
+            logo_label.setPixmap(QIcon(logo_path).pixmap(28, 28))
+            title_layout.addWidget(logo_label)
+        title_label = QLabel("Insert Template into Selected Pages")
+        title_label.setStyleSheet("font-size: 16px; font-weight: 600; color: #2E2B2B; font-family: 'Playfair Display', serif;")
+        title_layout.addWidget(title_label)
+        title_layout.addStretch()
+        
         layout = QVBoxLayout(dialog)
+        layout.addLayout(title_layout)
         list_widget = QListWidget()
         for t in templates:
             list_widget.addItem(f"{t.name} ({t.category})")
@@ -861,10 +939,7 @@ class Sidebar(QWidget):
             return
         item = items[0]
         page_id = item.data(0, Qt.ItemDataRole.UserRole)
-        page_type = item.data(0, Qt.ItemDataRole.UserRole + 1) or "page"
         current = item.text(0)
-        if page_type == "folder":
-            current = current.replace("📁 ", "", 1)
         title, ok = QInputDialog.getText(self, "Rename", "New name:", text=current)
         if ok and title.strip():
             page = self.repo.get_by_id(page_id)

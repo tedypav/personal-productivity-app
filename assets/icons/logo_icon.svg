@@ -1,36 +1,60 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+<svg width="128" height="128" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <linearGradient id="bgGrad" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#FFF8F5"/>
       <stop offset="1" stop-color="#FFF3F8"/>
     </linearGradient>
-    <linearGradient id="accentGrad" x1="0" y2="1">
-      <stop offset="0" stop-color="#CFA6D6"/>
+    <linearGradient id="pencilBody" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#E8C547"/>
+      <stop offset="0.35" stop-color="#F5E27A"/>
+      <stop offset="0.5" stop-color="#F8ECA0"/>
+      <stop offset="0.65" stop-color="#F5E27A"/>
+      <stop offset="1" stop-color="#D4A373"/>
+    </linearGradient>
+    <linearGradient id="eraserGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F9D5DE"/>
+      <stop offset="0.4" stop-color="#FFD8C2"/>
       <stop offset="1" stop-color="#F7D1DC"/>
     </linearGradient>
     <linearGradient id="heartGrad" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#F7D1DC"/>
       <stop offset="1" stop-color="#FFD8C2"/>
     </linearGradient>
+    <linearGradient id="lineGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#D4A373" stop-opacity="0.6"/>
+      <stop offset="1" stop-color="#F7D1DC" stop-opacity="0.15"/>
+    </linearGradient>
     <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#2E2B2B" flood-opacity="0.06"/>
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#2E2B2B" flood-opacity="0.06"/>
+    </filter>
+    <filter id="objShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="2" dy="3" stdDeviation="3" flood-color="#2E2B2B" flood-opacity="0.1"/>
     </filter>
   </defs>
-
-  <!-- Background circle -->
-  <circle cx="64" cy="64" r="60" fill="url(#bgGrad)" stroke="#F0E6E8" stroke-width="1" filter="url(#softShadow)"/>
-
-  <!-- P letter stylized -->
-  <text x="36" y="82" font-family="Playfair Display, Georgia, serif" font-weight="600" font-size="52" fill="#2E2B2B" opacity="0.85">p</text>
-
-  <!-- Small heart accent -->
-  <g transform="translate(82, 28) scale(0.25)">
-    <path d="M 50 88 C 25 88 0 63 0 40 C 0 15 25 0 50 25 C 75 0 100 15 100 40 C 100 63 75 88 50 88 Z" fill="url(#heartGrad)" opacity="0.8"/>
+  <circle cx="100" cy="100" r="96" fill="url(#bgGrad)" stroke="#F0E6E8" stroke-width="1" filter="url(#softShadow)"/>
+  <path d="M 122 152 C 130 144, 142 148, 152 138" fill="none" stroke="url(#lineGrad)" stroke-width="1.8" stroke-linecap="round" opacity="0.5"/>
+  <g filter="url(#objShadow)" transform="rotate(-45, 100, 100)">
+    <rect x="90" y="42" width="20" height="16" rx="4" fill="url(#eraserGrad)"/>
+    <rect x="92" y="44" width="16" height="5" rx="2" fill="#FFFFFF" opacity="0.25"/>
+    <rect x="89" y="58" width="22" height="6" rx="1" fill="#D4A373"/>
+    <rect x="91" y="59.5" width="18" height="2" rx="0.5" fill="#FFD8C2" opacity="0.4"/>
+    <line x1="91" y1="61" x2="109" y2="61" stroke="#CFA6D6" stroke-width="0.3" opacity="0.5"/>
+    <rect x="90" y="64" width="20" height="48" rx="2" fill="url(#pencilBody)"/>
+    <rect x="93" y="66" width="5" height="44" rx="1" fill="#FFFFFF" opacity="0.2"/>
+    <rect x="102" y="66" width="4" height="44" rx="1" fill="#8B7A3D" opacity="0.12"/>
+    <rect x="89" y="112" width="22" height="7" rx="1.5" fill="#D0D0D0"/>
+    <rect x="91" y="113" width="18" height="2.5" rx="0.5" fill="#E8E8E8" opacity="0.6"/>
+    <line x1="91" y1="115.5" x2="109" y2="115.5" stroke="#A8A8A8" stroke-width="0.4"/>
+    <polygon points="90,119 100,148 110,119" fill="#F5DEB3"/>
+    <polygon points="93,121 100,143 107,121" fill="#EED9A4" opacity="0.4"/>
+    <polygon points="94,140 100,156 106,140" fill="#6B5B3D"/>
+    <polygon points="96,143 100,152 104,143" fill="#8B7A3D" opacity="0.5"/>
   </g>
-
-  <!-- Decorative dots -->
-  <circle cx="38" cy="95" r="2" fill="#CFA6D6" opacity="0.5"/>
-  <circle cx="48" cy="95" r="2" fill="#F7D1DC" opacity="0.5"/>
-  <circle cx="58" cy="95" r="2" fill="#FFD8C2" opacity="0.5"/>
+  <g transform="translate(142, 35) scale(0.26)">
+    <path d="M 50 88 C 25 88 0 63 0 40 C 0 15 25 0 50 25 C 75 0 100 15 100 40 C 100 63 75 88 50 88 Z" fill="url(#heartGrad)" opacity="0.7"/>
+  </g>
+  <circle cx="50" cy="155" r="2.5" fill="#CFA6D6" opacity="0.35"/>
+  <circle cx="60" cy="160" r="2" fill="#F7D1DC" opacity="0.3"/>
+  <circle cx="68" cy="153" r="1.5" fill="#FFD8C2" opacity="0.25"/>
 </svg>

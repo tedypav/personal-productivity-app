@@ -1,4 +1,5 @@
 import json
+import os
 
 from PyQt6.QtWidgets import (
     QMainWindow, QSplitter, QInputDialog, QMessageBox,
@@ -6,7 +7,7 @@ from PyQt6.QtWidgets import (
     QComboBox, QSpinBox, QDialogButtonBox, QWidget
 )
 from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtGui import QAction, QKeySequence
+from PyQt6.QtGui import QAction, QKeySequence, QIcon
 
 from src.ui.sidebar import Sidebar
 from src.ui.editor import PageEditor
@@ -18,6 +19,11 @@ from src.settings import load_settings, save_settings
 from src.undo_manager import undo_manager, capture_page_tree
 
 
+def get_logo_path():
+    """Get the path to the logo icon."""
+    return os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "assets", "icons", "logo_icon.svg")
+
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -27,6 +33,11 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Personal Productivity App")
         self.resize(1200, 800)
         self.setMinimumSize(900, 600)
+
+        # Set window icon
+        logo_path = get_logo_path()
+        if os.path.exists(logo_path):
+            self.setWindowIcon(QIcon(logo_path))
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
 
@@ -187,7 +198,21 @@ class MainWindow(QMainWindow):
     def _show_settings(self):
         dialog = QDialog(self)
         dialog.setWindowTitle("Settings")
+        
+        # Title with logo
+        title_layout = QHBoxLayout()
+        logo_path = get_logo_path()
+        if os.path.exists(logo_path):
+            logo_label = QLabel()
+            logo_label.setPixmap(QIcon(logo_path).pixmap(28, 28))
+            title_layout.addWidget(logo_label)
+        title_label = QLabel("Settings")
+        title_label.setStyleSheet("font-size: 16px; font-weight: 600; color: #2E2B2B; font-family: 'Playfair Display', serif;")
+        title_layout.addWidget(title_label)
+        title_layout.addStretch()
+        
         layout = QVBoxLayout(dialog)
+        layout.addLayout(title_layout)
 
         layout.addWidget(QLabel("Week starts on:"))
         week_combo = QComboBox()

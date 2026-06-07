@@ -11,7 +11,7 @@ from PyQt6.QtWidgets import (
     QScrollArea, QDialog, QDialogButtonBox, QMessageBox,
     QListWidget, QFrame, QTextBrowser, QSizePolicy,
     QToolButton, QApplication, QButtonGroup, QStackedWidget,
-    QFileDialog, QInputDialog
+    QFileDialog, QInputDialog, QSpinBox, QDateEdit
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QPoint, QEvent, QMimeData, QUrl
 from PyQt6.QtGui import (
@@ -3143,9 +3143,24 @@ class PageEditor(QWidget):
             QMessageBox.information(self, "Templates", "No templates saved yet.")
             return
 
+        from PyQt6.QtGui import QIcon
         dialog = QDialog(self)
         dialog.setWindowTitle("Insert Template")
+        
+        # Title with logo
+        title_layout = QHBoxLayout()
+        logo_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "assets", "icons", "logo_icon.svg")
+        if os.path.exists(logo_path):
+            logo_label = QLabel()
+            logo_label.setPixmap(QIcon(logo_path).pixmap(28, 28))
+            title_layout.addWidget(logo_label)
+        title_label = QLabel("Insert Template")
+        title_label.setStyleSheet("font-size: 16px; font-weight: 600; color: #2E2B2B; font-family: 'Playfair Display', serif;")
+        title_layout.addWidget(title_label)
+        title_layout.addStretch()
+        
         layout = QVBoxLayout(dialog)
+        layout.addLayout(title_layout)
         list_widget = QListWidget()
         for t in templates:
             list_widget.addItem(f"{t.name} ({t.category})")
