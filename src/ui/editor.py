@@ -347,6 +347,80 @@ class TableWidget(QWidget):
         BlockRepo().update(ContentBlock(id=self.block_id, content_markdown=self.to_markdown()))
 
 
+class _TaskRowResizeHandle(QWidget):
+    def __init__(self, row_widget):
+        super().__init__()
+        self._row_widget = row_widget
+        self.setFixedHeight(4)
+        self.setCursor(Qt.CursorShape.SplitVCursor)
+        self._dragging = False
+        self._start_y = 0
+        self._start_h = 0
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._dragging = True
+            self._start_y = event.globalPosition().y()
+            self._start_h = self._row_widget.height()
+
+    def mouseMoveEvent(self, event):
+        if self._dragging:
+            dy = event.globalPosition().y() - self._start_y
+            new_h = max(30, int(self._start_h + dy))
+            self._row_widget.setFixedHeight(new_h)
+
+    def mouseReleaseEvent(self, event):
+        self._dragging = False
+
+    def paintEvent(self, event):
+        p = QPainter(self)
+        r = self.rect()
+        p.fillRect(r, QColor("#e8e8e8"))
+        # Subtle center line
+        y = r.height() // 2
+        p.setPen(QColor("#cccccc"))
+        p.drawLine(r.left() + 10, y, r.right() - 10, y)
+
+
+class _TaskRowSplitHandle(QWidget):
+    """Drag handle between the QTextEdit and sidebar that resizes only the edit width."""
+
+    def __init__(self, edit_widget):
+        super().__init__()
+        self._edit = edit_widget
+        self.setFixedWidth(8)
+        self.setCursor(Qt.CursorShape.SplitHCursor)
+        self._dragging = False
+        self._start_x = 0
+        self._start_edit_w = 0
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._dragging = True
+            self._start_x = event.globalPosition().x()
+            self._start_edit_w = self._edit.width()
+            event.accept()
+
+    def mouseMoveEvent(self, event):
+        if self._dragging:
+            dx = event.globalPosition().x() - self._start_x
+            new_w = max(100, int(self._start_edit_w + dx))
+            pw = self.parent().width()
+            available = pw - self.width()
+            self._edit.setFixedWidth(min(new_w, available))
+
+    def mouseReleaseEvent(self, event):
+        self._dragging = False
+
+    def paintEvent(self, event):
+        p = QPainter(self)
+        r = self.rect()
+        p.fillRect(r, QColor("#eef0f4"))
+        x = r.width() // 2
+        p.setPen(QColor("#bbbfc8"))
+        p.drawLine(x, r.top() + 3, x, r.bottom() - 3)
+
+
 class TaskWidget(QWidget):
     task_changed = pyqtSignal()
 
@@ -356,36 +430,68 @@ class TaskWidget(QWidget):
         self.task_repo = TaskRepo()
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
         self._load()
 
     def _clear(self):
         layout = self.layout()
-        for i in reversed(range(layout.count())):
-            w = layout.itemAt(i).widget()
-            if w:
-                w.setParent(None)
-            else:
-                item = layout.itemAt(i)
-                if item:
-                    layout.removeItem(item)
+        while layout.count():
+            item = layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+            elif item.layout():
+                sub = item.layout()
+                while sub.count():
+                    sub_item = sub.takeAt(0)
+                    if sub_item.widget():
+                        sub_item.widget().deleteLater()
 
     def _load(self):
         self._clear()
         layout = self.layout()
 
         tasks = self.task_repo.get_by_block(self.block_id)
-        if not tasks:
-            task = Task(content_block_id=self.block_id, text="New task")
-            self.task_repo.create(task)
-            tasks = [task]
 
         for task in tasks:
-            row = QHBoxLayout()
+            container = QWidget()
+            v_layout = QVBoxLayout(container)
+            v_layout.setContentsMargins(0, 0, 0, 0)
+            v_layout.setSpacing(0)
+
+            # Top row
+            h_layout = QHBoxLayout()
+            h_layout.setContentsMargins(0, 0, 0, 0)
+            h_layout.setSpacing(0)
+
             cb = QCheckBox()
             cb.setChecked(bool(task.is_checked))
             cb.stateChanged.connect(lambda state, t=task: self._toggle_task(t, state))
-            edit = QLineEdit(task.text)
-            edit.textChanged.connect(lambda text, t=task: self._update_text(t, text))
+            h_layout.addWidget(cb)
+
+            edit = QTextEdit()
+            edit.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+            edit.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+            edit.setFrameShape(QFrame.Shape.NoFrame)
+            edit.setMinimumHeight(26)
+            edit.blockSignals(True)
+            edit.setPlainText(task.text)
+            edit.blockSignals(False)
+            edit.textChanged.connect(lambda t=task, e=edit: (
+                self._update_text(t, e.toPlainText()),
+                self._auto_grow_edit(e, container)
+            ))
+
+            # edit_container stretches; inside: edit at left, split handle, stretch pushes them left
+            edit_container = QWidget()
+            edit_inner = QHBoxLayout(edit_container)
+            edit_inner.setContentsMargins(0, 0, 0, 0)
+            edit_inner.setSpacing(0)
+            edit_inner.addWidget(edit)
+            split_handle = _TaskRowSplitHandle(edit)
+            edit_inner.addWidget(split_handle)
+            edit_inner.addStretch(1)
+
+            h_layout.addWidget(edit_container, 1)
 
             rec_combo = QComboBox()
             rec_combo.addItems(["none", "daily", "weekly", "monthly"])
@@ -404,16 +510,36 @@ class TaskWidget(QWidget):
 
             del_btn.clicked.connect(make_del_handler(task))
 
-            row.addWidget(cb)
-            row.addWidget(edit, 1)
-            row.addWidget(QLabel("Recur:"))
-            row.addWidget(rec_combo)
-            row.addWidget(del_btn)
-            layout.addLayout(row)
+            # Sidebar stays at right edge of the outer row
+            sidebar = QWidget()
+            side_inner = QHBoxLayout(sidebar)
+            side_inner.setContentsMargins(0, 0, 0, 0)
+            side_inner.setSpacing(0)
+            side_inner.addWidget(QLabel("Recur:"))
+            side_inner.addWidget(rec_combo)
+            side_inner.addWidget(del_btn)
 
-        add_btn = QPushButton("+ Add Task")
-        add_btn.clicked.connect(self._add_task)
-        layout.addWidget(add_btn)
+            h_layout.addWidget(sidebar)
+
+            v_layout.addLayout(h_layout)
+
+            height_handle = _TaskRowResizeHandle(container)
+            v_layout.addWidget(height_handle)
+
+            # Start at single-line height; auto-grow after layout resolves
+            container.setFixedHeight(30)
+            QTimer.singleShot(0, lambda c=container, e=edit: (
+                self._auto_grow_edit(e, c)
+            ))
+
+            layout.addWidget(container)
+
+    def _auto_grow_edit(self, edit, container):
+        doc_h = edit.document().size().height()
+        ideal_edit_h = max(26, int(doc_h) + 4)
+        ideal_container_h = ideal_edit_h + 6
+        if ideal_container_h > container.height():
+            container.setFixedHeight(ideal_container_h)
 
     def _toggle_task(self, task, state):
         task.is_checked = bool(state)
@@ -523,6 +649,7 @@ class ResizeHandle(QWidget):
             self._start_height = self.block_widget.height()
             self._start_width = self.block_widget.width()
             self._in_corner = self._is_in_corner(event.position().toPoint().x())
+            self.block_widget._manual_resize = True
             self.update()
 
     def mouseMoveEvent(self, event):
@@ -600,6 +727,11 @@ class ResizeHandleHeader(QWidget):
             self._start_y = event.globalPosition().toPoint().y()
             self._start_h = self._header_container.height()
             self.setStyleSheet("background: #6366f1;")
+            block_w = self._header_container.parent()
+            while block_w and not isinstance(block_w, ContentBlockWidget):
+                block_w = block_w.parent()
+            if block_w:
+                block_w._manual_resize = True
 
     def mouseMoveEvent(self, event):
         if self._dragging:
@@ -642,6 +774,7 @@ class ContentBlockWidget(QFrame):
         self._right_resize_start_w = 0
         self._align_target_edit = None
         self._align_target_kind = None
+        self._manual_resize = False
 
         self._build_ui()
 
@@ -657,6 +790,7 @@ class ContentBlockWidget(QFrame):
                 self._right_resizing = True
                 self._right_resize_start_x = event.globalPosition().toPoint().x()
                 self._right_resize_start_w = self.width()
+                self._manual_resize = True
                 event.accept()
                 return
             mods = QApplication.keyboardModifiers()
@@ -788,7 +922,13 @@ class ContentBlockWidget(QFrame):
         for b in (self._h_left_btn, self._h_center_btn, self._h_right_btn,
                   self._v_top_btn, self._v_center_btn, self._v_bottom_btn):
             header.addWidget(b)
+        self._add_task_btn = QPushButton("+ Add Task")
+        self._add_task_btn.setFixedHeight(26)
+        self._add_task_btn.setVisible(False)
+        header.addWidget(self._add_task_btn)
+
         header.addWidget(del_btn)
+
         layout.addLayout(header)
 
         self._header_resize_handle = ResizeHandleHeader(self._header_container, self._header_edit)
@@ -808,8 +948,17 @@ class ContentBlockWidget(QFrame):
             layout.addWidget(self._body)
         elif self.block.block_type in ("list", "checkbox"):
             self._body = TaskWidget(self.block.id, self.block.content_markdown)
-            self._body.task_changed.connect(self.changed.emit)
-            layout.addWidget(self._body)
+            self._body.task_changed.connect(self._on_content_changed)
+            self._add_task_btn.setVisible(True)
+            self._add_task_btn.clicked.connect(self._body._add_task)
+            self._body_scroll = QScrollArea()
+            self._body_scroll.setWidget(self._body)
+            self._body_scroll.setWidgetResizable(True)
+            self._body_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+            self._body_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+            self._body_scroll.setFrameShape(QFrame.Shape.NoFrame)
+            layout.addWidget(self._body_scroll)
+            QTimer.singleShot(0, self._fit_to_content)
 
         self.resize_handle = ResizeHandle(self)
         layout.addWidget(self.resize_handle)
@@ -842,6 +991,44 @@ class ContentBlockWidget(QFrame):
 
     def _on_content_changed(self):
         self.changed.emit()
+        if isinstance(self._body, TaskWidget):
+            self._fit_to_content()
+
+    def _fit_to_content(self):
+        if self._manual_resize:
+            return
+        self.setMinimumHeight(0)
+        if isinstance(self._body, TaskWidget):
+            hh = 0
+            for i in range(self._body.layout().count()):
+                item = self._body.layout().itemAt(i)
+                if item.widget():
+                    hh += item.widget().height()
+                elif item.layout():
+                    max_row = 0
+                    for j in range(item.layout().count()):
+                        sub = item.layout().itemAt(j)
+                        if sub.widget():
+                            max_row = max(max_row, sub.widget().sizeHint().height())
+                    hh += max_row
+            spacing = self._body.layout().spacing()
+            num_items = self._body.layout().count()
+            hh += spacing * (num_items - 1) if num_items > 1 else 0
+            margins = self.layout().contentsMargins()
+            layout_spacing = self.layout().spacing()
+            header_h = self._header_container.height()
+            handle_h = self.resize_handle.height()
+            padding = (margins.top() + margins.bottom() +
+                       layout_spacing * 2 + 16)
+            h = max(60, hh + header_h + handle_h + padding)
+        else:
+            self.layout().activate()
+            h = max(60, self.layout().sizeHint().height() + 20)
+        if h <= self.height():
+            return
+        self.setMinimumHeight(h)
+        self.resize(self.width(), h)
+        self.block.height = h
 
     def _delete(self):
         from src.undo_manager import _block_dict, _task_dict

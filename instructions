@@ -147,14 +147,24 @@ py run.py
 
 ### Task operations
 - **Check/uncheck** a task via its checkbox.
-- **Edit task text** directly in the text field.
+- **Edit task text** directly in a **multi-line text area** (auto-grows as you type).
 - **Set recurrence** via the dropdown: `none`, `daily`, `weekly`, `monthly`.
 - **Delete** a task with **"X"** button (no confirmation, undoable).
-- **Add** a new task with **"+ Add Task"** button.
+- **Add** a new task with **"+ Add Task"** button in the block header (alongside the alignment & delete-block buttons).
+
+### Task row interactions
+- **Auto-grow** — the text area expands vertically when content exceeds the current row height (fires on every keystroke); never shrinks automatically.
+- **Column resize** — drag the thin vertical `⋮` handle between the text area and the sidebar to change text width (minimum 100 px, capped at container width).
+- **Row resize** — drag the thin horizontal handle at the bottom of any task row to set a fixed height (overrides auto-grow; row will not auto-grow taller while fixed).
+- **Sidebar layout** — each task row has a sidebar (Recur label+dropdown + Delete "X") fixed at the right edge; all sidebars are **vertically aligned** across every row of the same list block.
 
 ### Recurring tasks
 - When a recurring task is checked, a **copy** is created with the due date shifted forward (daily=+1d, weekly=+7d, monthly=+30d).
 - Verify: check a weekly task → a new unchecked task appears with the same text.
+
+### Undo for tasks
+- Deleting a task can be undone via **Edit → Undo Delete** (`Ctrl+Shift+Z`), same as page/block deletion.
+- Each undo restores the most recently deleted item (task, block, or page).
 
 ---
 
@@ -246,26 +256,30 @@ Run this after any code change:
 16. Use B/I/H1/H2/<>/Link/Bullet formatting buttons
 17. Ctrl+B / Ctrl+I shortcuts on active text block
 18. Add a table → add/remove rows and columns
-19. Add a list block → create tasks → check some → set recurrence
-20. Check a weekly task → new unchecked task appears
-21. Delete a task → Undo Delete → task reappears
-22. Delete a block (×) → Undo Delete → block with its content reappears
-23. Save page as template → insert template on another page
-24. Select 2+ pages → right-click → Insert Template into Selected → verify both get blocks
-25. Open Settings → change week start day → save
-26. Toggle sidebar visibility
-27. Resize window, drag splitter
-28. Close app → reopen → verify all data persists
-29. Free-form canvas: drag "⋮⋮" handle to move a block anywhere on the page
-30. Free-form canvas: blocks can overlap and z-order changes on click
-31. Resize block vertically: drag bottom handle up/down
-32. Resize block horizontally: drag bottom handle left/right or right edge ↔
-33. 2D resize: drag bottom-right corner (dots) to change width + height simultaneously
-34. Restart app → block positions persist
-35. Scroll to bottom of canvas → canvas extends (infinite vertical scroll)
-36. No horizontal scrollbar visible
-37. Drag a block past the right edge → snaps back to boundary
-38. Resize a block past the right edge → constrained to canvas width
+19. Add a list block → "+ Add Task" button is visible in the block header (next to alignment buttons)
+20. Create tasks → check some → set recurrence
+21. Check a weekly task → new unchecked task appears
+22. Type multi-line text in a task → row auto-grows vertically
+23. Drag the vertical `⋮` handle between text and sidebar → text width changes (sidebar stays at right)
+24. Drag the bottom horizontal handle of a task row → row height becomes fixed (no auto-grow above fixed height)
+25. Delete a task → Undo Delete (`Ctrl+Shift+Z`) → task reappears
+26. Delete a block (×) → Undo Delete → block with its content reappears
+27. Save page as template → insert template on another page
+28. Select 2+ pages → right-click → Insert Template into Selected → verify both get blocks
+29. Open Settings → change week start day → save
+30. Toggle sidebar visibility
+31. Resize window, drag splitter
+32. Close app → reopen → verify all data persists
+33. Free-form canvas: drag "⋮⋮" handle to move a block anywhere on the page
+34. Free-form canvas: blocks can overlap and z-order changes on click
+35. Resize block vertically: drag bottom handle up/down
+36. Resize block horizontally: drag bottom handle left/right or right edge ↔
+37. 2D resize: drag bottom-right corner (dots) to change width + height simultaneously
+38. Restart app → block positions persist
+39. Scroll to bottom of canvas → canvas extends (infinite vertical scroll)
+40. No horizontal scrollbar visible
+41. Drag a block past the right edge → snaps back to boundary
+42. Resize a block past the right edge → constrained to canvas width
 ```
 
 ## Project Workflow

@@ -109,18 +109,25 @@ Core features for initial delivery:
 - **Table blocks**: dynamic rows/columns (+ Row / - Row / + Col / - Col), cells accept plain text
 - **List blocks** (checkbox type) with per-task:
   - Checkbox toggle (check/uncheck)
-  - Inline text editing
+  - **Multi-line text area** (`QTextEdit` replaces `QLineEdit`) with auto-grow
   - Recurrence dropdown: `none` / `daily` / `weekly` / `monthly`
   - **Delete per task** via "X" button
-  - **"+ Add Task"** button
+  - **"+ Add Task"** button in the block header (alongside alignment & delete-block buttons)
+  - **Column resize** — drag vertical `⋮` handle between text area and sidebar to change text width (min 100 px)
+  - **Row resize** — drag horizontal handle at bottom of each task row to set fixed height (overrides auto-grow)
+  - **Sidebar layout** — sidebar (Recur combobox + Delete button) fixed at right edge, vertically aligned across all rows
 - **Recurring tasks** — when checked, a copy is created with shifted `due_date` (daily=+1d, weekly=+7d, monthly=+30d)
-- `tasks` table: id, content_block_id, text, is_checked, recurrence_type (none/daily/weekly/monthly), due_date, sort_order
+- `tasks` table: id, content_block_id, text, is_checked, recurrence_type (none/daily/weekly/monthly), due_date, parent_task_id (FK self, nullable), sort_order
 
 **Acceptance criteria:**
 - Tables can have rows/columns added and removed
 - Checkboxes toggle visual state (checked/unchecked)
 - Recurring tasks create a copy with next period's date when checked
 - Tasks can be individually added and deleted
+- Auto-grow expands task row height on multi-line text; does not shrink
+- Column resize handle changes only the edit width; sidebar stays at a fixed right position
+- Row resize handle overrides auto-grow height; task row does not auto-grow while fixed
+- Sidebar buttons (Recur + Delete per-task) are aligned vertically across all rows
 
 ---
 
