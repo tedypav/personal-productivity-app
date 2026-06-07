@@ -110,26 +110,45 @@ class Sidebar(QWidget):
         self.setMinimumWidth(200)
         self.setMaximumWidth(400)
         self.setStyleSheet("""
+            Sidebar {
+                background: #FFF8F5;
+            }
             QTreeWidget {
-                border: none;
+                background: #FFFFFF;
+                border: 1px solid #F0E6E8;
+                border-radius: 12px;
                 font-size: 13px;
+                color: #2E2B2B;
+                outline: none;
+                padding: 4px;
             }
             QTreeWidget::item {
-                padding: 4px 2px;
+                padding: 7px 6px;
+                border-radius: 8px;
+                margin: 1px 2px;
+                color: #2E2B2B;
             }
             QTreeWidget::item:selected {
-                background-color: #e0e7ff;
-                color: #1e40af;
+                background-color: #F3E8F6;
+                color: #2E2B2B;
+            }
+            QTreeWidget::item:hover {
+                background-color: #FFF0F3;
             }
             QPushButton {
-                padding: 6px 12px;
-                border: 1px solid #ccc;
-                border-radius: 4px;
-                background: #f8f9fa;
-                font-size: 12px;
+                padding: 7px 14px;
+                border: 1px solid #F0E6E8;
+                border-radius: 18px;
+                background: #FFFFFF;
+                font-size: 11px;
+                color: #2E2B2B;
             }
             QPushButton:hover {
-                background: #e9ecef;
+                background: #FFF0F3;
+                border-color: #F7D1DC;
+            }
+            QPushButton:pressed {
+                background: #F7D1DC;
             }
         """)
 
@@ -155,8 +174,8 @@ class Sidebar(QWidget):
         view_layout = QHBoxLayout()
         self.btn_expand = QPushButton("Show All")
         self.btn_collapse = QPushButton("Hide All")
-        self.btn_expand.setStyleSheet("QPushButton { padding: 2px 8px; font-size: 10px; }")
-        self.btn_collapse.setStyleSheet("QPushButton { padding: 2px 8px; font-size: 10px; }")
+        self.btn_expand.setStyleSheet("QPushButton { padding: 4px 10px; font-size: 10px; border-radius: 14px; }")
+        self.btn_collapse.setStyleSheet("QPushButton { padding: 4px 10px; font-size: 10px; border-radius: 14px; }")
         view_layout.addWidget(self.btn_expand)
         view_layout.addWidget(self.btn_collapse)
         layout.addLayout(view_layout)
@@ -311,6 +330,136 @@ class Sidebar(QWidget):
         start_date = QDateEdit()
         start_date.setCalendarPopup(True)
         start_date.setDate(QDate.currentDate())
+        start_date.setDisplayFormat("yyyy-MM-dd")
+        calendar_style = """
+            QDateEdit {
+                padding: 6px 12px;
+                border: 1px solid #F0E6E8;
+                border-radius: 10px;
+                background: #FFFFFF;
+                font-size: 13px;
+                color: #2E2B2B;
+                min-width: 120px;
+                font-family: 'Inter', 'Poppins', sans-serif;
+            }
+            QDateEdit::drop-down {
+                border: none;
+                width: 28px;
+                subcontrol-origin: padding;
+                subcontrol-position: top right;
+            }
+            QDateEdit::down-arrow {
+                image: none;
+                border-left: 5px solid transparent;
+                border-right: 5px solid transparent;
+                border-top: 7px solid #CFA6D6;
+                margin-right: 8px;
+            }
+            QCalendarWidget {
+                background: #FFFFFF;
+                border: 1px solid #F0E6E8;
+                border-radius: 12px;
+                font-family: 'Inter', 'Poppins', sans-serif;
+                font-size: 10px;
+            }
+            QCalendarWidget QToolButton {
+                color: #2E2B2B;
+                background: transparent;
+                border: none;
+                border-radius: 6px;
+                padding: 3px 6px;
+                font-size: 11px;
+                font-family: 'Inter', 'Poppins', sans-serif;
+            }
+            QCalendarWidget QToolButton:hover {
+                background: #FFF0F3;
+            }
+            QCalendarWidget QToolButton:pressed {
+                background: #F7D1DC;
+            }
+            QCalendarWidget QToolButton#qt_calendar_prevmonth,
+            QCalendarWidget QToolButton#qt_calendar_nextmonth {
+                qproperty-icon: none;
+                min-width: 22px;
+                font-size: 11px;
+                color: #CFA6D6;
+            }
+            QCalendarWidget QToolButton#qt_calendar_prevmonth { qproperty-text: "<"; }
+            QCalendarWidget QToolButton#qt_calendar_nextmonth { qproperty-text: ">"; }
+            QCalendarWidget QToolButton#qt_calendar_prevmonth:hover,
+            QCalendarWidget QToolButton#qt_calendar_nextmonth:hover {
+                color: #2E2B2B;
+                background: #FFF0F3;
+            }
+            QCalendarWidget QToolButton#qt_calendar_monthbutton,
+            QCalendarWidget QToolButton#qt_calendar_yearbutton {
+                font-size: 11px;
+                font-weight: 600;
+                min-width: 60px;
+                color: #2E2B2B;
+            }
+            QCalendarWidget QWidget#qt_calendar_calendarview {
+                background: #FFFFFF;
+                border: none;
+            }
+            QCalendarWidget QAbstractItemView:enabled {
+                color: #2E2B2B;
+                background: #FFFFFF;
+                selection-background-color: #CFA6D6;
+                selection-color: #FFFFFF;
+                font-family: 'Inter', 'Poppins', sans-serif;
+                font-size: 10px;
+                gridline-color: transparent;
+            }
+            QCalendarWidget QAbstractItemView:disabled {
+                color: #D1D5DB;
+            }
+            QCalendarWidget QAbstractItemView:focus {
+                outline: none;
+            }
+            QCalendarWidget QTableView {
+                selection-background-color: #CFA6D6;
+                selection-color: #FFFFFF;
+            }
+            QCalendarWidget QTableView QHeaderView::section {
+                background: #FFF8F5;
+                color: #6B6770;
+                border: none;
+                border-bottom: 1px solid #F0E6E8;
+                padding: 2px;
+                font-size: 9px;
+                font-weight: 600;
+                font-family: 'Inter', 'Poppins', sans-serif;
+            }
+            QCalendarWidget QWidget#qt_calendar_navigationbar {
+                background: #FFF8F5;
+                border-top: 1px solid #F0E6E8;
+                border-radius: 0 0 12px 12px;
+                padding: 2px;
+            }
+            QCalendarWidget QCalendarDayWidget {
+                padding: 0px;
+                min-width: 24px;
+                max-width: 28px;
+                min-height: 18px;
+                max-height: 22px;
+            }
+            QCalendarWidget QToolButton#qt_calendar_calendarbutton {
+                qproperty-icon: none;
+                min-width: 18px;
+                font-size: 10px;
+                color: #CFA6D6;
+            }
+        """
+        start_date.setStyleSheet(calendar_style)
+        # Style weekend days as pink/lavender
+        from PyQt6.QtGui import QColor, QTextCharFormat
+        start_cal = start_date.calendarWidget()
+        if start_cal:
+            fmt = QTextCharFormat()
+            fmt.setForeground(QColor("#CFA6D6"))
+            start_cal.setWeekdayTextFormat(Qt.DayOfWeek.Saturday, fmt)
+            start_cal.setWeekdayTextFormat(Qt.DayOfWeek.Sunday, fmt)
         layout.addWidget(QLabel("Start date:"))
         layout.addWidget(start_date)
 
@@ -318,6 +467,14 @@ class Sidebar(QWidget):
         end_date = QDateEdit()
         end_date.setCalendarPopup(True)
         end_date.setDate(QDate.currentDate())
+        end_date.setDisplayFormat("yyyy-MM-dd")
+        end_date.setStyleSheet(calendar_style)
+        end_cal = end_date.calendarWidget()
+        if end_cal:
+            fmt_end = QTextCharFormat()
+            fmt_end.setForeground(QColor("#CFA6D6"))
+            end_cal.setWeekdayTextFormat(Qt.DayOfWeek.Saturday, fmt_end)
+            end_cal.setWeekdayTextFormat(Qt.DayOfWeek.Sunday, fmt_end)
         layout.addWidget(end_label)
         layout.addWidget(end_date)
 
