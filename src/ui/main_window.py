@@ -149,8 +149,7 @@ class MainWindow(QMainWindow):
             undo_manager.push(data)
         PageRepo().delete(page_id)
         self.sidebar.refresh()
-        self.editor.current_page_id = None
-        self.editor.page_title.setText("Select a page")
+        self.editor.clear_editor()
 
     def _undo_delete(self):
         action = undo_manager.pop()
@@ -158,16 +157,14 @@ class MainWindow(QMainWindow):
             return
         self.sidebar.refresh()
         if action["type"] == "page":
-            self.editor.current_page_id = None
-            self.editor.page_title.setText("Select a page")
+            self.editor.clear_editor()
         elif self.editor.current_page_id:
             self.editor.load_page(self.editor.current_page_id)
 
     def _bulk_delete_selected(self):
         self.sidebar.delete_selected()
         if not self.sidebar.tree.selectedItems():
-            self.editor.current_page_id = None
-            self.editor.page_title.setText("Select a page")
+            self.editor.clear_editor()
 
     def _save_as_template(self):
         if not self.editor.current_page_id:

@@ -958,7 +958,8 @@ class ContentBlockWidget(QFrame):
             self._body_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
             self._body_scroll.setFrameShape(QFrame.Shape.NoFrame)
             layout.addWidget(self._body_scroll)
-            QTimer.singleShot(0, self._fit_to_content)
+            if self.block.height:
+                QTimer.singleShot(0, self._fit_to_content)
 
         self.resize_handle = ResizeHandle(self)
         layout.addWidget(self.resize_handle)
@@ -966,28 +967,37 @@ class ContentBlockWidget(QFrame):
         if self.block.height:
             self._apply_height(self.block.height)
         else:
-            self._apply_height(60)
+            self._apply_height(200)
 
         if self.block.width:
             self.setFixedWidth(self.block.width)
         else:
-            self.setMinimumWidth(260)
+            QTimer.singleShot(0, self._set_initial_width)
 
         del_btn.clicked.connect(self._delete)
 
     def _apply_height(self, h):
-        h = max(60, h)
+        h = max(80, h)
         if isinstance(self._body, MarkdownBlock):
-            inner_h = max(30, h - 60)
+            inner_h = max(30, h - 64)
             self._body.editor.setMinimumHeight(inner_h)
             self._body.preview.setMinimumHeight(inner_h)
         elif isinstance(self._body, TableWidget):
             for i in range(self._body.grid.count()):
                 w = self._body.grid.itemAt(i)
                 if w and w.widget() and isinstance(w.widget(), TableCell):
-                    cell_h = max(30, (h - 80) // max(1, len(self._body.rows)))
-                    w.widget().setMaximumHeight(cell_h + 20)
+                    cell_h = max(30, (h - 64) // max(1, len(self._body.rows)))
+                    w.widget().setMaximumHeight(cell_h)
+        elif isinstance(self._body, TaskWidget):
+            inner_h = max(30, h - 64)
+            self._body_scroll.setMinimumHeight(inner_h)
         self.setMinimumHeight(h)
+        self.resize(self.width(), h)
+
+    def _set_initial_width(self):
+        p = self.parent()
+        if p:
+            self.setFixedWidth(int(p.width() / 3))
 
     def _on_content_changed(self):
         self.changed.emit()
@@ -1486,6 +1496,16 @@ class PageEditor(QWidget):
             body.insert_link()
         elif fmt == "bullet":
             body.insert_bullet_list()
+
+    def clear_editor(self):
+        self.current_page_id = None
+        self.page_title.setText("Select a page")
+        self._clear_selection()
+        for w in self._block_widgets:
+            w.setParent(None)
+            w.deleteLater()
+        self._block_widgets.clear()
+        self._update_canvas_size()
 
     def load_page(self, page_id: int):
         self.current_page_id = page_id
