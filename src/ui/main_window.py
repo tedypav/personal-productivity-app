@@ -15,6 +15,7 @@ from src.repositories.template_repo import TemplateRepo
 from src.models.template import Template
 from src.database import init_db
 from src.settings import load_settings, save_settings
+from src.undo_manager import undo_manager, capture_page_tree
 
 
 class MainWindow(QMainWindow):
@@ -45,6 +46,12 @@ class MainWindow(QMainWindow):
         self._setup_menu()
         self._setup_shortcuts()
 
+        undo_z = QAction("Undo Delete", self.sidebar)
+        undo_z.setShortcut(QKeySequence("Ctrl+Z"))
+        undo_z.setShortcutContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        undo_z.triggered.connect(self._undo_delete)
+        self.sidebar.addAction(undo_z)
+
         self._auto_save_timer = QTimer(self)
         self._auto_save_timer.setInterval(self.settings.get("auto_save_interval_ms", 1000))
         self._auto_save_timer.timeout.connect(self._auto_save)
@@ -74,9 +81,15 @@ class MainWindow(QMainWindow):
         self._make_action(page_menu, "New Page", self._new_page)
         self._make_action(page_menu, "New Child Page", self._new_child_page)
         self._make_action(page_menu, "Save Page as Template", self._save_as_template)
-        self._make_action(page_menu, "Delete Current Page", self._delete_page, QKeySequence("Delete"))
+        self._make_action(page_menu, "Delete Current Page", self._delete_page)
         page_menu.addSeparator()
         self._make_action(page_menu, "Bulk Create Pages", self._bulk_create)
+
+        edit_menu = menubar.addMenu("Edit")
+        self._undo_action = self._make_action(edit_menu, "Undo Delete", self._undo_delete, QKeySequence("Ctrl+Shift+Z"))
+        edit_menu.addSeparator()
+        self._make_action(edit_menu, "Delete Selected", self._bulk_delete_selected, QKeySequence("Ctrl+D"))
+        self._make_action(edit_menu, "Bulk Create Pages", self._bulk_create, QKeySequence("Ctrl+Shift+B"))
 
         view_menu = menubar.addMenu("View")
         self._toggle_sidebar_action = self._make_action(view_menu, "Toggle Sidebar", self._toggle_sidebar)
@@ -96,6 +109,11 @@ class MainWindow(QMainWindow):
         italic.setShortcut(QKeySequence("Ctrl+I"))
         italic.triggered.connect(lambda: self._apply_to_text("italic"))
         self.addAction(italic)
+
+        undo_u = QAction("Undo Delete", self)
+        undo_u.setShortcut(QKeySequence("Ctrl+U"))
+        undo_u.triggered.connect(self._undo_delete)
+        self.addAction(undo_u)
 
     def _apply_to_text(self, fmt):
         if hasattr(self.editor, '_apply_format'):
@@ -117,18 +135,36 @@ class MainWindow(QMainWindow):
                 self.sidebar.refresh()
 
     def _delete_page(self):
+        selected = self.sidebar.tree.selectedItems()
+        if len(selected) > 1:
+            self._bulk_delete_selected()
+            return
         if not self.editor.current_page_id:
             return
         from src.repositories.page_repo import PageRepo
-        reply = QMessageBox.question(
-            self, "Delete Page", "Delete this page and all its content?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-        )
-        if reply == QMessageBox.StandardButton.Yes:
-            PageRepo().delete(self.editor.current_page_id)
-            self.sidebar.refresh()
-            self.editor.current_page_id = None
-            self.editor.page_title.setText("Select a page")
+        page_id = self.editor.current_page_id
+        data = capture_page_tree(page_id)
+        if data:
+            data["type"] = "page"
+            undo_manager.push(data)
+        PageRepo().delete(page_id)
+        self.sidebar.refresh()
+        self.editor.clear_editor()
+
+    def _undo_delete(self):
+        action = undo_manager.pop()
+        if not action:
+            return
+        self.sidebar.refresh()
+        if action["type"] == "page":
+            self.editor.clear_editor()
+        elif self.editor.current_page_id:
+            self.editor.load_page(self.editor.current_page_id)
+
+    def _bulk_delete_selected(self):
+        self.sidebar.delete_selected()
+        if not self.sidebar.tree.selectedItems():
+            self.editor.clear_editor()
 
     def _save_as_template(self):
         if not self.editor.current_page_id:

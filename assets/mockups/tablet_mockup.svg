@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="768" height="1024" viewBox="0 0 768 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="tBg" x1="0" x2="1">
+      <stop offset="0" stop-color="#FFF8F5"/>
+      <stop offset="1" stop-color="#FFF6F8"/>
+    </linearGradient>
+    <linearGradient id="tAccent" x1="0" x2="1">
+      <stop offset="0" stop-color="#CFA6D6"/>
+      <stop offset="1" stop-color="#FFD8C2"/>
+    </linearGradient>
+    <filter id="tShadow">
+      <feDropShadow dx="0" dy="8" stdDeviation="14" flood-color="#2E2B2B" flood-opacity="0.05"/>
+    </filter>
+  </defs>
+
+  <rect width="768" height="1024" fill="url(#tBg)"/>
+  <rect x="16" y="16" width="736" height="64" rx="12" fill="#FFFFFF" filter="url(#tShadow)"/>
+  <text x="36" y="52" font-family="Playfair Display, Georgia, serif" font-size="18" fill="#2E2B2B">Personal Productivity</text>
+  <rect x="20" y="100" width="68" height="68" rx="14" fill="#FFF" stroke="#F2E6E9"/>
+  <text x="54" y="146" font-family="Inter, Arial, sans-serif" font-size="22" fill="#CFA6D6" text-anchor="middle">=</text>
+  <rect x="20" y="188" width="728" height="760" rx="18" fill="#FFFFFF" stroke="#F0E8EA" filter="url(#tShadow)"/>
+  <rect x="36" y="208" width="696" height="48" rx="12" fill="#FFF" stroke="#F2E8EA"/>
+  <g font-family="Inter, Arial, sans-serif" font-size="13" fill="#6B6770">
+    <text x="56" y="236">B</text>
+    <text x="92" y="236">I</text>
+    <text x="128" y="236">H1</text>
+  </g>
+  <rect x="36" y="268" width="696" height="84" rx="12" fill="#FFF8F9" stroke="#F7D1DC"/>
+  <text x="56" y="310" font-family="Playfair Display, Georgia, serif" font-size="17" fill="#2E2B2B">Daily Reflection</text>
+  <text x="56" y="334" font-family="Inter, Arial, sans-serif" font-size="13" fill="#6B6770">A gentle prompt to start your day</text>
+  <rect x="36" y="372" width="696" height="92" rx="12" fill="#FFFFFF" stroke="#F0E8EA"/>
+  <text x="56" y="408" font-family="Inter, Arial, sans-serif" font-size="14" fill="#2E2B2B">• Morning routine</text>
+  <text x="56" y="430" font-family="Inter, Arial, sans-serif" font-size="13" fill="#6B6770">Hydration • Meditation • Plan</text>
+  <g transform="translate(664,872)">
+    <circle cx="0" cy="0" r="36" fill="#D4A373" />
+    <text x="-2" y="10" font-family="Inter, Arial, sans-serif" font-size="34" fill="#FFF" text-anchor="middle">+</text>
+  </g>
+  <text x="36" y="972" font-family="Inter, Arial, sans-serif" font-size="12" fill="#6B6770">Tip: Long-press to drag blocks</text>
+</svg>

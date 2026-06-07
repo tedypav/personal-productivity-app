@@ -1,5 +1,6 @@
 import sys
-from PyQt6.QtWidgets import QApplication
+import traceback
+from PyQt6.QtWidgets import QApplication, QMessageBox
 from PyQt6.QtGui import QFont
 from src.ui.main_window import MainWindow
 
@@ -122,6 +123,19 @@ QScrollBar::handle:vertical:hover {
     background: #9ca3af;
 }
 """
+
+
+def _excepthook(exc_type, exc_value, exc_tb):
+    traceback.print_exception(exc_type, exc_value, exc_tb)
+    try:
+        app = QApplication.instance()
+        if app:
+            msg = "".join(traceback.format_exception(exc_type, exc_value, exc_tb))
+            QMessageBox.critical(None, "Unhandled Error", msg)
+    except Exception:
+        pass
+
+sys.excepthook = _excepthook
 
 
 def main():

@@ -54,5 +54,60 @@ def init_db():
         );
     """)
 
+    try:
+        conn.execute("ALTER TABLE content_blocks ADD COLUMN height INTEGER")
+    except sqlite3.OperationalError:
+        pass
+
+    try:
+        conn.execute("ALTER TABLE content_blocks ADD COLUMN width INTEGER")
+    except sqlite3.OperationalError:
+        pass
+
+    try:
+        conn.execute("ALTER TABLE content_blocks ADD COLUMN header TEXT")
+    except sqlite3.OperationalError:
+        pass
+
+    try:
+        conn.execute("ALTER TABLE content_blocks ADD COLUMN header_font_size INTEGER")
+    except sqlite3.OperationalError:
+        pass
+
+    try:
+        conn.execute("ALTER TABLE content_blocks ADD COLUMN content_font_size INTEGER")
+    except sqlite3.OperationalError:
+        pass
+
+    try:
+        conn.execute("ALTER TABLE content_blocks ADD COLUMN pos_x INTEGER DEFAULT 0")
+    except sqlite3.OperationalError:
+        pass
+
+    try:
+        conn.execute("ALTER TABLE content_blocks ADD COLUMN pos_y INTEGER DEFAULT 0")
+    except sqlite3.OperationalError:
+        pass
+
+    try:
+        conn.execute("ALTER TABLE content_blocks ADD COLUMN header_align_h TEXT DEFAULT 'left'")
+    except sqlite3.OperationalError:
+        pass
+
+    try:
+        conn.execute("ALTER TABLE content_blocks ADD COLUMN header_align_v TEXT DEFAULT 'center'")
+    except sqlite3.OperationalError:
+        pass
+
+    try:
+        conn.execute("ALTER TABLE content_blocks ADD COLUMN header_height INTEGER")
+    except sqlite3.OperationalError:
+        pass
+
+    try:
+        conn.execute("ALTER TABLE pages ADD COLUMN page_type TEXT NOT NULL DEFAULT 'page'")
+    except sqlite3.OperationalError:
+        pass
+
     conn.commit()
     conn.close()
