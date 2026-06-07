@@ -562,9 +562,10 @@ class ResizeHandle(QWidget):
 
 
 class ResizeHandleHeader(QWidget):
-    def __init__(self, header_container, parent=None):
+    def __init__(self, header_container, edit_widget, parent=None):
         super().__init__(parent)
         self._header_container = header_container
+        self._edit_widget = edit_widget
         self.setFixedHeight(8)
         self.setCursor(Qt.CursorShape.SizeVerCursor)
         self.setStyleSheet("background: transparent;")
@@ -599,7 +600,8 @@ class ResizeHandleHeader(QWidget):
     def mouseMoveEvent(self, event):
         if self._dragging:
             delta = event.globalPosition().toPoint().y() - self._start_y
-            new_h = max(36, self._start_h + delta)
+            min_h = max(36, self._edit_widget.height())
+            new_h = max(min_h, self._start_h + delta)
             self._header_container.setFixedHeight(new_h)
 
     def mouseReleaseEvent(self, event):
@@ -697,7 +699,6 @@ class ContentBlockWidget(QFrame):
         self._header_align_v = self.block.header_align_v
 
         header_font = QFont("Segoe UI", header_size, QFont.Weight.DemiBold)
-        single_line_h = max(20, int(header_size * 1.35 + 4))
 
         self._header_container = QWidget()
         self._header_container.setObjectName("header_container")
@@ -714,7 +715,8 @@ class ContentBlockWidget(QFrame):
         self._header_edit.setTabChangesFocus(True)
         self._header_edit.setFont(header_font)
         self._header_edit.setFrameShape(QFrame.Shape.NoFrame)
-        self._header_edit.setFixedHeight(single_line_h)
+        self._header_edit.document().setDocumentMargin(1)
+        self._header_edit.setFixedHeight(max(30, int(header_size * 1.6 + 8)))
         self._header_edit.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         _orig_header_focus = self._header_edit.focusInEvent
         def _on_header_focus(ev, orig=_orig_header_focus, me=self):
@@ -785,7 +787,7 @@ class ContentBlockWidget(QFrame):
         header.addWidget(del_btn)
         layout.addLayout(header)
 
-        self._header_resize_handle = ResizeHandleHeader(self._header_container)
+        self._header_resize_handle = ResizeHandleHeader(self._header_container, self._header_edit)
         layout.addWidget(self._header_resize_handle)
 
         self._body = None
@@ -856,7 +858,7 @@ class ContentBlockWidget(QFrame):
             self._pending_header_font_size = None
 
     def _set_header_height_from_size(self, size):
-        single = max(20, int(size * 1.35 + 4))
+        single = max(30, int(size * 1.6 + 8))
         self._header_edit.setFixedHeight(single)
         min_container = max(36, int(size * 1.6 + 12))
         current = self._header_container.height()
@@ -961,7 +963,9 @@ class ContentBlockWidget(QFrame):
             self.block.width = None
         text = self._header_edit.toPlainText().strip()
         self.block.header = text if text and text != self.block.block_type else None
-        self.block.header_font_size = self._header_edit.font().pointSize()
+        cursor = self._header_edit.textCursor()
+        pt = cursor.charFormat().fontPointSize()
+        self.block.header_font_size = int(pt) if pt >= 1 else self._header_edit.font().pointSize()
         self.block.header_align_h = self._header_align_h
         self.block.header_align_v = self._header_align_v
         self.block.header_height = self._header_container.height()
