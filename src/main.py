@@ -107,24 +107,25 @@ QLineEdit {
 }
 QPushButton {
     padding: 8px 16px;
-    border: 1px solid #F0E6E8;
+    border: none;
     border-radius: 20px;
-    background: #FFFFFF;
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #FFFFFF, stop:1 #FFF8F5);
     font-size: 12px;
+    font-weight: 500;
     color: #2E2B2B;
     min-height: 20px;
     font-family: 'Inter', 'Poppins', sans-serif;
 }
 QPushButton:hover {
-    background: #FFF0F3;
-    border-color: #F7D1DC;
-    color: #2E2B2B;
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #FFF0F3, stop:1 #F7D1DC);
+    border: 1px solid #F7D1DC;
 }
 QPushButton:pressed {
     background: #F7D1DC;
+    border: 1px solid #CFA6D6;
 }
 QToolButton {
-    border: 1px solid transparent;
+    border: none;
     border-radius: 10px;
     padding: 4px 8px;
     font-size: 13px;
@@ -132,19 +133,25 @@ QToolButton {
     font-family: 'Inter', 'Poppins', sans-serif;
 }
 QToolButton:hover {
-    background: #FFF0F3;
-    border-color: #F7D1DC;
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #FFF0F3, stop:1 #F7D1DC);
     color: #2E2B2B;
 }
 QToolButton:checked {
-    background: #F3E8F6;
-    border-color: #CFA6D6;
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #F3E8F6, stop:1 #E8DDE0);
+    border: 1px solid #CFA6D6;
     color: #2E2B2B;
 }
 QSplitter::handle {
-    background: #F0E6E8;
-    width: 1px;
+    background: #E8DDE0;
+    width: 4px;
     margin: 20px 0px;
+    border-radius: 2px;
+}
+QSplitter::handle:hover {
+    background: #CFA6D6;
+}
+QSplitter::handle:pressed {
+    background: #B894C0;
 }
 QTreeWidget {
     background: #FFFFFF;

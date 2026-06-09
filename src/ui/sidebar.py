@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QTreeWidget, QTreeWidgetItem,
     QPushButton, QHBoxLayout, QInputDialog, QMessageBox, QMenu,
     QDialog, QListWidget, QDialogButtonBox, QLabel, QLineEdit, QSpinBox,
-    QAbstractItemView, QSizePolicy
+    QAbstractItemView, QSizePolicy, QScrollArea, QFrame
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QDate, QMimeData, QSize
 from PyQt6.QtGui import QKeySequence, QAction, QDrag, QIcon
@@ -109,13 +109,14 @@ class PageTreeWidget(QTreeWidget):
 class Sidebar(QWidget):
     page_selected = pyqtSignal(int)
     pages_changed = pyqtSignal()
+    save_template_requested = pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.repo = PageRepo()
         self.settings = load_settings()
-        self.setMinimumWidth(200)
-        self.setMaximumWidth(400)
+        self.setMinimumWidth(180)
+        self.setMaximumWidth(350)
         self.setStyleSheet("""
             Sidebar {
                 background: #FFF8F5;
@@ -143,19 +144,21 @@ class Sidebar(QWidget):
                 background-color: #FFF0F3;
             }
             QPushButton {
-                padding: 7px 14px;
-                border: 1px solid #F0E6E8;
+                padding: 6px 10px;
+                border: none;
                 border-radius: 18px;
-                background: #FFFFFF;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #FFFFFF, stop:1 #FFF8F5);
                 font-size: 11px;
+                font-weight: 500;
                 color: #2E2B2B;
             }
             QPushButton:hover {
-                background: #FFF0F3;
-                border-color: #F7D1DC;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #FFF0F3, stop:1 #F7D1DC);
+                border: 1px solid #F7D1DC;
             }
             QPushButton:pressed {
                 background: #F7D1DC;
+                border: 1px solid #CFA6D6;
             }
         """)
 
@@ -164,17 +167,43 @@ class Sidebar(QWidget):
         layout.setSpacing(4)
 
         btn_layout = QHBoxLayout()
-        self.btn_new = QPushButton("+ New Page")
-        self.btn_new_folder = QPushButton("+ Folder")
-        self.btn_new_page = QPushButton("Bulk Time-Based")
-        btn_layout.addWidget(self.btn_new)
+        btn_layout.setContentsMargins(0, 0, 0, 0)
+        btn_layout.setSpacing(3)
+
+        page_icon = QIcon(_get_icon_path("page"))
+        folder_icon = QIcon(_get_icon_path("folder"))
+
+        self.btn_new_folder = QPushButton("New Folder")
+        self.btn_new_folder.setIcon(folder_icon)
+        self.btn_new_folder.setFixedWidth(110)
+
+        self.btn_new = QPushButton("New Page")
+        self.btn_new.setIcon(page_icon)
+        self.btn_new.setFixedWidth(105)
+
+        self.btn_new_page = QPushButton("Time Pages")
+        self.btn_new_page.setIcon(page_icon)
+        self.btn_new_page.setFixedWidth(110)
+
         btn_layout.addWidget(self.btn_new_folder)
+        btn_layout.addWidget(self.btn_new)
         btn_layout.addWidget(self.btn_new_page)
         layout.addLayout(btn_layout)
 
         btn_layout2 = QHBoxLayout()
-        self.btn_bulk_named = QPushButton("+ Bulk Named")
+        btn_layout2.setContentsMargins(0, 0, 0, 0)
+        btn_layout2.setSpacing(3)
+        self.btn_bulk_named = QPushButton("Name Pages")
+        self.btn_bulk_named.setIcon(page_icon)
+        self.btn_bulk_named.setFixedWidth(110)
+
+        template_icon = QIcon(_get_icon_path("folder_template"))
+        self.btn_set_template = QPushButton("Set Template")
+        self.btn_set_template.setIcon(template_icon)
+        self.btn_set_template.setFixedWidth(110)
+
         btn_layout2.addWidget(self.btn_bulk_named)
+        btn_layout2.addWidget(self.btn_set_template)
         btn_layout2.addStretch()
         layout.addLayout(btn_layout2)
 
@@ -198,7 +227,7 @@ class Sidebar(QWidget):
         self.tree.customContextMenuRequested.connect(self._show_context_menu)
         self.tree.itemClicked.connect(self._on_item_clicked)
         self.tree.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        layout.addWidget(self.tree, 1)  # Stretch factor 1 to fill remaining space
+        layout.addWidget(self.tree, 1)
 
         self.btn_expand.clicked.connect(self.tree.expandAll)
         self.btn_collapse.clicked.connect(self.tree.collapseAll)
@@ -207,8 +236,10 @@ class Sidebar(QWidget):
         self.btn_new_folder.clicked.connect(self._create_folder)
         self.btn_new_page.clicked.connect(self._bulk_creation_requested)
         self.btn_bulk_named.clicked.connect(self._bulk_named_dialog)
+        self.btn_set_template.clicked.connect(self._save_template_clicked)
 
         self._setup_shortcuts()
+        self._ensure_templates_folder()
         self._load_pages()
 
     def _setup_shortcuts(self):
@@ -224,6 +255,18 @@ class Sidebar(QWidget):
         rename_action.triggered.connect(self._rename_selected)
         self.tree.addAction(rename_action)
 
+    def _ensure_templates_folder(self):
+        """Create the default Templates folder if it doesn't exist."""
+        from src.models.page import Page
+        pages = self.repo.get_all()
+        templates_folder = [p for p in pages if p.title == "Templates" and p.page_type == "folder"]
+        if not templates_folder:
+            self.repo.create(Page(title="Templates", page_type="folder"))
+
+    def _save_template_clicked(self):
+        """Save the current page as a template."""
+        self.save_template_requested.emit()
+
     def _load_pages(self):
         expanded_ids = self._collect_expanded()
         self.tree.clear()
@@ -232,34 +275,62 @@ class Sidebar(QWidget):
 
         folder_icon = QIcon(_get_icon_path("folder"))
         page_icon = QIcon(_get_icon_path("page"))
+        template_icon = QIcon(_get_icon_path("folder_template"))
+        template_page_icon = QIcon(_get_icon_path("page_template"))
+
+        # Load templates from database
+        from src.repositories.template_repo import TemplateRepo
+        template_repo = TemplateRepo()
+        templates = template_repo.get_all()
 
         def add_children(parent_item, parent_id):
             children = [p for p in pages if p.parent_id == parent_id]
             for page in sorted(children, key=lambda x: x.sort_order):
                 item = QTreeWidgetItem(parent_item)
                 if page.page_type == "folder":
-                    item.setIcon(0, folder_icon)
+                    if page.title == "Templates":
+                        item.setIcon(0, template_icon)
+                    else:
+                        item.setIcon(0, folder_icon)
                     item.setText(0, page.title)
                     # Make folders bold
                     font = item.font(0)
                     font.setBold(True)
                     item.setFont(0, font)
+                elif page.page_type == "template_page":
+                    item.setIcon(0, template_page_icon)
+                    item.setText(0, page.title)
                 else:
                     item.setIcon(0, page_icon)
                     item.setText(0, page.title)
                 item.setData(0, Qt.ItemDataRole.UserRole, page.id)
                 item.setData(0, Qt.ItemDataRole.UserRole + 1, page.page_type)
                 add_children(item, page.id)
+                # Add templates as children of the Templates folder
+                if page.title == "Templates" and page.page_type == "folder":
+                    for template in templates:
+                        t_item = QTreeWidgetItem(item)
+                        t_item.setIcon(0, page_icon)
+                        t_item.setText(0, template.name)
+                        t_item.setData(0, Qt.ItemDataRole.UserRole, -template.id)
+                        t_item.setData(0, Qt.ItemDataRole.UserRole + 1, "template")
+                        t_item.setData(0, Qt.ItemDataRole.UserRole + 2, template.category)
 
         for page in sorted(root_pages, key=lambda x: x.sort_order):
             item = QTreeWidgetItem(self.tree)
             if page.page_type == "folder":
-                item.setIcon(0, folder_icon)
+                if page.title == "Templates":
+                    item.setIcon(0, template_icon)
+                else:
+                    item.setIcon(0, folder_icon)
                 item.setText(0, page.title)
                 # Make folders bold
                 font = item.font(0)
                 font.setBold(True)
                 item.setFont(0, font)
+            elif page.page_type == "template_page":
+                item.setIcon(0, template_page_icon)
+                item.setText(0, page.title)
             else:
                 item.setIcon(0, page_icon)
                 item.setText(0, page.title)
@@ -559,6 +630,12 @@ class Sidebar(QWidget):
             start = start_date.date().toPyDate()
             end = end_date.date().toPyDate()
 
+            # Get selected folder as parent
+            selected_folder_id = None
+            selected = self.tree.selectedItems()
+            if selected:
+                selected_folder_id = selected[0].data(0, Qt.ItemDataRole.UserRole)
+
             titles = []
             if mode == "Days":
                 current = start
@@ -580,7 +657,7 @@ class Sidebar(QWidget):
                     titles.append(str(year))
 
             for title in titles:
-                self.repo.create(Page(title=title, page_type="page"))
+                self.repo.create(Page(title=title, page_type="page", parent_id=selected_folder_id))
             self._load_pages()
             self.pages_changed.emit()
 
@@ -625,8 +702,13 @@ class Sidebar(QWidget):
             count = count_spin.value()
             if not base:
                 return
+            # Get selected folder as parent
+            selected_folder_id = None
+            selected = self.tree.selectedItems()
+            if selected:
+                selected_folder_id = selected[0].data(0, Qt.ItemDataRole.UserRole)
             for i in range(1, count + 1):
-                self.repo.create(Page(title=f"{base} {i}", page_type="page"))
+                self.repo.create(Page(title=f"{base} {i}", page_type="page", parent_id=selected_folder_id))
             self._load_pages()
             self.pages_changed.emit()
 
@@ -844,7 +926,9 @@ class Sidebar(QWidget):
         if captured:
             undo_manager.push({"type": "bulk", "actions": captured})
 
+        # Sync template deletion for all pages
         for pid in all_ids:
+            self._sync_template_deletion(pid)
             self.repo.delete(pid)
         self._load_pages()
         self.pages_changed.emit()
@@ -901,6 +985,20 @@ class Sidebar(QWidget):
                     BlockRepo().create(block)
             QMessageBox.information(self, "Template", f"Template '{template.name}' inserted into {len(page_ids)} page(s).")
 
+    def _sync_template_deletion(self, page_id):
+        """Delete template from database if the page is a template page."""
+        try:
+            page = self.repo.get_by_id(page_id)
+            if page and page.page_type == "template_page":
+                from src.repositories.template_repo import TemplateRepo
+                templates = TemplateRepo().get_all()
+                for template in templates:
+                    if template.name == page.title:
+                        TemplateRepo().delete(template.id)
+                        break
+        except Exception as e:
+            print(f"Error syncing template deletion: {e}")
+
     def delete_selected(self):
         items = self.tree.selectedItems()
         if len(items) > 1:
@@ -908,6 +1006,7 @@ class Sidebar(QWidget):
         elif len(items) == 1:
             item = items[0]
             page_id = item.data(0, Qt.ItemDataRole.UserRole)
+            self._sync_template_deletion(page_id)
             data = capture_page_tree(page_id)
             if data:
                 data["type"] = "page"
@@ -925,6 +1024,7 @@ class Sidebar(QWidget):
         else:
             item = items[0]
             page_id = item.data(0, Qt.ItemDataRole.UserRole)
+            self._sync_template_deletion(page_id)
             data = capture_page_tree(page_id)
             if data:
                 data["type"] = "page"

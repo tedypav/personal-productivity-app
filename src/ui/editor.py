@@ -16,7 +16,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QPoint, QEvent, QMimeData, QUrl
 from PyQt6.QtGui import (
     QFont, QAction, QKeySequence, QTextCursor, QTextCharFormat,
-    QPainter, QColor, QImage, QClipboard, QTextBlockFormat,
+    QPainter, QColor, QImage, QPixmap, QClipboard, QTextBlockFormat,
     QTextListFormat, QTextDocument, QTextImageFormat
 )
 
@@ -987,7 +987,7 @@ class TableWidget(QWidget):
     def _build_toolbar(self, parent):
         bar = QHBoxLayout()
         bar.setContentsMargins(0, 0, 0, 0)
-        btn_style = "QPushButton { font-size: 11px; padding: 2px 8px; border: 1px solid #d1d5db; border-radius: 3px; background: #f9fafb; } QPushButton:hover { border-color: #6366f1; }"
+        btn_style = "QPushButton { font-size: 11px; padding: 4px 10px; border: none; border-radius: 14px; background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #FFFFFF, stop:1 #FFF8F5); color: #2E2B2B; } QPushButton:hover { background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #FFF0F3, stop:1 #F7D1DC); border: 1px solid #F7D1DC; } QPushButton:pressed { background: #F7D1DC; border: 1px solid #CFA6D6; } QPushButton:checked { background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #F3E8F6, stop:1 #E8DDE0); border: 1px solid #CFA6D6; }"
         btn_add_row = QPushButton("+ Row")
         btn_add_row.setStyleSheet(btn_style)
         btn_del_row = QPushButton("- Row")
@@ -2181,10 +2181,49 @@ class Canvas(QWidget):
     clicked_at = pyqtSignal(int, int)
     image_pasted = pyqtSignal(object)
 
+    _bg_pixmap: QPixmap | None = None
+
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setStyleSheet("background: #FFF8F5;")
         self.setAcceptDrops(True)
+        if Canvas._bg_pixmap is None:
+            bg_path = os.path.join(
+                os.path.dirname(__file__), '..', '..', 'assets', 'background', 'frontpage_bg.png'
+            )
+            if os.path.exists(bg_path):
+                Canvas._bg_pixmap = QPixmap(bg_path)
+
+    def paintEvent(self, event):
+        if Canvas._bg_pixmap and not Canvas._bg_pixmap.isNull():
+            # Paint at viewport size, not canvas size, to prevent
+            # background from resizing when the canvas extends
+            vp_w, vp_h = self.width(), self.height()
+            parent = self.parent()
+            while parent:
+                if isinstance(parent, QScrollArea):
+                    vp_w = parent.viewport().width()
+                    vp_h = parent.viewport().height()
+                    break
+                parent = parent.parent()
+
+            painter = QPainter(self)
+            dpr = self.devicePixelRatioF()
+            target_w = int(vp_w * dpr)
+            target_h = int(vp_h * dpr)
+            scaled = Canvas._bg_pixmap.scaled(
+                target_w, target_h,
+                Qt.AspectRatioMode.KeepAspectRatioByExpanding,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+            # Center relative to viewport, paint from canvas origin
+            x = (vp_w - scaled.width() / dpr) / 2
+            y = (vp_h - scaled.height() / dpr) / 2
+            painter.drawPixmap(int(x), int(y), scaled)
+            painter.end()
+        else:
+            painter = QPainter(self)
+            painter.fillRect(self.rect(), QColor("#FFF8F5"))
+            painter.end()
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
@@ -2205,7 +2244,7 @@ class PageEditor(QWidget):
         self._active_table_cell = None
         self._tracked_edit: QTextEdit | None = None
         self._syncing_buttons = False  # Prevent re-entrant calls
-        self.setStyleSheet("background: #FFF8F5;")
+        self.setStyleSheet("background: #2a1a35;")
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
 
         main_layout = QVBoxLayout(self)
@@ -2218,7 +2257,7 @@ class PageEditor(QWidget):
         self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.scroll.setFrameShape(QFrame.Shape.NoFrame)
-        self.scroll.setStyleSheet("QScrollArea { border: none; background: #FFF8F5; }")
+        self.scroll.setStyleSheet("QScrollArea { border: none; background: #2a1a35; }")
 
         self.content = Canvas()
         self.content.clicked_at.connect(self._on_canvas_clicked)
@@ -2234,7 +2273,7 @@ class PageEditor(QWidget):
         self.welcome_label.setStyleSheet("""
             font-family: 'Magnolia', cursive;
             font-size: 80px;
-            color: #CFA6D6;
+            color: #F0E4F5;
             background: transparent;
             padding: 40px;
         """)
@@ -2264,7 +2303,13 @@ class PageEditor(QWidget):
 
     def eventFilter(self, obj, event):
         if obj is self.scroll.viewport() and event.type() == QEvent.Type.Resize:
-            self._update_canvas_size()
+            if self.current_page_id is None:
+                # Welcome screen: fit canvas to viewport
+                vp = self.scroll.viewport()
+                self.content.setFixedWidth(vp.width())
+                self.content.resize(vp.width(), vp.height())
+            else:
+                self._update_canvas_size()
             self._center_welcome_label()
         return super().eventFilter(obj, event)
 
@@ -2300,7 +2345,7 @@ class PageEditor(QWidget):
         toolbar.addWidget(self.page_title)
         toolbar.addStretch()
 
-        btn_style = "QPushButton { padding: 6px 16px; border: 1px solid #F0E6E8; border-radius: 20px; background: #FFFFFF; font-size: 12px; color: #2E2B2B; } QPushButton:hover { background: #FFF0F3; border-color: #F7D1DC; } QPushButton:pressed { background: #F7D1DC; }"
+        btn_style = "QPushButton { padding: 6px 16px; border: none; border-radius: 20px; background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #FFFFFF, stop:1 #FFF8F5); font-size: 12px; font-weight: 500; color: #2E2B2B; } QPushButton:hover { background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #FFF0F3, stop:1 #F7D1DC); border: 1px solid #F7D1DC; } QPushButton:pressed { background: #F7D1DC; border: 1px solid #CFA6D6; }"
         self._add_block_btn = QPushButton("+ Text")
         self._add_block_btn.setStyleSheet(btn_style)
         self._table_btn = QPushButton("+ Table")
@@ -2766,7 +2811,12 @@ class PageEditor(QWidget):
             w.setParent(None)
             w.deleteLater()
         self._block_widgets.clear()
-        self._update_canvas_size()
+        # Disable scrolling for welcome screen
+        self.scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        vp = self.scroll.viewport()
+        self.content.setFixedWidth(vp.width())
+        self.content.resize(vp.width(), vp.height())
         # Show welcome message
         self.welcome_label.show()
         self._center_welcome_label()
@@ -2777,8 +2827,10 @@ class PageEditor(QWidget):
         page = PageRepo().get_by_id(page_id)
         self.page_title.setText(page.title if page else "Untitled")
         self._clear_selection()
-        # Hide welcome message
+        # Hide welcome message and re-enable scrolling
         self.welcome_label.hide()
+        self.scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
 
         for w in self._block_widgets:
             w.setParent(None)
@@ -3186,3 +3238,26 @@ class PageEditor(QWidget):
         for w in self._block_widgets:
             if hasattr(w, 'save'):
                 w.save()
+        
+        # If this is a template page, update the template in the database
+        if self.current_page_id:
+            try:
+                from src.repositories.page_repo import PageRepo
+                from src.repositories.template_repo import TemplateRepo
+                from src.repositories.block_repo import BlockRepo
+                
+                page = PageRepo().get_by_id(self.current_page_id)
+                if page and page.page_type == "template_page":
+                    # Get all blocks for this page
+                    blocks = BlockRepo().get_by_page(self.current_page_id)
+                    data = [{"block_type": b.block_type, "content_markdown": b.content_markdown} for b in blocks]
+                    
+                    # Find and update the corresponding template
+                    templates = TemplateRepo().get_all()
+                    for template in templates:
+                        if template.name == page.title:
+                            template.content_json = json.dumps(data)
+                            TemplateRepo().update(template)
+                            break
+            except Exception as e:
+                print(f"Error syncing template: {e}")
