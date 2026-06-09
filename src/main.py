@@ -2,7 +2,7 @@ import sys
 import os
 import traceback
 from PyQt6.QtWidgets import QApplication, QMessageBox
-from PyQt6.QtGui import QFont, QFontDatabase
+from PyQt6.QtGui import QFont, QFontDatabase, QIcon
 from src.ui.main_window import MainWindow
 
 
@@ -465,8 +465,20 @@ sys.excepthook = _excepthook
 
 
 def main():
+    # Set AppUserModelID for Windows taskbar icon
+    try:
+        import ctypes
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("com.productivity.app")
+    except Exception:
+        pass
+
     app = QApplication(sys.argv)
     app.setApplicationName("Personal Productivity App")
+
+    # Set app icon for taskbar
+    logo_ico = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "icons", "logo_icon.ico")
+    if os.path.exists(logo_ico):
+        app.setWindowIcon(QIcon(logo_ico))
     
     # Load all custom fonts
     fonts = load_all_fonts()

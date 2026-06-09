@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QTreeWidget, QTreeWidgetItem,
     QPushButton, QHBoxLayout, QInputDialog, QMessageBox, QMenu,
     QDialog, QListWidget, QDialogButtonBox, QLabel, QLineEdit, QSpinBox,
-    QAbstractItemView, QSizePolicy, QScrollArea, QFrame
+    QAbstractItemView, QSizePolicy, QScrollArea, QFrame, QSplitter
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QDate, QMimeData, QSize
 from PyQt6.QtGui import QKeySequence, QAction, QDrag, QIcon
@@ -83,6 +83,12 @@ class PageTreeWidget(QTreeWidget):
 
             if page.page_type == "folder" and target_folder_id:
                 if self._sidebar._is_descendant(page_id, target_folder_id):
+                    continue
+
+            # Prevent folders from being nested under pages
+            if page.page_type == "folder" and target_folder_id:
+                target_page = self._sidebar.repo.get_by_id(target_folder_id)
+                if target_page and target_page.page_type != "folder":
                     continue
 
             current_parent = page.parent_id
@@ -216,6 +222,18 @@ class Sidebar(QWidget):
         view_layout.addWidget(self.btn_collapse)
         layout.addLayout(view_layout)
 
+        # --- Splitter for pages (top) and templates (bottom) ---
+        self._splitter = QSplitter(Qt.Orientation.Vertical)
+        self._splitter.setHandleWidth(4)
+        self._splitter.setStyleSheet("""
+            QSplitter::handle {
+                background: #E8DDE0;
+                margin: 2px 8px;
+                border-radius: 2px;
+            }
+        """)
+
+        # Upper tree: pages and folders
         self.tree = PageTreeWidget()
         self.tree.set_sidebar(self)
         self.tree.setHeaderHidden(True)
@@ -227,10 +245,29 @@ class Sidebar(QWidget):
         self.tree.customContextMenuRequested.connect(self._show_context_menu)
         self.tree.itemClicked.connect(self._on_item_clicked)
         self.tree.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        layout.addWidget(self.tree, 1)
+        self._splitter.addWidget(self.tree)
 
-        self.btn_expand.clicked.connect(self.tree.expandAll)
-        self.btn_collapse.clicked.connect(self.tree.collapseAll)
+        # Lower tree: templates
+        self.template_tree = QTreeWidget()
+        self.template_tree.setHeaderHidden(True)
+        self.template_tree.setIndentation(16)
+        self.template_tree.setAnimated(True)
+        self.template_tree.setIconSize(QSize(20, 20))
+        self.template_tree.setSelectionMode(QTreeWidget.SelectionMode.ExtendedSelection)
+        self.template_tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.template_tree.customContextMenuRequested.connect(self._show_template_context_menu)
+        self.template_tree.itemClicked.connect(self._on_template_item_clicked)
+        self.template_tree.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self._splitter.addWidget(self.template_tree)
+
+        # Set 2:1 stretch ratio
+        self._splitter.setStretchFactor(0, 2)
+        self._splitter.setStretchFactor(1, 1)
+
+        layout.addWidget(self._splitter, 1)
+
+        self.btn_expand.clicked.connect(self._expand_all)
+        self.btn_collapse.clicked.connect(self._collapse_all)
 
         self.btn_new.clicked.connect(self._create_page)
         self.btn_new_folder.clicked.connect(self._create_folder)
@@ -241,6 +278,22 @@ class Sidebar(QWidget):
         self._setup_shortcuts()
         self._ensure_templates_folder()
         self._load_pages()
+
+    def _expand_all(self):
+        self.tree.expandAll()
+        self.template_tree.expandAll()
+
+    def _collapse_all(self):
+        self.tree.collapseAll()
+        self.template_tree.collapseAll()
+
+    def _on_template_item_clicked(self, item, column):
+        page_id = item.data(0, Qt.ItemDataRole.UserRole)
+        if page_id:
+            self.page_selected.emit(page_id)
+
+    def _show_template_context_menu(self, pos):
+        self._show_context_menu(pos, tree=self.template_tree)
 
     def _setup_shortcuts(self):
         delete_action = QAction("Delete", self.tree)
@@ -255,6 +308,19 @@ class Sidebar(QWidget):
         rename_action.triggered.connect(self._rename_selected)
         self.tree.addAction(rename_action)
 
+        # Also add shortcuts to template tree
+        delete_action2 = QAction("Delete", self.template_tree)
+        delete_action2.setShortcut(QKeySequence("Delete"))
+        delete_action2.setShortcutContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        delete_action2.triggered.connect(self._delete_selected)
+        self.template_tree.addAction(delete_action2)
+
+        rename_action2 = QAction("Rename", self.template_tree)
+        rename_action2.setShortcut(QKeySequence("F2"))
+        rename_action2.setShortcutContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        rename_action2.triggered.connect(self._rename_selected)
+        self.template_tree.addAction(rename_action2)
+
     def _ensure_templates_folder(self):
         """Create the default Templates folder if it doesn't exist."""
         from src.models.page import Page
@@ -268,8 +334,9 @@ class Sidebar(QWidget):
         self.save_template_requested.emit()
 
     def _load_pages(self):
-        expanded_ids = self._collect_expanded()
+        expanded_ids = self._collect_expanded(self.tree)
         self.tree.clear()
+        self.template_tree.clear()
         pages = self.repo.get_all()
         root_pages = [p for p in pages if p.parent_id is None]
 
@@ -285,7 +352,7 @@ class Sidebar(QWidget):
 
         def add_children(parent_item, parent_id):
             children = [p for p in pages if p.parent_id == parent_id]
-            for page in sorted(children, key=lambda x: x.sort_order):
+            for page in sorted(children, key=lambda x: x.title.lower()):
                 item = QTreeWidgetItem(parent_item)
                 if page.page_type == "folder":
                     if page.title == "Templates":
@@ -293,7 +360,6 @@ class Sidebar(QWidget):
                     else:
                         item.setIcon(0, folder_icon)
                     item.setText(0, page.title)
-                    # Make folders bold
                     font = item.font(0)
                     font.setBold(True)
                     item.setFont(0, font)
@@ -316,15 +382,16 @@ class Sidebar(QWidget):
                         t_item.setData(0, Qt.ItemDataRole.UserRole + 1, "template")
                         t_item.setData(0, Qt.ItemDataRole.UserRole + 2, template.category)
 
-        for page in sorted(root_pages, key=lambda x: x.sort_order):
+        # Separate templates from regular pages
+        regular_root = [p for p in root_pages if not (p.title == "Templates" and p.page_type == "folder")]
+        templates_root = [p for p in root_pages if p.title == "Templates" and p.page_type == "folder"]
+
+        # Upper tree: regular pages/folders sorted alphabetically
+        for page in sorted(regular_root, key=lambda x: x.title.lower()):
             item = QTreeWidgetItem(self.tree)
             if page.page_type == "folder":
-                if page.title == "Templates":
-                    item.setIcon(0, template_icon)
-                else:
-                    item.setIcon(0, folder_icon)
+                item.setIcon(0, folder_icon)
                 item.setText(0, page.title)
-                # Make folders bold
                 font = item.font(0)
                 font.setBold(True)
                 item.setFont(0, font)
@@ -338,14 +405,29 @@ class Sidebar(QWidget):
             item.setData(0, Qt.ItemDataRole.UserRole + 1, page.page_type)
             add_children(item, page.id)
 
+        # Lower tree: Templates folder
+        for page in templates_root:
+            item = QTreeWidgetItem(self.template_tree)
+            item.setIcon(0, template_icon)
+            item.setText(0, page.title)
+            font = item.font(0)
+            font.setBold(True)
+            item.setFont(0, font)
+            item.setData(0, Qt.ItemDataRole.UserRole, page.id)
+            item.setData(0, Qt.ItemDataRole.UserRole + 1, page.page_type)
+            add_children(item, page.id)
+
         if expanded_ids:
-            self._restore_expanded(expanded_ids)
+            self._restore_expanded(self.tree, expanded_ids)
         else:
             self.tree.expandAll()
+        self.template_tree.expandAll()
 
-    def _collect_expanded(self):
+    def _collect_expanded(self, tree=None):
+        if tree is None:
+            tree = self.tree
         ids = set()
-        root = self.tree.invisibleRootItem()
+        root = tree.invisibleRootItem()
         stack = [root]
         while stack:
             parent = stack.pop()
@@ -357,8 +439,8 @@ class Sidebar(QWidget):
                 stack.append(child)
         return ids
 
-    def _restore_expanded(self, ids):
-        root = self.tree.invisibleRootItem()
+    def _restore_expanded(self, tree, ids):
+        root = tree.invisibleRootItem()
         stack = [root]
         while stack:
             parent = stack.pop()
@@ -394,7 +476,12 @@ class Sidebar(QWidget):
             if selected:
                 for item in selected:
                     parent_id = item.data(0, Qt.ItemDataRole.UserRole)
-                    self.repo.create(Page(title=title.strip(), parent_id=parent_id, page_type="folder"))
+                    page_type = item.data(0, Qt.ItemDataRole.UserRole + 1)
+                    # Only allow nesting under folders, not pages
+                    if page_type == "folder":
+                        self.repo.create(Page(title=title.strip(), parent_id=parent_id, page_type="folder"))
+                    else:
+                        self.repo.create(Page(title=title.strip(), page_type="folder"))
             else:
                 self.repo.create(Page(title=title.strip(), page_type="folder"))
             self._load_pages()
@@ -712,12 +799,14 @@ class Sidebar(QWidget):
             self._load_pages()
             self.pages_changed.emit()
 
-    def _show_context_menu(self, pos):
-        item = self.tree.itemAt(pos)
+    def _show_context_menu(self, pos, tree=None):
+        if tree is None:
+            tree = self.tree
+        item = tree.itemAt(pos)
         if not item:
             return
 
-        selected = self.tree.selectedItems()
+        selected = tree.selectedItems()
         page_id = item.data(0, Qt.ItemDataRole.UserRole)
         page_type = item.data(0, Qt.ItemDataRole.UserRole + 1) or "page"
         menu = QMenu()
@@ -725,7 +814,7 @@ class Sidebar(QWidget):
         if len(selected) > 1:
             delete_sel = menu.addAction(f"Delete Selected ({len(selected)})")
             template_sel = menu.addAction(f"Insert Template into Selected ({len(selected)})")
-            action = menu.exec(self.tree.viewport().mapToGlobal(pos))
+            action = menu.exec(tree.viewport().mapToGlobal(pos))
             if action == delete_sel:
                 self._bulk_delete(selected)
             elif action == template_sel:
@@ -736,14 +825,16 @@ class Sidebar(QWidget):
         delete_action = menu.addAction("Delete")
         menu.addSeparator()
         add_child_action = menu.addAction("Add Child Page")
-        add_folder_action = menu.addAction("Add Child Folder")
+        add_folder_action = None
+        if page_type == "folder":
+            add_folder_action = menu.addAction("Add Child Folder")
         menu.addSeparator()
         move_action = menu.addAction("Move to Folder...")
         menu.addSeparator()
         move_up_action = menu.addAction("Move Up")
         move_down_action = menu.addAction("Move Down")
 
-        action = menu.exec(self.tree.viewport().mapToGlobal(pos))
+        action = menu.exec(tree.viewport().mapToGlobal(pos))
 
         if action == rename_action:
             current = item.text(0)
@@ -1016,7 +1107,7 @@ class Sidebar(QWidget):
             self.pages_changed.emit()
 
     def _delete_selected(self):
-        items = self.tree.selectedItems()
+        items = self.tree.selectedItems() or self.template_tree.selectedItems()
         if not items:
             return
         if len(items) > 1:
@@ -1034,7 +1125,7 @@ class Sidebar(QWidget):
             self.pages_changed.emit()
 
     def _rename_selected(self):
-        items = self.tree.selectedItems()
+        items = self.tree.selectedItems() or self.template_tree.selectedItems()
         if not items or len(items) != 1:
             return
         item = items[0]

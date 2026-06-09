@@ -13,10 +13,10 @@ from PyQt6.QtWidgets import (
     QToolButton, QApplication, QButtonGroup, QStackedWidget,
     QFileDialog, QInputDialog, QSpinBox, QDateEdit
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QPoint, QEvent, QMimeData, QUrl
+from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QPoint, QEvent, QMimeData, QUrl, QSize
 from PyQt6.QtGui import (
     QFont, QAction, QKeySequence, QTextCursor, QTextCharFormat,
-    QPainter, QColor, QImage, QPixmap, QClipboard, QTextBlockFormat,
+    QPainter, QColor, QImage, QPixmap, QIcon, QClipboard, QTextBlockFormat,
     QTextListFormat, QTextDocument, QTextImageFormat
 )
 
@@ -1781,6 +1781,7 @@ class ContentBlockWidget(QFrame):
 
         header = QHBoxLayout()
         header.setContentsMargins(0, 0, 0, 0)
+        header.setAlignment(Qt.AlignmentFlag.AlignVCenter)
         self.drag_handle = DragHandle()
 
         default_header = self.block.header if self.block.header else self.block.block_type
@@ -1839,36 +1840,52 @@ class ContentBlockWidget(QFrame):
         self._align_target_kind = "header"
         self._align_target_edit = self._header_edit
 
+        icons_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'assets', 'icons')
+
         self._h_align_group = QButtonGroup(self)
-        self._h_left_btn = QPushButton("⫷")
+        self._h_left_btn = QPushButton()
+        self._h_left_btn.setIcon(QIcon(os.path.join(icons_dir, 'align_left.svg')))
         self._h_left_btn.setToolTip("Align left")
-        self._h_center_btn = QPushButton("⫿")
+        self._h_center_btn = QPushButton()
+        self._h_center_btn.setIcon(QIcon(os.path.join(icons_dir, 'align_center.svg')))
         self._h_center_btn.setToolTip("Align center")
-        self._h_right_btn = QPushButton("⫸")
+        self._h_right_btn = QPushButton()
+        self._h_right_btn.setIcon(QIcon(os.path.join(icons_dir, 'align_right.svg')))
         self._h_right_btn.setToolTip("Align right")
         for b in (self._h_left_btn, self._h_center_btn, self._h_right_btn):
             b.setCheckable(True)
+            b.setFixedHeight(container_h)
+            b.setFixedWidth(32)
+            b.setIconSize(QSize(18, 18))
+            b.setStyleSheet("QPushButton { padding: 0px; min-height: 0px; border: 1px solid #e5e7eb; border-radius: 4px; } QPushButton:checked { background: #f3e8f6; border-color: #CFA6D6; } QPushButton:hover { background: #fef2f2; }")
             self._h_align_group.addButton(b)
         self._h_align_group.buttonClicked.connect(self._on_h_align_changed)
 
         self._v_align_group = QButtonGroup(self)
-        self._v_top_btn = QPushButton("↥")
+        self._v_top_btn = QPushButton()
+        self._v_top_btn.setIcon(QIcon(os.path.join(icons_dir, 'align_top.svg')))
         self._v_top_btn.setToolTip("Align top")
-        self._v_center_btn = QPushButton("↕")
+        self._v_center_btn = QPushButton()
+        self._v_center_btn.setIcon(QIcon(os.path.join(icons_dir, 'align_middle.svg')))
         self._v_center_btn.setToolTip("Align middle")
-        self._v_bottom_btn = QPushButton("↧")
+        self._v_bottom_btn = QPushButton()
+        self._v_bottom_btn.setIcon(QIcon(os.path.join(icons_dir, 'align_bottom.svg')))
         self._v_bottom_btn.setToolTip("Align bottom")
         for b in (self._v_top_btn, self._v_center_btn, self._v_bottom_btn):
             b.setCheckable(True)
+            b.setFixedHeight(container_h)
+            b.setFixedWidth(32)
+            b.setIconSize(QSize(18, 18))
+            b.setStyleSheet("QPushButton { padding: 0px; min-height: 0px; border: 1px solid #e5e7eb; border-radius: 4px; } QPushButton:checked { background: #f3e8f6; border-color: #CFA6D6; } QPushButton:hover { background: #fef2f2; }")
             self._v_align_group.addButton(b)
         self._v_align_group.buttonClicked.connect(self._on_v_align_changed)
 
         self._apply_alignment_button_states()
 
-        del_btn = QPushButton("×")
-        del_btn.setFixedSize(24, 24)
+        del_btn = QPushButton("✕")
+        del_btn.setFixedHeight(container_h)
         del_btn.setToolTip("Delete block")
-        del_btn.setStyleSheet("QPushButton { border: 1px solid #e5e7eb; border-radius: 4px; color: #9ca3af; font-size: 14px; } QPushButton:hover { color: #ef4444; border-color: #ef4444; background: #fef2f2; }")
+        del_btn.setStyleSheet("QPushButton { border: 1px solid #e5e7eb; border-radius: 4px; color: #9ca3af; font-size: 14px; padding: 0px; min-width: 24px; max-width: 24px; } QPushButton:hover { color: #ef4444; border-color: #ef4444; background: #fef2f2; }")
 
         header.addWidget(self.drag_handle)
         header.addWidget(self._header_container, 1)
@@ -1876,7 +1893,8 @@ class ContentBlockWidget(QFrame):
                   self._v_top_btn, self._v_center_btn, self._v_bottom_btn):
             header.addWidget(b)
         self._add_task_btn = QPushButton("+ Add Task")
-        self._add_task_btn.setFixedHeight(26)
+        self._add_task_btn.setFixedHeight(container_h)
+        self._add_task_btn.setStyleSheet("QPushButton { padding: 0px; min-height: 0px; border: 1px solid #e5e7eb; border-radius: 4px; color: #9ca3af; font-size: 11px; } QPushButton:hover { background: #fef2f2; }")
         self._add_task_btn.setVisible(False)
         header.addWidget(self._add_task_btn)
 
@@ -2186,6 +2204,7 @@ class Canvas(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setAcceptDrops(True)
+        self._show_photo_bg = False
         if Canvas._bg_pixmap is None:
             bg_path = os.path.join(
                 os.path.dirname(__file__), '..', '..', 'assets', 'background', 'frontpage_bg.png'
@@ -2193,10 +2212,13 @@ class Canvas(QWidget):
             if os.path.exists(bg_path):
                 Canvas._bg_pixmap = QPixmap(bg_path)
 
+    def setPhotoBackground(self, show: bool):
+        self._show_photo_bg = show
+        self.update()
+
     def paintEvent(self, event):
-        if Canvas._bg_pixmap and not Canvas._bg_pixmap.isNull():
-            # Paint at viewport size, not canvas size, to prevent
-            # background from resizing when the canvas extends
+        painter = QPainter(self)
+        if self._show_photo_bg and Canvas._bg_pixmap and not Canvas._bg_pixmap.isNull():
             vp_w, vp_h = self.width(), self.height()
             parent = self.parent()
             while parent:
@@ -2206,7 +2228,6 @@ class Canvas(QWidget):
                     break
                 parent = parent.parent()
 
-            painter = QPainter(self)
             dpr = self.devicePixelRatioF()
             target_w = int(vp_w * dpr)
             target_h = int(vp_h * dpr)
@@ -2215,15 +2236,12 @@ class Canvas(QWidget):
                 Qt.AspectRatioMode.KeepAspectRatioByExpanding,
                 Qt.TransformationMode.SmoothTransformation,
             )
-            # Center relative to viewport, paint from canvas origin
             x = (vp_w - scaled.width() / dpr) / 2
             y = (vp_h - scaled.height() / dpr) / 2
             painter.drawPixmap(int(x), int(y), scaled)
-            painter.end()
         else:
-            painter = QPainter(self)
             painter.fillRect(self.rect(), QColor("#FFF8F5"))
-            painter.end()
+        painter.end()
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
@@ -2264,6 +2282,7 @@ class PageEditor(QWidget):
         self.scroll.setWidget(self.content)
         self.scroll.viewport().installEventFilter(self)
         self.scroll.verticalScrollBar().valueChanged.connect(self._on_scroll)
+        self.content.setPhotoBackground(True)
 
         # Add welcome message
         self.welcome_label = QLabel()
@@ -2817,9 +2836,12 @@ class PageEditor(QWidget):
         vp = self.scroll.viewport()
         self.content.setFixedWidth(vp.width())
         self.content.resize(vp.width(), vp.height())
+        self.scroll.setStyleSheet("QScrollArea { border: none; background: #2a1a35; }")
+        self.content.setPhotoBackground(True)
         # Show welcome message
         self.welcome_label.show()
         self._center_welcome_label()
+        self.setStyleSheet("background: #2a1a35;")
 
     def load_page(self, page_id: int):
         self.current_page_id = page_id
@@ -2829,6 +2851,9 @@ class PageEditor(QWidget):
         self._clear_selection()
         # Hide welcome message and re-enable scrolling
         self.welcome_label.hide()
+        self.content.setPhotoBackground(False)
+        self.setStyleSheet("background: #FFF8F5;")
+        self.scroll.setStyleSheet("QScrollArea { border: none; background: #FFF8F5; }")
         self.scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
 

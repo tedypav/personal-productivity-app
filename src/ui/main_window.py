@@ -21,7 +21,7 @@ from src.undo_manager import undo_manager, capture_page_tree
 
 def get_logo_path():
     """Get the path to the logo icon."""
-    return os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "assets", "icons", "logo_icon.svg")
+    return os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "assets", "icons", "logo_icon.ico")
 
 
 class MainWindow(QMainWindow):
