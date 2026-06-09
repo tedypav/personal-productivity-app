@@ -109,5 +109,8 @@ def init_db():
     except sqlite3.OperationalError:
         pass
 
+    conn.execute("UPDATE content_blocks SET header_font_size = NULL WHERE header_font_size < 1")
+    conn.execute("UPDATE content_blocks SET content_font_size = NULL WHERE content_font_size < 1")
+
     conn.commit()
     conn.close()

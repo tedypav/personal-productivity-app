@@ -18,6 +18,11 @@ py run.py
 - Database `app.db` is created automatically in the project root (WAL journal mode, foreign keys enforced).
 - File `settings.json` is created on first launch (defaults merged with file values; corrupt JSON falls back to defaults).
 - Unhandled exceptions show a **QMessageBox "Unhandled Error"** dialog instead of a silent crash.
+- **Custom fonts** are loaded from `assets/fonts/`:
+  - **Magnolia** (from `magnolia/magnolia.ttf`) - Used for the welcome message when no page is selected
+  - **Playfair Display** (from `playfair-display/PlayfairDisplay.ttf`) - Used for elegant headings and the page title
+  - **Inter** (from `inter/Inter.ttf`) - Used for body text, buttons, and UI elements (with Poppins as fallback)
+- When no page is selected, a welcome message appears: "Hello, lovely! Let's make it a productive day! ❤️" in Magnolia font
 
 ---
 
@@ -112,17 +117,24 @@ py run.py
 ### Formatting toolbar
 | Button | Shortcut | Action |
 |--------|----------|--------|
-| **B** | `Ctrl+B` | Wraps selected text in `**` (bold) |
-| **I** | `Ctrl+I` | Wraps selected text in `*` (italic) |
-| **H1** | — | Inserts `# ` at cursor |
-| **H2** | — | Inserts `## ` at cursor |
-| **<>** | — | Wraps selection in `` ` `` (inline code) |
-| **🔗** | — | Creates `[text](url)` Markdown link (or `[link text](url)` if no selection) |
-| **•** | — | Inserts `- ` (bullet list item) |
+| **B** | `Ctrl+B` | Toggles bold on selected text or for new input |
+| **I** | `Ctrl+I` | Toggles italic on selected text or for new input |
+| **H1** | — | Toggles heading 1 (large bold) on selected text or for new input |
+| **H2** | — | Toggles heading 2 (medium bold) on selected text or for new input |
+| **<>** | — | Toggles code formatting (monospace with background) on selected text or for new input |
+| **🔗** | — | Opens file dialog to attach a file or insert a link |
+| **•** | — | Toggles bullet list on current paragraph or selected paragraphs |
 | **Size:** | — | Font size combo box: applies to focused element (header, text, table cell, or list item). Sizes: 9–32. |
 
-- Formatting applies to the **currently focused text block** only.
-- If no text is selected, B/I insert markers and position cursor between them.
+- Formatting buttons show checked state when the style is active at cursor position
+- Buttons update their state when focus changes between text areas
+- Clicking an active button toggles the style off
+- Formatting works in text blocks, table cells, and task text areas
+- Toolbar buttons maintain focus on the active text edit, allowing formatting to be applied without losing cursor position
+- Button state updates only on focus changes to prevent crashes during typing
+- Bullet list toggle validates block state before accessing text list to prevent crashes
+- Multiple bullet lists can be created in the same text box or table cell; toggling off exits the current list and creates a new paragraph
+- When switching from preview to edit mode, formatting is applied with a delay to ensure the editor is fully ready
 
 ### Embedded Task Lists in Text Blocks
 - Click **"+ List"** while a text block has focus → an embedded task list is added inside the text block.

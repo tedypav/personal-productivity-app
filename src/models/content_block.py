@@ -19,3 +19,17 @@ class ContentBlock:
     content_font_size: Optional[int] = None
     pos_x: int = 0
     pos_y: int = 0
+
+    def __post_init__(self):
+        self.header_font_size = self._normalize_font_size(self.header_font_size)
+        self.content_font_size = self._normalize_font_size(self.content_font_size)
+
+    @staticmethod
+    def _normalize_font_size(value: Optional[int]) -> Optional[int]:
+        if value is None:
+            return None
+        try:
+            size = int(value)
+        except (TypeError, ValueError):
+            return None
+        return size if size >= 1 else None

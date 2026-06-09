@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="pageGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#FFF8F5"/>
+    </linearGradient>
+  </defs>
+  <!-- Page body -->
+  <rect x="4" y="2" width="16" height="20" rx="2" fill="url(#pageGrad)" stroke="#E8DDE0" stroke-width="0.8"/>
+  <!-- Page fold -->
+  <path d="M 14 2 L 20 8 L 14 8 Z" fill="#F0E6E8"/>
+  <!-- Page lines -->
+  <line x1="7" y1="11" x2="17" y2="11" stroke="#E8DDE0" stroke-width="0.8" stroke-linecap="round"/>
+  <line x1="7" y1="14" x2="15" y2="14" stroke="#E8DDE0" stroke-width="0.8" stroke-linecap="round"/>
+  <line x1="7" y1="17" x2="13" y2="17" stroke="#E8DDE0" stroke-width="0.8" stroke-linecap="round"/>
+  <!-- Page accent dot -->
+  <circle cx="17" cy="17" r="1.5" fill="#CFA6D6" opacity="0.6"/>
+</svg>

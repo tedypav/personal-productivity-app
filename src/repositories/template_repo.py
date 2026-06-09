@@ -35,3 +35,10 @@ class TemplateRepo:
         conn.execute("DELETE FROM templates WHERE id=?", (template_id,))
         conn.commit()
         conn.close()
+
+    @staticmethod
+    def delete_all():
+        conn = get_connection()
+        conn.execute("DELETE FROM templates")
+        conn.commit()
+        conn.close()

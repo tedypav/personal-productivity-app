@@ -1,15 +1,22 @@
+import os
+
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QTreeWidget, QTreeWidgetItem,
     QPushButton, QHBoxLayout, QInputDialog, QMessageBox, QMenu,
     QDialog, QListWidget, QDialogButtonBox, QLabel, QLineEdit, QSpinBox,
-    QAbstractItemView
+    QAbstractItemView, QSizePolicy, QScrollArea, QFrame, QSplitter
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QDate, QMimeData
-from PyQt6.QtGui import QKeySequence, QAction, QDrag
+from PyQt6.QtCore import Qt, pyqtSignal, QDate, QMimeData, QSize
+from PyQt6.QtGui import QKeySequence, QAction, QDrag, QIcon
 from src.repositories.page_repo import PageRepo
 from src.models.page import Page
 from src.settings import load_settings
 from src.undo_manager import undo_manager, capture_page_tree
+
+
+def _get_icon_path(name):
+    """Get path to an icon file."""
+    return os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "assets", "icons", f"{name}.svg")
 
 
 class PageTreeWidget(QTreeWidget):
@@ -78,6 +85,12 @@ class PageTreeWidget(QTreeWidget):
                 if self._sidebar._is_descendant(page_id, target_folder_id):
                     continue
 
+            # Prevent folders from being nested under pages
+            if page.page_type == "folder" and target_folder_id:
+                target_page = self._sidebar.repo.get_by_id(target_folder_id)
+                if target_page and target_page.page_type != "folder":
+                    continue
+
             current_parent = page.parent_id
             target_parent = target_folder_id
             if current_parent == target_parent:
@@ -102,34 +115,56 @@ class PageTreeWidget(QTreeWidget):
 class Sidebar(QWidget):
     page_selected = pyqtSignal(int)
     pages_changed = pyqtSignal()
+    save_template_requested = pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.repo = PageRepo()
         self.settings = load_settings()
-        self.setMinimumWidth(200)
-        self.setMaximumWidth(400)
+        self.setMinimumWidth(180)
+        self.setMaximumWidth(350)
         self.setStyleSheet("""
+            Sidebar {
+                background: #FFF8F5;
+            }
             QTreeWidget {
-                border: none;
+                background: #FFFFFF;
+                border: 1px solid #F0E6E8;
+                border-radius: 12px;
                 font-size: 13px;
+                color: #2E2B2B;
+                outline: none;
+                padding: 4px;
             }
             QTreeWidget::item {
-                padding: 4px 2px;
+                padding: 7px 6px;
+                border-radius: 8px;
+                margin: 1px 2px;
+                color: #2E2B2B;
             }
             QTreeWidget::item:selected {
-                background-color: #e0e7ff;
-                color: #1e40af;
+                background-color: #F3E8F6;
+                color: #2E2B2B;
+            }
+            QTreeWidget::item:hover {
+                background-color: #FFF0F3;
             }
             QPushButton {
-                padding: 6px 12px;
-                border: 1px solid #ccc;
-                border-radius: 4px;
-                background: #f8f9fa;
-                font-size: 12px;
+                padding: 6px 10px;
+                border: none;
+                border-radius: 18px;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #FFFFFF, stop:1 #FFF8F5);
+                font-size: 11px;
+                font-weight: 500;
+                color: #2E2B2B;
             }
             QPushButton:hover {
-                background: #e9ecef;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #FFF0F3, stop:1 #F7D1DC);
+                border: 1px solid #F7D1DC;
+            }
+            QPushButton:pressed {
+                background: #F7D1DC;
+                border: 1px solid #CFA6D6;
             }
         """)
 
@@ -138,50 +173,127 @@ class Sidebar(QWidget):
         layout.setSpacing(4)
 
         btn_layout = QHBoxLayout()
-        self.btn_new = QPushButton("+ New Page")
-        self.btn_new_folder = QPushButton("+ Folder")
-        self.btn_new_page = QPushButton("Bulk Time-Based")
-        btn_layout.addWidget(self.btn_new)
+        btn_layout.setContentsMargins(0, 0, 0, 0)
+        btn_layout.setSpacing(3)
+
+        page_icon = QIcon(_get_icon_path("page"))
+        folder_icon = QIcon(_get_icon_path("folder"))
+
+        self.btn_new_folder = QPushButton("New Folder")
+        self.btn_new_folder.setIcon(folder_icon)
+        self.btn_new_folder.setFixedWidth(110)
+
+        self.btn_new = QPushButton("New Page")
+        self.btn_new.setIcon(page_icon)
+        self.btn_new.setFixedWidth(105)
+
+        self.btn_new_page = QPushButton("Time Pages")
+        self.btn_new_page.setIcon(page_icon)
+        self.btn_new_page.setFixedWidth(110)
+
         btn_layout.addWidget(self.btn_new_folder)
+        btn_layout.addWidget(self.btn_new)
         btn_layout.addWidget(self.btn_new_page)
         layout.addLayout(btn_layout)
 
         btn_layout2 = QHBoxLayout()
-        self.btn_bulk_named = QPushButton("+ Bulk Named")
+        btn_layout2.setContentsMargins(0, 0, 0, 0)
+        btn_layout2.setSpacing(3)
+        self.btn_bulk_named = QPushButton("Name Pages")
+        self.btn_bulk_named.setIcon(page_icon)
+        self.btn_bulk_named.setFixedWidth(110)
+
+        template_icon = QIcon(_get_icon_path("folder_template"))
+        self.btn_set_template = QPushButton("Set Template")
+        self.btn_set_template.setIcon(template_icon)
+        self.btn_set_template.setFixedWidth(110)
+
         btn_layout2.addWidget(self.btn_bulk_named)
+        btn_layout2.addWidget(self.btn_set_template)
         btn_layout2.addStretch()
         layout.addLayout(btn_layout2)
 
         view_layout = QHBoxLayout()
         self.btn_expand = QPushButton("Show All")
         self.btn_collapse = QPushButton("Hide All")
-        self.btn_expand.setStyleSheet("QPushButton { padding: 2px 8px; font-size: 10px; }")
-        self.btn_collapse.setStyleSheet("QPushButton { padding: 2px 8px; font-size: 10px; }")
+        self.btn_expand.setStyleSheet("QPushButton { padding: 4px 10px; font-size: 10px; border-radius: 14px; }")
+        self.btn_collapse.setStyleSheet("QPushButton { padding: 4px 10px; font-size: 10px; border-radius: 14px; }")
         view_layout.addWidget(self.btn_expand)
         view_layout.addWidget(self.btn_collapse)
         layout.addLayout(view_layout)
 
+        # --- Splitter for pages (top) and templates (bottom) ---
+        self._splitter = QSplitter(Qt.Orientation.Vertical)
+        self._splitter.setHandleWidth(4)
+        self._splitter.setStyleSheet("""
+            QSplitter::handle {
+                background: #E8DDE0;
+                margin: 2px 8px;
+                border-radius: 2px;
+            }
+        """)
+
+        # Upper tree: pages and folders
         self.tree = PageTreeWidget()
         self.tree.set_sidebar(self)
         self.tree.setHeaderHidden(True)
         self.tree.setIndentation(16)
         self.tree.setAnimated(True)
+        self.tree.setIconSize(QSize(20, 20))
         self.tree.setSelectionMode(QTreeWidget.SelectionMode.ExtendedSelection)
         self.tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.tree.customContextMenuRequested.connect(self._show_context_menu)
         self.tree.itemClicked.connect(self._on_item_clicked)
-        layout.addWidget(self.tree)
+        self.tree.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self._splitter.addWidget(self.tree)
 
-        self.btn_expand.clicked.connect(self.tree.expandAll)
-        self.btn_collapse.clicked.connect(self.tree.collapseAll)
+        # Lower tree: templates
+        self.template_tree = QTreeWidget()
+        self.template_tree.setHeaderHidden(True)
+        self.template_tree.setIndentation(16)
+        self.template_tree.setAnimated(True)
+        self.template_tree.setIconSize(QSize(20, 20))
+        self.template_tree.setSelectionMode(QTreeWidget.SelectionMode.ExtendedSelection)
+        self.template_tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.template_tree.customContextMenuRequested.connect(self._show_template_context_menu)
+        self.template_tree.itemClicked.connect(self._on_template_item_clicked)
+        self.template_tree.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self._splitter.addWidget(self.template_tree)
+
+        # Set 2:1 stretch ratio
+        self._splitter.setStretchFactor(0, 2)
+        self._splitter.setStretchFactor(1, 1)
+
+        layout.addWidget(self._splitter, 1)
+
+        self.btn_expand.clicked.connect(self._expand_all)
+        self.btn_collapse.clicked.connect(self._collapse_all)
 
         self.btn_new.clicked.connect(self._create_page)
         self.btn_new_folder.clicked.connect(self._create_folder)
         self.btn_new_page.clicked.connect(self._bulk_creation_requested)
         self.btn_bulk_named.clicked.connect(self._bulk_named_dialog)
+        self.btn_set_template.clicked.connect(self._save_template_clicked)
 
         self._setup_shortcuts()
+        self._ensure_templates_folder()
         self._load_pages()
+
+    def _expand_all(self):
+        self.tree.expandAll()
+        self.template_tree.expandAll()
+
+    def _collapse_all(self):
+        self.tree.collapseAll()
+        self.template_tree.collapseAll()
+
+    def _on_template_item_clicked(self, item, column):
+        page_id = item.data(0, Qt.ItemDataRole.UserRole)
+        if page_id:
+            self.page_selected.emit(page_id)
+
+    def _show_template_context_menu(self, pos):
+        self._show_context_menu(pos, tree=self.template_tree)
 
     def _setup_shortcuts(self):
         delete_action = QAction("Delete", self.tree)
@@ -196,50 +308,126 @@ class Sidebar(QWidget):
         rename_action.triggered.connect(self._rename_selected)
         self.tree.addAction(rename_action)
 
+        # Also add shortcuts to template tree
+        delete_action2 = QAction("Delete", self.template_tree)
+        delete_action2.setShortcut(QKeySequence("Delete"))
+        delete_action2.setShortcutContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        delete_action2.triggered.connect(self._delete_selected)
+        self.template_tree.addAction(delete_action2)
+
+        rename_action2 = QAction("Rename", self.template_tree)
+        rename_action2.setShortcut(QKeySequence("F2"))
+        rename_action2.setShortcutContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        rename_action2.triggered.connect(self._rename_selected)
+        self.template_tree.addAction(rename_action2)
+
+    def _ensure_templates_folder(self):
+        """Create the default Templates folder if it doesn't exist."""
+        from src.models.page import Page
+        pages = self.repo.get_all()
+        templates_folder = [p for p in pages if p.title == "Templates" and p.page_type == "folder"]
+        if not templates_folder:
+            self.repo.create(Page(title="Templates", page_type="folder"))
+
+    def _save_template_clicked(self):
+        """Save the current page as a template."""
+        self.save_template_requested.emit()
+
     def _load_pages(self):
-        expanded_ids = self._collect_expanded()
+        expanded_ids = self._collect_expanded(self.tree)
         self.tree.clear()
+        self.template_tree.clear()
         pages = self.repo.get_all()
         root_pages = [p for p in pages if p.parent_id is None]
 
+        folder_icon = QIcon(_get_icon_path("folder"))
+        page_icon = QIcon(_get_icon_path("page"))
+        template_icon = QIcon(_get_icon_path("folder_template"))
+        template_page_icon = QIcon(_get_icon_path("page_template"))
+
+        # Load templates from database
+        from src.repositories.template_repo import TemplateRepo
+        template_repo = TemplateRepo()
+        templates = template_repo.get_all()
+
         def add_children(parent_item, parent_id):
             children = [p for p in pages if p.parent_id == parent_id]
-            for page in sorted(children, key=lambda x: x.sort_order):
+            for page in sorted(children, key=lambda x: x.title.lower()):
                 item = QTreeWidgetItem(parent_item)
                 if page.page_type == "folder":
-                    item.setText(0, f"📁 {page.title}")
-                    # Make folders bold
+                    if page.title == "Templates":
+                        item.setIcon(0, template_icon)
+                    else:
+                        item.setIcon(0, folder_icon)
+                    item.setText(0, page.title)
                     font = item.font(0)
                     font.setBold(True)
                     item.setFont(0, font)
+                elif page.page_type == "template_page":
+                    item.setIcon(0, template_page_icon)
+                    item.setText(0, page.title)
                 else:
+                    item.setIcon(0, page_icon)
                     item.setText(0, page.title)
                 item.setData(0, Qt.ItemDataRole.UserRole, page.id)
                 item.setData(0, Qt.ItemDataRole.UserRole + 1, page.page_type)
                 add_children(item, page.id)
+                # Add templates as children of the Templates folder
+                if page.title == "Templates" and page.page_type == "folder":
+                    for template in templates:
+                        t_item = QTreeWidgetItem(item)
+                        t_item.setIcon(0, page_icon)
+                        t_item.setText(0, template.name)
+                        t_item.setData(0, Qt.ItemDataRole.UserRole, -template.id)
+                        t_item.setData(0, Qt.ItemDataRole.UserRole + 1, "template")
+                        t_item.setData(0, Qt.ItemDataRole.UserRole + 2, template.category)
 
-        for page in sorted(root_pages, key=lambda x: x.sort_order):
+        # Separate templates from regular pages
+        regular_root = [p for p in root_pages if not (p.title == "Templates" and p.page_type == "folder")]
+        templates_root = [p for p in root_pages if p.title == "Templates" and p.page_type == "folder"]
+
+        # Upper tree: regular pages/folders sorted alphabetically
+        for page in sorted(regular_root, key=lambda x: x.title.lower()):
             item = QTreeWidgetItem(self.tree)
             if page.page_type == "folder":
-                item.setText(0, f"📁 {page.title}")
-                # Make folders bold
+                item.setIcon(0, folder_icon)
+                item.setText(0, page.title)
                 font = item.font(0)
                 font.setBold(True)
                 item.setFont(0, font)
+            elif page.page_type == "template_page":
+                item.setIcon(0, template_page_icon)
+                item.setText(0, page.title)
             else:
+                item.setIcon(0, page_icon)
                 item.setText(0, page.title)
             item.setData(0, Qt.ItemDataRole.UserRole, page.id)
             item.setData(0, Qt.ItemDataRole.UserRole + 1, page.page_type)
             add_children(item, page.id)
 
+        # Lower tree: Templates folder
+        for page in templates_root:
+            item = QTreeWidgetItem(self.template_tree)
+            item.setIcon(0, template_icon)
+            item.setText(0, page.title)
+            font = item.font(0)
+            font.setBold(True)
+            item.setFont(0, font)
+            item.setData(0, Qt.ItemDataRole.UserRole, page.id)
+            item.setData(0, Qt.ItemDataRole.UserRole + 1, page.page_type)
+            add_children(item, page.id)
+
         if expanded_ids:
-            self._restore_expanded(expanded_ids)
+            self._restore_expanded(self.tree, expanded_ids)
         else:
             self.tree.expandAll()
+        self.template_tree.expandAll()
 
-    def _collect_expanded(self):
+    def _collect_expanded(self, tree=None):
+        if tree is None:
+            tree = self.tree
         ids = set()
-        root = self.tree.invisibleRootItem()
+        root = tree.invisibleRootItem()
         stack = [root]
         while stack:
             parent = stack.pop()
@@ -251,8 +439,8 @@ class Sidebar(QWidget):
                 stack.append(child)
         return ids
 
-    def _restore_expanded(self, ids):
-        root = self.tree.invisibleRootItem()
+    def _restore_expanded(self, tree, ids):
+        root = tree.invisibleRootItem()
         stack = [root]
         while stack:
             parent = stack.pop()
@@ -288,7 +476,12 @@ class Sidebar(QWidget):
             if selected:
                 for item in selected:
                     parent_id = item.data(0, Qt.ItemDataRole.UserRole)
-                    self.repo.create(Page(title=title.strip(), parent_id=parent_id, page_type="folder"))
+                    page_type = item.data(0, Qt.ItemDataRole.UserRole + 1)
+                    # Only allow nesting under folders, not pages
+                    if page_type == "folder":
+                        self.repo.create(Page(title=title.strip(), parent_id=parent_id, page_type="folder"))
+                    else:
+                        self.repo.create(Page(title=title.strip(), page_type="folder"))
             else:
                 self.repo.create(Page(title=title.strip(), page_type="folder"))
             self._load_pages()
@@ -298,10 +491,26 @@ class Sidebar(QWidget):
         self._bulk_create_dialog()
 
     def _bulk_create_dialog(self):
-        from PyQt6.QtWidgets import QDialog, QVBoxLayout, QComboBox, QDateEdit, QLabel, QDialogButtonBox
+        from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QComboBox, QDateEdit, QLabel, QDialogButtonBox
+        from PyQt6.QtGui import QIcon
+        import os
         dialog = QDialog(self)
         dialog.setWindowTitle("Bulk Create Pages")
+        
+        # Title with logo
+        title_layout = QHBoxLayout()
+        logo_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "assets", "icons", "logo_icon.svg")
+        if os.path.exists(logo_path):
+            logo_label = QLabel()
+            logo_label.setPixmap(QIcon(logo_path).pixmap(28, 28))
+            title_layout.addWidget(logo_label)
+        title_label = QLabel("Bulk Create Pages")
+        title_label.setStyleSheet("font-size: 16px; font-weight: 600; color: #2E2B2B; font-family: 'Playfair Display', serif;")
+        title_layout.addWidget(title_label)
+        title_layout.addStretch()
+        
         layout = QVBoxLayout(dialog)
+        layout.addLayout(title_layout)
 
         mode_combo = QComboBox()
         mode_combo.addItems(["Days", "Weeks", "Years"])
@@ -311,6 +520,136 @@ class Sidebar(QWidget):
         start_date = QDateEdit()
         start_date.setCalendarPopup(True)
         start_date.setDate(QDate.currentDate())
+        start_date.setDisplayFormat("yyyy-MM-dd")
+        calendar_style = """
+            QDateEdit {
+                padding: 6px 12px;
+                border: 1px solid #F0E6E8;
+                border-radius: 10px;
+                background: #FFFFFF;
+                font-size: 13px;
+                color: #2E2B2B;
+                min-width: 120px;
+                font-family: 'Inter', 'Poppins', sans-serif;
+            }
+            QDateEdit::drop-down {
+                border: none;
+                width: 28px;
+                subcontrol-origin: padding;
+                subcontrol-position: top right;
+            }
+            QDateEdit::down-arrow {
+                image: none;
+                border-left: 5px solid transparent;
+                border-right: 5px solid transparent;
+                border-top: 7px solid #CFA6D6;
+                margin-right: 8px;
+            }
+            QCalendarWidget {
+                background: #FFFFFF;
+                border: 1px solid #F0E6E8;
+                border-radius: 12px;
+                font-family: 'Inter', 'Poppins', sans-serif;
+                font-size: 10px;
+            }
+            QCalendarWidget QToolButton {
+                color: #2E2B2B;
+                background: transparent;
+                border: none;
+                border-radius: 6px;
+                padding: 3px 6px;
+                font-size: 11px;
+                font-family: 'Inter', 'Poppins', sans-serif;
+            }
+            QCalendarWidget QToolButton:hover {
+                background: #FFF0F3;
+            }
+            QCalendarWidget QToolButton:pressed {
+                background: #F7D1DC;
+            }
+            QCalendarWidget QToolButton#qt_calendar_prevmonth,
+            QCalendarWidget QToolButton#qt_calendar_nextmonth {
+                qproperty-icon: none;
+                min-width: 22px;
+                font-size: 11px;
+                color: #CFA6D6;
+            }
+            QCalendarWidget QToolButton#qt_calendar_prevmonth { qproperty-text: "<"; }
+            QCalendarWidget QToolButton#qt_calendar_nextmonth { qproperty-text: ">"; }
+            QCalendarWidget QToolButton#qt_calendar_prevmonth:hover,
+            QCalendarWidget QToolButton#qt_calendar_nextmonth:hover {
+                color: #2E2B2B;
+                background: #FFF0F3;
+            }
+            QCalendarWidget QToolButton#qt_calendar_monthbutton,
+            QCalendarWidget QToolButton#qt_calendar_yearbutton {
+                font-size: 11px;
+                font-weight: 600;
+                min-width: 60px;
+                color: #2E2B2B;
+            }
+            QCalendarWidget QWidget#qt_calendar_calendarview {
+                background: #FFFFFF;
+                border: none;
+            }
+            QCalendarWidget QAbstractItemView:enabled {
+                color: #2E2B2B;
+                background: #FFFFFF;
+                selection-background-color: #CFA6D6;
+                selection-color: #FFFFFF;
+                font-family: 'Inter', 'Poppins', sans-serif;
+                font-size: 10px;
+                gridline-color: transparent;
+            }
+            QCalendarWidget QAbstractItemView:disabled {
+                color: #D1D5DB;
+            }
+            QCalendarWidget QAbstractItemView:focus {
+                outline: none;
+            }
+            QCalendarWidget QTableView {
+                selection-background-color: #CFA6D6;
+                selection-color: #FFFFFF;
+            }
+            QCalendarWidget QTableView QHeaderView::section {
+                background: #FFF8F5;
+                color: #6B6770;
+                border: none;
+                border-bottom: 1px solid #F0E6E8;
+                padding: 2px;
+                font-size: 9px;
+                font-weight: 600;
+                font-family: 'Inter', 'Poppins', sans-serif;
+            }
+            QCalendarWidget QWidget#qt_calendar_navigationbar {
+                background: #FFF8F5;
+                border-top: 1px solid #F0E6E8;
+                border-radius: 0 0 12px 12px;
+                padding: 2px;
+            }
+            QCalendarWidget QCalendarDayWidget {
+                padding: 0px;
+                min-width: 24px;
+                max-width: 28px;
+                min-height: 18px;
+                max-height: 22px;
+            }
+            QCalendarWidget QToolButton#qt_calendar_calendarbutton {
+                qproperty-icon: none;
+                min-width: 18px;
+                font-size: 10px;
+                color: #CFA6D6;
+            }
+        """
+        start_date.setStyleSheet(calendar_style)
+        # Style weekend days as pink/lavender
+        from PyQt6.QtGui import QColor, QTextCharFormat
+        start_cal = start_date.calendarWidget()
+        if start_cal:
+            fmt = QTextCharFormat()
+            fmt.setForeground(QColor("#CFA6D6"))
+            start_cal.setWeekdayTextFormat(Qt.DayOfWeek.Saturday, fmt)
+            start_cal.setWeekdayTextFormat(Qt.DayOfWeek.Sunday, fmt)
         layout.addWidget(QLabel("Start date:"))
         layout.addWidget(start_date)
 
@@ -318,6 +657,14 @@ class Sidebar(QWidget):
         end_date = QDateEdit()
         end_date.setCalendarPopup(True)
         end_date.setDate(QDate.currentDate())
+        end_date.setDisplayFormat("yyyy-MM-dd")
+        end_date.setStyleSheet(calendar_style)
+        end_cal = end_date.calendarWidget()
+        if end_cal:
+            fmt_end = QTextCharFormat()
+            fmt_end.setForeground(QColor("#CFA6D6"))
+            end_cal.setWeekdayTextFormat(Qt.DayOfWeek.Saturday, fmt_end)
+            end_cal.setWeekdayTextFormat(Qt.DayOfWeek.Sunday, fmt_end)
         layout.addWidget(end_label)
         layout.addWidget(end_date)
 
@@ -370,6 +717,12 @@ class Sidebar(QWidget):
             start = start_date.date().toPyDate()
             end = end_date.date().toPyDate()
 
+            # Get selected folder as parent
+            selected_folder_id = None
+            selected = self.tree.selectedItems()
+            if selected:
+                selected_folder_id = selected[0].data(0, Qt.ItemDataRole.UserRole)
+
             titles = []
             if mode == "Days":
                 current = start
@@ -391,14 +744,30 @@ class Sidebar(QWidget):
                     titles.append(str(year))
 
             for title in titles:
-                self.repo.create(Page(title=title, page_type="page"))
+                self.repo.create(Page(title=title, page_type="page", parent_id=selected_folder_id))
             self._load_pages()
             self.pages_changed.emit()
 
     def _bulk_named_dialog(self):
+        from PyQt6.QtGui import QIcon
+        import os
         dialog = QDialog(self)
         dialog.setWindowTitle("Bulk Create Named Pages")
+        
+        # Title with logo
+        title_layout = QHBoxLayout()
+        logo_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "assets", "icons", "logo_icon.svg")
+        if os.path.exists(logo_path):
+            logo_label = QLabel()
+            logo_label.setPixmap(QIcon(logo_path).pixmap(28, 28))
+            title_layout.addWidget(logo_label)
+        title_label = QLabel("Bulk Create Named Pages")
+        title_label.setStyleSheet("font-size: 16px; font-weight: 600; color: #2E2B2B; font-family: 'Playfair Display', serif;")
+        title_layout.addWidget(title_label)
+        title_layout.addStretch()
+        
         layout = QVBoxLayout(dialog)
+        layout.addLayout(title_layout)
 
         layout.addWidget(QLabel("Base name:"))
         name_edit = QLineEdit("Page")
@@ -420,17 +789,24 @@ class Sidebar(QWidget):
             count = count_spin.value()
             if not base:
                 return
+            # Get selected folder as parent
+            selected_folder_id = None
+            selected = self.tree.selectedItems()
+            if selected:
+                selected_folder_id = selected[0].data(0, Qt.ItemDataRole.UserRole)
             for i in range(1, count + 1):
-                self.repo.create(Page(title=f"{base} {i}", page_type="page"))
+                self.repo.create(Page(title=f"{base} {i}", page_type="page", parent_id=selected_folder_id))
             self._load_pages()
             self.pages_changed.emit()
 
-    def _show_context_menu(self, pos):
-        item = self.tree.itemAt(pos)
+    def _show_context_menu(self, pos, tree=None):
+        if tree is None:
+            tree = self.tree
+        item = tree.itemAt(pos)
         if not item:
             return
 
-        selected = self.tree.selectedItems()
+        selected = tree.selectedItems()
         page_id = item.data(0, Qt.ItemDataRole.UserRole)
         page_type = item.data(0, Qt.ItemDataRole.UserRole + 1) or "page"
         menu = QMenu()
@@ -438,7 +814,7 @@ class Sidebar(QWidget):
         if len(selected) > 1:
             delete_sel = menu.addAction(f"Delete Selected ({len(selected)})")
             template_sel = menu.addAction(f"Insert Template into Selected ({len(selected)})")
-            action = menu.exec(self.tree.viewport().mapToGlobal(pos))
+            action = menu.exec(tree.viewport().mapToGlobal(pos))
             if action == delete_sel:
                 self._bulk_delete(selected)
             elif action == template_sel:
@@ -449,14 +825,16 @@ class Sidebar(QWidget):
         delete_action = menu.addAction("Delete")
         menu.addSeparator()
         add_child_action = menu.addAction("Add Child Page")
-        add_folder_action = menu.addAction("Add Child Folder")
+        add_folder_action = None
+        if page_type == "folder":
+            add_folder_action = menu.addAction("Add Child Folder")
         menu.addSeparator()
         move_action = menu.addAction("Move to Folder...")
         menu.addSeparator()
         move_up_action = menu.addAction("Move Up")
         move_down_action = menu.addAction("Move Down")
 
-        action = menu.exec(self.tree.viewport().mapToGlobal(pos))
+        action = menu.exec(tree.viewport().mapToGlobal(pos))
 
         if action == rename_action:
             current = item.text(0)
@@ -522,7 +900,20 @@ class Sidebar(QWidget):
         dialog.setMinimumWidth(300)
         dialog.setMinimumHeight(400)
         
+        # Title with logo
+        title_layout = QHBoxLayout()
+        logo_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "assets", "icons", "logo_icon.svg")
+        if os.path.exists(logo_path):
+            logo_label = QLabel()
+            logo_label.setPixmap(QIcon(logo_path).pixmap(28, 28))
+            title_layout.addWidget(logo_label)
+        title_label = QLabel("Move to Folder")
+        title_label.setStyleSheet("font-size: 16px; font-weight: 600; color: #2E2B2B; font-family: 'Playfair Display', serif;")
+        title_layout.addWidget(title_label)
+        title_layout.addStretch()
+        
         layout = QVBoxLayout(dialog)
+        layout.addLayout(title_layout)
         
         # Add tree widget to show folder structure
         folder_tree = QTreeWidget()
@@ -531,7 +922,8 @@ class Sidebar(QWidget):
         
         # Add root option
         root_item = QTreeWidgetItem(folder_tree)
-        root_item.setText(0, "📂 Root (no folder)")
+        root_item.setIcon(0, QIcon(_get_icon_path("folder")))
+        root_item.setText(0, "Root (no folder)")
         root_item.setData(0, Qt.ItemDataRole.UserRole, None)
         
         # Get all folders
@@ -542,15 +934,17 @@ class Sidebar(QWidget):
             children = [f for f in folders if f.parent_id == parent_id]
             for folder in sorted(children, key=lambda x: x.sort_order):
                 item = QTreeWidgetItem(parent_item)
-                item.setText(0, f"📁 {folder.title}")
+                item.setIcon(0, QIcon(_get_icon_path("folder")))
+                item.setText(0, folder.title)
                 item.setData(0, Qt.ItemDataRole.UserRole, folder.id)
                 add_folder_children(item, folder.id)
-        
+
         # Add all root-level folders
         root_folders = [f for f in folders if f.parent_id is None]
         for folder in sorted(root_folders, key=lambda x: x.sort_order):
             item = QTreeWidgetItem(folder_tree)
-            item.setText(0, f"📁 {folder.title}")
+            item.setIcon(0, QIcon(_get_icon_path("folder")))
+            item.setText(0, folder.title)
             item.setData(0, Qt.ItemDataRole.UserRole, folder.id)
             add_folder_children(item, folder.id)
         
@@ -623,7 +1017,9 @@ class Sidebar(QWidget):
         if captured:
             undo_manager.push({"type": "bulk", "actions": captured})
 
+        # Sync template deletion for all pages
         for pid in all_ids:
+            self._sync_template_deletion(pid)
             self.repo.delete(pid)
         self._load_pages()
         self.pages_changed.emit()
@@ -642,7 +1038,21 @@ class Sidebar(QWidget):
 
         dialog = QDialog(self)
         dialog.setWindowTitle("Insert Template into Selected Pages")
+        
+        # Title with logo
+        title_layout = QHBoxLayout()
+        logo_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "assets", "icons", "logo_icon.svg")
+        if os.path.exists(logo_path):
+            logo_label = QLabel()
+            logo_label.setPixmap(QIcon(logo_path).pixmap(28, 28))
+            title_layout.addWidget(logo_label)
+        title_label = QLabel("Insert Template into Selected Pages")
+        title_label.setStyleSheet("font-size: 16px; font-weight: 600; color: #2E2B2B; font-family: 'Playfair Display', serif;")
+        title_layout.addWidget(title_label)
+        title_layout.addStretch()
+        
         layout = QVBoxLayout(dialog)
+        layout.addLayout(title_layout)
         list_widget = QListWidget()
         for t in templates:
             list_widget.addItem(f"{t.name} ({t.category})")
@@ -666,6 +1076,20 @@ class Sidebar(QWidget):
                     BlockRepo().create(block)
             QMessageBox.information(self, "Template", f"Template '{template.name}' inserted into {len(page_ids)} page(s).")
 
+    def _sync_template_deletion(self, page_id):
+        """Delete template from database if the page is a template page."""
+        try:
+            page = self.repo.get_by_id(page_id)
+            if page and page.page_type == "template_page":
+                from src.repositories.template_repo import TemplateRepo
+                templates = TemplateRepo().get_all()
+                for template in templates:
+                    if template.name == page.title:
+                        TemplateRepo().delete(template.id)
+                        break
+        except Exception as e:
+            print(f"Error syncing template deletion: {e}")
+
     def delete_selected(self):
         items = self.tree.selectedItems()
         if len(items) > 1:
@@ -673,6 +1097,7 @@ class Sidebar(QWidget):
         elif len(items) == 1:
             item = items[0]
             page_id = item.data(0, Qt.ItemDataRole.UserRole)
+            self._sync_template_deletion(page_id)
             data = capture_page_tree(page_id)
             if data:
                 data["type"] = "page"
@@ -682,7 +1107,7 @@ class Sidebar(QWidget):
             self.pages_changed.emit()
 
     def _delete_selected(self):
-        items = self.tree.selectedItems()
+        items = self.tree.selectedItems() or self.template_tree.selectedItems()
         if not items:
             return
         if len(items) > 1:
@@ -690,6 +1115,7 @@ class Sidebar(QWidget):
         else:
             item = items[0]
             page_id = item.data(0, Qt.ItemDataRole.UserRole)
+            self._sync_template_deletion(page_id)
             data = capture_page_tree(page_id)
             if data:
                 data["type"] = "page"
@@ -699,15 +1125,12 @@ class Sidebar(QWidget):
             self.pages_changed.emit()
 
     def _rename_selected(self):
-        items = self.tree.selectedItems()
+        items = self.tree.selectedItems() or self.template_tree.selectedItems()
         if not items or len(items) != 1:
             return
         item = items[0]
         page_id = item.data(0, Qt.ItemDataRole.UserRole)
-        page_type = item.data(0, Qt.ItemDataRole.UserRole + 1) or "page"
         current = item.text(0)
-        if page_type == "folder":
-            current = current.replace("📁 ", "", 1)
         title, ok = QInputDialog.getText(self, "Rename", "New name:", text=current)
         if ok and title.strip():
             page = self.repo.get_by_id(page_id)
