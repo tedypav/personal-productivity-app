@@ -262,7 +262,16 @@ class FunImportsDialog(QDialog):
 
     def _insert_emoji(self, emoji):
         if self.target_edit:
-            self.target_edit.insertPlainText(emoji)
+            try:
+                self.target_edit.setFocus()
+                cursor = self.target_edit.textCursor()
+                cursor.insertText(emoji)
+                self.target_edit.setTextCursor(cursor)
+            except Exception:
+                try:
+                    self.target_edit.insertPlainText(emoji)
+                except Exception:
+                    pass
         self.accept()
 
     def _build_gif_tab(self):

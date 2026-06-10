@@ -66,104 +66,91 @@ def _apply_format_to_edit(edit, fmt_name, parent_widget=None):
         cursor = edit.textCursor()
     except Exception:
         return
-    if fmt_name == "bold":
-        if cursor.hasSelection():
+    try:
+        if fmt_name == "bold":
+            if cursor.hasSelection():
+                fmt = QTextCharFormat()
+                current_weight = cursor.charFormat().fontWeight()
+                fmt.setFontWeight(QFont.Weight.Normal if current_weight >= QFont.Weight.Bold else QFont.Weight.Bold)
+                cursor.mergeCharFormat(fmt)
+            else:
+                fmt = cursor.charFormat()
+                fmt.setFontWeight(QFont.Weight.Normal if fmt.fontWeight() >= QFont.Weight.Bold else QFont.Weight.Bold)
+                cursor.setCharFormat(fmt)
+        elif fmt_name == "italic":
+            if cursor.hasSelection():
+                fmt = QTextCharFormat()
+                fmt.setFontItalic(not cursor.charFormat().fontItalic())
+                cursor.mergeCharFormat(fmt)
+            else:
+                fmt = cursor.charFormat()
+                fmt.setFontItalic(not fmt.fontItalic())
+                cursor.setCharFormat(fmt)
+        elif fmt_name == "h1":
+            if cursor.hasSelection():
+                fmt = QTextCharFormat()
+                char_fmt = cursor.charFormat()
+                pt = char_fmt.fontPointSize()
+                if pt < 1:
+                    pt = edit.font().pointSize()
+                if pt >= 19 and char_fmt.fontWeight() >= QFont.Weight.Bold:
+                    fmt.setFontPointSize(13)
+                    fmt.setFontWeight(QFont.Weight.Normal)
+                else:
+                    fmt.setFontPointSize(20)
+                    fmt.setFontWeight(QFont.Weight.Bold)
+                cursor.mergeCharFormat(fmt)
+            else:
+                fmt = cursor.charFormat()
+                pt = fmt.fontPointSize()
+                if pt < 1:
+                    pt = edit.font().pointSize()
+                if pt >= 19 and fmt.fontWeight() >= QFont.Weight.Bold:
+                    fmt.setFontPointSize(13)
+                    fmt.setFontWeight(QFont.Weight.Normal)
+                else:
+                    fmt.setFontPointSize(20)
+                    fmt.setFontWeight(QFont.Weight.Bold)
+                cursor.setCharFormat(fmt)
+        elif fmt_name == "h2":
+            if cursor.hasSelection():
+                fmt = QTextCharFormat()
+                char_fmt = cursor.charFormat()
+                pt = char_fmt.fontPointSize()
+                if pt < 1:
+                    pt = edit.font().pointSize()
+                if 15 <= pt < 19 and char_fmt.fontWeight() >= QFont.Weight.Bold:
+                    fmt.setFontPointSize(13)
+                    fmt.setFontWeight(QFont.Weight.Normal)
+                else:
+                    fmt.setFontPointSize(16)
+                    fmt.setFontWeight(QFont.Weight.Bold)
+                cursor.mergeCharFormat(fmt)
+            else:
+                fmt = cursor.charFormat()
+                pt = fmt.fontPointSize()
+                if pt < 1:
+                    pt = edit.font().pointSize()
+                if 15 <= pt < 19 and fmt.fontWeight() >= QFont.Weight.Bold:
+                    fmt.setFontPointSize(13)
+                    fmt.setFontWeight(QFont.Weight.Normal)
+                else:
+                    fmt.setFontPointSize(16)
+                    fmt.setFontWeight(QFont.Weight.Bold)
+                cursor.setCharFormat(fmt)
+        elif fmt_name == "code":
             fmt = QTextCharFormat()
-            current_weight = cursor.charFormat().fontWeight()
-            fmt.setFontWeight(QFont.Weight.Normal if current_weight >= QFont.Weight.Bold else QFont.Weight.Bold)
+            fmt.setFontFamily("Consolas")
+            fmt.setBackground(QColor("#f3f4f6"))
             cursor.mergeCharFormat(fmt)
-        else:
-            fmt = edit.currentCharFormat()
-            fmt.setFontWeight(QFont.Weight.Normal if fmt.fontWeight() >= QFont.Weight.Bold else QFont.Weight.Bold)
-            edit.setCurrentCharFormat(fmt)
-    elif fmt_name == "italic":
-        if cursor.hasSelection():
-            fmt = QTextCharFormat()
-            fmt.setFontItalic(not cursor.charFormat().fontItalic())
-            cursor.mergeCharFormat(fmt)
-        else:
-            fmt = edit.currentCharFormat()
-            fmt.setFontItalic(not fmt.fontItalic())
-            edit.setCurrentCharFormat(fmt)
-    elif fmt_name == "h1":
-        if cursor.hasSelection():
-            fmt = QTextCharFormat()
-            char_fmt = cursor.charFormat()
-            pt = char_fmt.fontPointSize()
-            if pt < 1:
-                pt = edit.font().pointSize()
-            if pt >= 19 and char_fmt.fontWeight() >= QFont.Weight.Bold:
-                fmt.setFontPointSize(13)
-                fmt.setFontWeight(QFont.Weight.Normal)
-            else:
-                fmt.setFontPointSize(20)
-                fmt.setFontWeight(QFont.Weight.Bold)
-            cursor.mergeCharFormat(fmt)
-        else:
-            fmt = edit.currentCharFormat()
-            pt = fmt.fontPointSize()
-            if pt < 1:
-                pt = edit.font().pointSize()
-            if pt >= 19 and fmt.fontWeight() >= QFont.Weight.Bold:
-                fmt.setFontPointSize(13)
-                fmt.setFontWeight(QFont.Weight.Normal)
-            else:
-                fmt.setFontPointSize(20)
-                fmt.setFontWeight(QFont.Weight.Bold)
-            edit.setCurrentCharFormat(fmt)
-    elif fmt_name == "h2":
-        if cursor.hasSelection():
-            fmt = QTextCharFormat()
-            char_fmt = cursor.charFormat()
-            pt = char_fmt.fontPointSize()
-            if pt < 1:
-                pt = edit.font().pointSize()
-            if 15 <= pt < 19 and char_fmt.fontWeight() >= QFont.Weight.Bold:
-                fmt.setFontPointSize(13)
-                fmt.setFontWeight(QFont.Weight.Normal)
-            else:
-                fmt.setFontPointSize(16)
-                fmt.setFontWeight(QFont.Weight.Bold)
-            cursor.mergeCharFormat(fmt)
-        else:
-            fmt = edit.currentCharFormat()
-            pt = fmt.fontPointSize()
-            if pt < 1:
-                pt = edit.font().pointSize()
-            if 15 <= pt < 19 and fmt.fontWeight() >= QFont.Weight.Bold:
-                fmt.setFontPointSize(13)
-                fmt.setFontWeight(QFont.Weight.Normal)
-            else:
-                fmt.setFontPointSize(16)
-                fmt.setFontWeight(QFont.Weight.Bold)
-            edit.setCurrentCharFormat(fmt)
-    elif fmt_name == "code":
-        if cursor.hasSelection():
-            fmt = QTextCharFormat()
-            current = cursor.charFormat().fontFamily()
-            if current and "consol" in current.lower():
-                fmt.setFontFamily("Segoe UI")
-                fmt.setBackground(QColor("#ffffff"))
-            else:
-                fmt.setFontFamily("Consolas")
-                fmt.setBackground(QColor("#f3f4f6"))
-            cursor.mergeCharFormat(fmt)
-        else:
-            fmt = edit.currentCharFormat()
-            current = fmt.fontFamily()
-            if current and "consol" in current.lower():
-                fmt.setFontFamily("Segoe UI")
-                fmt.setBackground(QColor("#ffffff"))
-            else:
-                fmt.setFontFamily("Consolas")
-                fmt.setBackground(QColor("#f3f4f6"))
-            edit.setCurrentCharFormat(fmt)
-    elif fmt_name == "link":
-        _insert_link_dialog(edit, parent_widget)
-    elif fmt_name == "bullet":
-        _toggle_bullet(cursor, edit)
-    elif fmt_name == "attach":
-        _attach_file(edit, parent_widget)
+        elif fmt_name == "link":
+            _insert_link_dialog(edit, parent_widget)
+        elif fmt_name == "bullet":
+            _toggle_bullet(cursor, edit)
+        elif fmt_name == "attach":
+            _attach_file(edit, parent_widget)
+    except Exception as e:
+        print(f"Error applying format '{fmt_name}': {e}")
 
 
 def _insert_link_dialog(edit, parent_widget=None):
@@ -414,6 +401,7 @@ class _EmbeddedTaskContainer(QWidget):
 class MarkdownBlock(QWidget):
     changed = pyqtSignal()
     embedded_changed = pyqtSignal()
+    editing_changed = pyqtSignal(bool)
 
     def __init__(self, block_id, content="", parent=None, content_font_size=None):
         super().__init__(parent)
@@ -625,6 +613,7 @@ class MarkdownBlock(QWidget):
         self._text_stack.setCurrentWidget(self.editor)
         self.editor.setFocus()
         self.editor.moveCursor(QTextCursor.MoveOperation.End)
+        self.editing_changed.emit(True)
 
     def _on_focus_lost(self):
         """Switch to preview only if focus moved to a non-block widget."""
@@ -643,6 +632,7 @@ class MarkdownBlock(QWidget):
         self.editing = False
         self._text_stack.setCurrentWidget(self.preview)
         self._update_preview()
+        self.editing_changed.emit(False)
 
     def _apply_pending_font(self):
         if self._pending_font_size:
@@ -674,10 +664,16 @@ class MarkdownBlock(QWidget):
 
     def _update_preview(self):
         try:
-            if not self.editor or self.editor.isDeleted():
+            if not self.editor:
                 return
             html = self.editor.toHtml()
-            if self.preview and not self.preview.isDeleted():
+            if self.preview:
+                font = self.editor.document().defaultFont()
+                current_families = list(font.families())
+                if 'Segoe UI Emoji' not in current_families:
+                    current_families.insert(0, 'Segoe UI Emoji')
+                    font.setFamilies(current_families)
+                self.preview.document().setDefaultFont(font)
                 self.preview.setHtml(html)
         except Exception as e:
             print(f"Error updating preview: {e}")
@@ -1860,6 +1856,12 @@ class ContentBlockWidget(QFrame):
             me.header_focused.emit(me)
             QTimer.singleShot(0, me._apply_pending_header_font)
         self._header_edit.focusInEvent = _on_header_focus
+        _orig_header_focus_out = self._header_edit.focusOutEvent
+        def _on_header_focus_out(ev, orig=_orig_header_focus_out, me=self):
+            orig(ev)
+            if hasattr(me, '_inline_toolbar') and not me._body.editing:
+                me._inline_toolbar.setVisible(False)
+        self._header_edit.focusOutEvent = _on_header_focus_out
         _orig_header_key = self._header_edit.keyPressEvent
         def _header_key(ev, orig=_orig_header_key, me=self):
             if ev.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
@@ -1869,8 +1871,8 @@ class ContentBlockWidget(QFrame):
                 orig(ev)
         self._header_edit.keyPressEvent = _header_key
         self._header_edit.setStyleSheet(
-            "QTextEdit { border: none; background: transparent; color: #9ca3af; }"
-            "QTextEdit:focus { border: none; background: #f3f4f6; color: #374151; }"
+            "QTextEdit { border: none; background: transparent; color: #2E2B2B; }"
+            "QTextEdit:focus { border: none; background: #f3f4f6; color: #2E2B2B; }"
         )
 
         self._apply_v_alignment_layout()
@@ -1975,6 +1977,9 @@ class ContentBlockWidget(QFrame):
             self._body.embedded_changed.connect(self._fit_to_content)
             self._body.embedded_changed.connect(self._sync_add_task_btn)
             self._build_inline_toolbar(layout)
+            self._inline_toolbar.setVisible(False)
+            self._body.editing_changed.connect(self._on_editing_changed)
+            self.header_focused.connect(self._on_header_focus_changed)
             layout.addWidget(self._body)
             self._body.editor.focused.connect(lambda ed=self: self.content_focused.emit(ed))
             self._add_task_btn.clicked.connect(self._body._add_task_to_active_list)
@@ -2079,6 +2084,14 @@ class ContentBlockWidget(QFrame):
         if isinstance(self._body, TaskWidget):
             self._fit_to_content()
 
+    def _on_editing_changed(self, editing):
+        if hasattr(self, '_inline_toolbar'):
+            self._inline_toolbar.setVisible(editing)
+
+    def _on_header_focus_changed(self, block_w):
+        if hasattr(self, '_inline_toolbar') and block_w is self:
+            self._inline_toolbar.setVisible(True)
+
     def _fit_to_content(self):
         if self._manual_resize:
             return
@@ -2129,23 +2142,30 @@ class ContentBlockWidget(QFrame):
     def _open_fun_imports(self):
         from src.ui.sidebar import FunImportsDialog
         target_edit = None
-        if isinstance(self._body, MarkdownBlock):
+
+        focused = QApplication.focusWidget()
+
+        if focused is self._header_edit:
+            target_edit = self._header_edit
+        elif isinstance(self._body, MarkdownBlock):
             if not self._body.editing:
                 self._body._switch_to_edit()
             target_edit = self._body.editor
         elif isinstance(self._body, TableWidget):
             if self._active_task_cell and hasattr(self._active_task_cell, '_edit'):
                 target_edit = self._active_task_cell._edit
-            else:
-                focused = QApplication.focusWidget()
-                if focused and isinstance(focused, FormattedTextEdit):
-                    target_edit = focused
+            elif focused and isinstance(focused, FormattedTextEdit):
+                target_edit = focused
         elif isinstance(self._body, TaskWidget):
-            focused = QApplication.focusWidget()
             if focused and isinstance(focused, FormattedTextEdit):
                 target_edit = focused
+
         dialog = FunImportsDialog(None, target_edit=target_edit)
+        self._fun_imports_btn.setDown(False)
+        self._fun_imports_btn.setChecked(False)
         dialog.exec()
+        self._fun_imports_btn.setAttribute(Qt.WidgetAttribute.WA_UnderMouse, False)
+        self._fun_imports_btn.update()
 
     def _show_alignment_menu(self):
         """Show alignment dropdown menu from the ⋮ button."""
@@ -2292,10 +2312,10 @@ class ContentBlockWidget(QFrame):
         self._in_font_size_combo.addItems([str(s) for s in [9, 10, 11, 12, 13, 14, 15, 16, 18, 20, 22, 24, 28, 32]])
         initial_size = self.block.content_font_size if self.block.content_font_size and self.block.content_font_size >= 1 else 13
         self._in_font_size_combo.setCurrentText(str(initial_size))
-        self._in_font_size_combo.setFixedWidth(60)
+        self._in_font_size_combo.setFixedWidth(36)
         self._in_font_size_combo.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self._in_font_size_combo.setToolTip("Font size")
-        self._in_font_size_combo.setStyleSheet("QComboBox { font-size: 11px; padding: 2px 4px; border: 1px solid #e5e7eb; border-radius: 4px; background: #fff; }")
+        self._in_font_size_combo.setStyleSheet("QComboBox { font-size: 11px; padding: 2px 2px; border: 1px solid #e5e7eb; border-radius: 4px; background: #fff; } QComboBox::drop-down { border: none; width: 12px; } QComboBox QAbstractItemView { font-size: 11px; }" + _tip_style)
 
         for w in (self._in_bold_btn, self._in_italic_btn, sep1,
                   self._in_h1_btn, self._in_h2_btn, self._in_code_btn, sep2,
@@ -2932,8 +2952,7 @@ class PageEditor(QWidget):
                 pt_size = edit.font().pointSize()
             is_h1 = pt_size >= 19 and is_bold
             is_h2 = not is_h1 and pt_size >= 15 and is_bold
-            font_family = char_fmt.fontFamily() or edit.font().family()
-            is_code = font_family and "consol" in font_family.lower()
+            is_code = False
 
             is_bullet = False
             try:
