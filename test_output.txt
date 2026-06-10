@@ -1,0 +1,71 @@
+﻿........................................................................ [ 28%]
+........................................................................ [ 57%]
+py : Windows fatal exception: access violation
+At line:1 char:1
++ py -m pytest tests/ --cov=src --cov-report=term-missing --tb=no -q 2> ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Windows fatal e...ccess violation:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+
+Current thread 0x00006e94 (most recent call first):
+  File "C:\Users\Asus\Desktop\Personal\Professional Development\SoftUni Courses\AI Assisted 
+Development\personal-productivity-app\src\ui\editor.py", line 153 in _apply_format_to_edit
+  File "C:\Users\Asus\Desktop\Personal\Professional Development\SoftUni Courses\AI Assisted 
+Development\personal-productivity-app\tests\test_ui_extended.py", line 148 in test_apply_format_code
+  File "C:\Users\Asus\AppData\Local\Programs\Python\Python313\Lib\site-packages\_pytest\python.py", line 166 in 
+pytest_pyfunc_call
+  File "C:\Users\Asus\AppData\Local\Programs\Python\Python313\Lib\site-packages\pluggy\_callers.py", line 121 in 
+_multicall
+  File "C:\Users\Asus\AppData\Local\Programs\Python\Python313\Lib\site-packages\pluggy\_manager.py", line 120 in 
+_hookexec
+  File "C:\Users\Asus\AppData\Local\Programs\Python\Python313\Lib\site-packages\pluggy\_hooks.py", line 512 in __call__
+  File "C:\Users\Asus\AppData\Local\Programs\Python\Python313\Lib\site-packages\_pytest\python.py", line 1720 in 
+runtest
+  File "C:\Users\Asus\AppData\Local\Programs\Python\Python313\Lib\site-packages\_pytest\runner.py", line 179 in 
+pytest_runtest_call
+  File "C:\Users\Asus\AppData\Local\Programs\Python\Python313\Lib\site-packages\pluggy\_callers.py", line 121 in 
+_multicall
+  File "C:\Users\Asus\AppData\Local\Programs\Python\Python313\Lib\site-packages\pluggy\_manager.py", line 120 in 
+_hookexec
+  File "C:\Users\Asus\AppData\Local\Programs\Python\Python313\Lib\site-packages\pluggy\_hooks.py", line 512 in __call__
+  File "C:\Users\Asus\AppData\Local\Programs\Python\Python313\Lib\site-packages\_pytest\runner.py", line 245 in 
+<lambda>
+  File "C:\Users\Asus\AppData\Local\Programs\Python\Python313\Lib\site-packages\_pytest\runner.py", line 353 in 
+from_call
+  File "C:\Users\Asus\AppData\Local\Programs\Python\Python313\Lib\site-packages\_pytest\runner.py", line 244 in 
+call_and_report
+  File "C:\Users\Asus\AppData\Local\Programs\Python\Python313\Lib\site-packages\_pytest\runner.py", line 137 in 
+runtestprotocol
+  File "C:\Users\Asus\AppData\Local\Programs\Python\Python313\Lib\site-packages\_pytest\runner.py", line 118 in 
+pytest_runtest_protocol
+  File "C:\Users\Asus\AppData\Local\Programs\Python\Python313\Lib\site-packages\pluggy\_callers.py", line 121 in 
+_multicall
+  File "C:\Users\Asus\AppData\Local\Programs\Python\Python313\Lib\site-packages\pluggy\_manager.py", line 120 in 
+_hookexec
+  File "C:\Users\Asus\AppData\Local\Programs\Python\Python313\Lib\site-packages\pluggy\_hooks.py", line 512 in __call__
+  File "C:\Users\Asus\AppData\Local\Programs\Python\Python313\Lib\site-packages\_pytest\main.py", line 396 in 
+pytest_runtestloop
+  File "C:\Users\Asus\AppData\Local\Programs\Python\Python313\Lib\site-packages\pluggy\_callers.py", line 121 in 
+_multicall
+  File "C:\Users\Asus\AppData\Local\Programs\Python\Python313\Lib\site-packages\pluggy\_manager.py", line 120 in 
+_hookexec
+  File "C:\Users\Asus\AppData\Local\Programs\Python\Python313\Lib\site-packages\pluggy\_hooks.py", line 512 in __call__
+  File "C:\Users\Asus\AppData\Local\Programs\Python\Python313\Lib\site-packages\_pytest\main.py", line 372 in _main
+  File "C:\Users\Asus\AppData\Local\Programs\Python\Python313\Lib\site-packages\_pytest\main.py", line 318 in 
+wrap_session
+  File "C:\Users\Asus\AppData\Local\Programs\Python\Python313\Lib\site-packages\_pytest\main.py", line 365 in 
+pytest_cmdline_main
+  File "C:\Users\Asus\AppData\Local\Programs\Python\Python313\Lib\site-packages\pluggy\_callers.py", line 121 in 
+_multicall
+  File "C:\Users\Asus\AppData\Local\Programs\Python\Python313\Lib\site-packages\pluggy\_manager.py", line 120 in 
+_hookexec
+  File "C:\Users\Asus\AppData\Local\Programs\Python\Python313\Lib\site-packages\pluggy\_hooks.py", line 512 in __call__
+  File "C:\Users\Asus\AppData\Local\Programs\Python\Python313\Lib\site-packages\_pytest\config\__init__.py", line 199 
+in main
+  File "C:\Users\Asus\AppData\Local\Programs\Python\Python313\Lib\site-packages\_pytest\config\__init__.py", line 223 
+in console_main
+  File "C:\Users\Asus\AppData\Local\Programs\Python\Python313\Lib\site-packages\pytest\__main__.py", line 9 in <module>
+  File "<frozen runpy>", line 88 in _run_code
+  File "<frozen runpy>", line 198 in _run_module_as_main
+...............................

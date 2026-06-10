@@ -386,7 +386,7 @@ class _EmbeddedTaskContainer(QWidget):
 
         self._remove_btn = QPushButton("×")
         self._remove_btn.setFixedSize(20, 20)
-        self._remove_btn.setStyleSheet("QPushButton { border: none; font-size: 14px; color: #9ca3af; } QPushButton:hover { color: #ef4444; } QToolTip { background-color: #FFFFFF; color: #2E2B2B; border: 1px solid #F0E6E8; border-radius: 8px; padding: 6px 10px; font-size: 12px; }")
+        self._remove_btn.setStyleSheet("QPushButton { border: none; font-size: 14px; color: #9ca3af; } QPushButton:hover { color: #ef4444; }")
         self._remove_btn.setToolTip("Remove this task list")
 
         top_bar.addWidget(self.drag_handle)
@@ -1708,7 +1708,7 @@ class ResizeHandleHeader(QWidget):
         cx = w // 2
         for i in range(3):
             y = 2 + i * 2
-            p.drawLine(cx - 6, y, cx + 6, y)
+            p.drawLine(cx - 8 + i * 4, y, cx + 4 + i * 4, y)
 
     def enterEvent(self, event):
         self.setStyleSheet("background: #e0e7ff; border-top: 1px solid #6366f1; border-bottom: 1px solid #6366f1;")
@@ -1886,8 +1886,6 @@ class ContentBlockWidget(QFrame):
 
         icons_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'assets', 'icons')
 
-        _tip = " QToolTip { background-color: #FFFFFF; color: #2E2B2B; border: 1px solid #F0E6E8; border-radius: 8px; padding: 6px 10px; font-size: 12px; }"
-
         self._h_align_group = QButtonGroup(self)
         self._h_left_btn = QPushButton()
         self._h_left_btn.setIcon(QIcon(os.path.join(icons_dir, 'align_left.svg')))
@@ -1903,7 +1901,7 @@ class ContentBlockWidget(QFrame):
             b.setFixedHeight(container_h)
             b.setFixedWidth(32)
             b.setIconSize(QSize(18, 18))
-            b.setStyleSheet("QPushButton { padding: 0px; min-height: 0px; border: 1px solid #e5e7eb; border-radius: 4px; } QPushButton:checked { background: #f3e8f6; border-color: #CFA6D6; } QPushButton:hover { background: #fef2f2; }" + _tip)
+            b.setStyleSheet("QPushButton { padding: 0px; min-height: 0px; border: 1px solid #e5e7eb; border-radius: 4px; } QPushButton:checked { background: #f3e8f6; border-color: #CFA6D6; } QPushButton:hover { background: #fef2f2; }")
             self._h_align_group.addButton(b)
         self._h_align_group.buttonClicked.connect(self._on_h_align_changed)
 
@@ -1922,7 +1920,7 @@ class ContentBlockWidget(QFrame):
             b.setFixedHeight(container_h)
             b.setFixedWidth(32)
             b.setIconSize(QSize(18, 18))
-            b.setStyleSheet("QPushButton { padding: 0px; min-height: 0px; border: 1px solid #e5e7eb; border-radius: 4px; } QPushButton:checked { background: #f3e8f6; border-color: #CFA6D6; } QPushButton:hover { background: #fef2f2; }" + _tip)
+            b.setStyleSheet("QPushButton { padding: 0px; min-height: 0px; border: 1px solid #e5e7eb; border-radius: 4px; } QPushButton:checked { background: #f3e8f6; border-color: #CFA6D6; } QPushButton:hover { background: #fef2f2; }")
             self._v_align_group.addButton(b)
         self._v_align_group.buttonClicked.connect(self._on_v_align_changed)
 
@@ -1933,20 +1931,20 @@ class ContentBlockWidget(QFrame):
         self._dots_btn.setFixedWidth(28)
         self._dots_btn.setToolTip("Alignment & options")
         self._dots_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self._dots_btn.setStyleSheet("QPushButton { border: 1px solid #e5e7eb; border-radius: 4px; color: #9ca3af; font-size: 16px; font-weight: bold; padding: 0px; } QPushButton:hover { background: #F3E8F6; border-color: #CFA6D6; }" + _tip)
+        self._dots_btn.setStyleSheet("QPushButton { border: 1px solid #e5e7eb; border-radius: 4px; color: #9ca3af; font-size: 16px; font-weight: bold; padding: 0px; } QPushButton:hover { background: #F3E8F6; border-color: #CFA6D6; }")
         self._dots_btn.clicked.connect(self._show_alignment_menu)
 
         del_btn = QPushButton("✕")
         del_btn.setFixedHeight(container_h)
         del_btn.setToolTip("Delete block")
-        del_btn.setStyleSheet("QPushButton { border: 1px solid #e5e7eb; border-radius: 4px; color: #9ca3af; font-size: 14px; padding: 0px; min-width: 24px; max-width: 24px; } QPushButton:hover { color: #ef4444; border-color: #ef4444; background: #fef2f2; }" + _tip)
+        del_btn.setStyleSheet("QPushButton { border: 1px solid #e5e7eb; border-radius: 4px; color: #9ca3af; font-size: 14px; padding: 0px; min-width: 24px; max-width: 24px; } QPushButton:hover { color: #ef4444; border-color: #ef4444; background: #fef2f2; }")
 
         header.addWidget(self.drag_handle)
         header.addWidget(self._header_container, 1)
         header.addWidget(self._dots_btn)
         self._add_task_btn = QPushButton("+ Add Task")
         self._add_task_btn.setFixedHeight(container_h)
-        self._add_task_btn.setStyleSheet("QPushButton { padding: 0px; min-height: 0px; border: 1px solid #e5e7eb; border-radius: 4px; color: #9ca3af; font-size: 11px; } QPushButton:hover { background: #fef2f2; }" + _tip)
+        self._add_task_btn.setStyleSheet("QPushButton { padding: 0px; min-height: 0px; border: 1px solid #e5e7eb; border-radius: 4px; color: #9ca3af; font-size: 11px; } QPushButton:hover { background: #fef2f2; }")
         self._add_task_btn.setVisible(False)
         header.addWidget(self._add_task_btn)
 
@@ -1955,7 +1953,7 @@ class ContentBlockWidget(QFrame):
         self._fun_imports_btn.setFixedSize(container_h, container_h)
         self._fun_imports_btn.setToolTip("Fun Imports (Emoji & GIF)")
         self._fun_imports_btn.setIconSize(QSize(18, 18))
-        self._fun_imports_btn.setStyleSheet("QPushButton { padding: 0px; min-height: 0px; border: 1px solid #e5e7eb; border-radius: 4px; } QPushButton:hover { background: #F3E8F6; border-color: #CFA6D6; }" + _tip)
+        self._fun_imports_btn.setStyleSheet("QPushButton { padding: 0px; min-height: 0px; border: 1px solid #e5e7eb; border-radius: 4px; } QPushButton:hover { background: #F3E8F6; border-color: #CFA6D6; }")
         self._fun_imports_btn.clicked.connect(self._open_fun_imports)
         header.addWidget(self._fun_imports_btn)
 
@@ -2295,7 +2293,7 @@ class ContentBlockWidget(QFrame):
         self._in_font_size_combo.setFixedWidth(60)
         self._in_font_size_combo.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self._in_font_size_combo.setToolTip("Font size")
-        self._in_font_size_combo.setStyleSheet("QComboBox { font-size: 11px; padding: 2px 4px; border: 1px solid #e5e7eb; border-radius: 4px; background: #fff; }")
+        self._in_font_size_combo.setStyleSheet("QComboBox { font-size: 11px; padding: 2px 4px; border: 1px solid #e5e7eb; border-radius: 4px; background: #fff; }" + _tip_style)
 
         for w in (self._in_bold_btn, self._in_italic_btn, sep1,
                   self._in_h1_btn, self._in_h2_btn, self._in_code_btn, sep2,

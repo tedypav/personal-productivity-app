@@ -1,9 +1,23 @@
 import sys
 import os
 import traceback
-from PyQt6.QtWidgets import QApplication, QMessageBox
-from PyQt6.QtGui import QFont, QFontDatabase, QIcon
+from PyQt6.QtWidgets import QApplication, QMessageBox, QProxyStyle, QStyle, QStyleOption
+from PyQt6.QtGui import QFont, QFontDatabase, QIcon, QPalette, QColor
+from PyQt6.QtCore import Qt
 from src.ui.main_window import MainWindow
+
+
+class TooltipStyle(QProxyStyle):
+    def drawPrimitive(self, element, option, painter, widget=None):
+        if element == QStyle.PrimitiveElement.PE_PanelTipLabel:
+            painter.save()
+            painter.setRenderHint(painter.RenderHint.Antialiasing)
+            painter.setBrush(QColor("#FFFFFF"))
+            painter.setPen(QColor("#F0E6E8"))
+            painter.drawRoundedRect(option.rect, 8, 8)
+            painter.restore()
+            return
+        super().drawPrimitive(element, option, painter, widget)
 
 
 def load_font(font_name, font_path):
@@ -409,13 +423,20 @@ QLabel#welcome_title {
     font-size: 32px;
 }
 QToolTip {
-    background: #FFFFFF;
+    background-color: #FFFFFF;
     border: 1px solid #F0E6E8;
     border-radius: 8px;
     color: #2E2B2B;
     padding: 6px 10px;
     font-size: 12px;
     font-family: 'Inter', 'Poppins', sans-serif;
+    font-weight: 400;
+}
+QToolTip QLabel {
+    background-color: #FFFFFF;
+    color: #2E2B2B;
+    font-family: 'Inter', 'Poppins', sans-serif;
+    font-size: 12px;
 }
 QDialog {
     background: #FFF8F5;
@@ -474,6 +495,7 @@ def main():
 
     app = QApplication(sys.argv)
     app.setApplicationName("Personal Productivity App")
+    app.setStyle(TooltipStyle(app.style()))
 
     # Set app icon for taskbar
     logo_ico = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "icons", "logo_icon.ico")
@@ -486,6 +508,15 @@ def main():
         if font_family:
             print(f"Loaded {font_name} font: {font_family}")
     
+    palette = app.palette()
+    palette.setColor(QPalette.ColorRole.ToolTipBase, QColor("#FFFFFF"))
+    palette.setColor(QPalette.ColorRole.ToolTipText, QColor("#2E2B2B"))
+    app.setPalette(palette)
+
+    from PyQt6.QtWidgets import QToolTip as _QToolTip
+    _QToolTip.setFont(QFont("Inter", 12))
+    _QToolTip.setPalette(palette)
+
     app.setStyleSheet(APP_STYLESHEET)
 
     window = MainWindow()

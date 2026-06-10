@@ -4,10 +4,11 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QTreeWidget, QTreeWidgetItem,
     QPushButton, QHBoxLayout, QInputDialog, QMessageBox, QMenu,
     QDialog, QListWidget, QDialogButtonBox, QLabel, QLineEdit, QSpinBox,
-    QAbstractItemView, QSizePolicy, QScrollArea, QFrame, QSplitter
+    QAbstractItemView, QSizePolicy, QScrollArea, QFrame, QSplitter,
+    QTabWidget, QGridLayout, QTextEdit
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QDate, QMimeData, QSize
-from PyQt6.QtGui import QKeySequence, QAction, QDrag, QIcon
+from PyQt6.QtGui import QKeySequence, QAction, QDrag, QIcon, QFont
 from src.repositories.page_repo import PageRepo
 from src.models.page import Page
 from src.settings import load_settings
@@ -112,6 +113,216 @@ class PageTreeWidget(QTreeWidget):
             event.ignore()
 
 
+EMOJI_DATA = {
+    "Smileys": ["😀","😃","😄","😁","😆","😅","🤣","😂","🙂","🙃","😉","😊","😇","🥰","😍","🤩","😘","😗","😚","😙","🥲","😋","😛","😜","🤪","😝","🤑","🤗","🤭","🫢","🤫","🤔","🫡","🤐","🤨","😐","😑","😶","🫥","😏","😒","🙄","😬","🤥","😌","😔","😪","🤤","😴","😷","🤒","🤕","🤢","🤮","🥵","🥶","🥴","😵","🤯","🤠","🥳","🥸","😎","🤓","🧐"],
+    "Gestures": ["👋","🤚","🖐️","✋","🖖","🫱","🫲","🫳","🫴","👌","🤌","🤏","✌️","🤞","🫰","🤟","🤘","🤙","👈","👉","👆","🖕","👇","☝️","🫵","👍","👎","✊","👊","🤛","🤜","👏","🙌","🫶","👐","🤲","🤝","🙏"],
+    "Hearts": ["❤️","🧡","💛","💚","💙","💜","🖤","🤍","🤎","💔","❤️‍🔥","❤️‍🩹","❣️","💕","💞","💓","💗","💖","💘","💝"],
+    "Animals": ["🐶","🐱","🐭","🐹","🐰","🦊","🐻","🐼","🐻‍❄️","🐨","🐯","🦁","🐮","🐷","🐽","🐸","🐵","🙈","🙉","🙊","🐒","🐔","🐧","🐦","🐤","🐣","🐥","🦆","🦅","🦉","🦇","🐺","🐗","🐴","🦄","🐝","🪱","🐛","🦋","🐌","🐞"],
+    "Food": ["🍎","🍐","🍊","🍋","🍌","🍉","🍇","🍓","🫐","🍈","🍒","🍑","🥭","🍍","🥥","🥝","🍅","🍆","🥑","🥦","🥬","🥒","🌶️","🫑","🌽","🥕","🫒","🧄","🧅","🥔","🍠","🫘","🥜","🍯","🥛","🍞","🥐","🥖","🫓","🥨","🥯","🥞","🧇","🧀","🍖","🍗","🥩","🥓","🍔","🍟","🍕","🌭","🥪","🌮","🌯","🫔","🥙","🧆","🥚","🍳","🥘","🍲","🫕","🥣","🥗","🍿","🧈","🧂","🥫"],
+    "Activities": ["⚽","🏀","🏈","⚾","🥎","🎾","🏐","🏉","🥏","🎱","🪀","🏓","🏸","🏒","🏑","🥍","🏏","🪃","🥅","⛳","🪁","🏹","🎣","🤿","🥊","🥋","🎽","🛹","🛼","🛷","⛸️","🥌","🎿","🎯","🪀","🪁","🎮","🕹️","🎲","🧩","🎭","🎨","🧵","🪡","🧶","🪆","🎪"],
+    "Travel": ["🚗","🚕","🚙","🚌","🚎","🏎️","🚓","🚑","🚒","🚐","🛻","🚚","🚛","🚜","🏍️","🛵","🚲","🛴","🛺","🚍","🚘","🚖","🛩️","✈️","🛫","🛬","🪂","💺","🚀","🛸","🚁","🛶","⛵","🚤","🛥️","🛳️","⛴️","🚢"],
+    "Objects": ["⌚","📱","📲","💻","⌨️","🖥️","🖨️","🖱️","🖲️","🕹️","🗜️","💽","💾","💿","📀","📼","📷","📸","📹","🎥","📽️","🎞️","📞","☎️","📟","📠","📺","📻","🎙️","🎚️","🎛️","🧭","⏱️","⏲️","⏰","🕰️","⌛","⏳","📡","🔋","🔌","💡","🔦","🕯️"],
+}
+
+
+class FunImportsDialog(QDialog):
+    """Dialog for inserting emojis and GIFs."""
+
+    def __init__(self, parent=None, target_edit=None):
+        super().__init__(parent)
+        self.setWindowTitle("Fun Imports")
+        self.setMinimumSize(440, 520)
+        self.target_edit = target_edit
+        self._setup_ui()
+
+    def _setup_ui(self):
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+
+        self.tabs = QTabWidget()
+        emoji_tab_font = QFont("Segoe UI Emoji", 13)
+        self.tabs.tabBar().setFont(emoji_tab_font)
+        self.tabs.setStyleSheet("""
+            QTabWidget::pane { border: none; }
+            QTabBar::tab {
+                padding: 8px 20px;
+                font-size: 13px;
+                font-weight: 500;
+                color: #9ca3af;
+                border-bottom: 2px solid transparent;
+            }
+            QTabBar::tab:selected {
+                color: #CFA6D6;
+                border-bottom: 2px solid #CFA6D6;
+            }
+            QTabBar::tab:hover { color: #7c3aed; }
+        """)
+
+        self.tabs.addTab(self._build_emoji_tab(), "😀 Emojis")
+        self.tabs.addTab(self._build_gif_tab(), "🎬 GIFs")
+        layout.addWidget(self.tabs)
+
+    def _build_emoji_tab(self):
+        widget = QWidget()
+        main_layout = QVBoxLayout(widget)
+        main_layout.setContentsMargins(8, 8, 8, 8)
+        main_layout.setSpacing(6)
+
+        # Category bar
+        cat_bar = QHBoxLayout()
+        cat_bar.setSpacing(2)
+        self._cat_buttons = {}
+        categories = list(EMOJI_DATA.keys())
+        cat_labels = {"Smileys": "😀", "Gestures": "👋", "Hearts": "❤️", "Animals": "🐶", "Food": "🍎", "Activities": "⚽", "Travel": "🚗", "Objects": "💻"}
+        emoji_font = QFont("Segoe UI Emoji", 16)
+        for cat in categories:
+            btn = QLabel(cat_labels.get(cat, "😀"))
+            btn.setFixedSize(36, 36)
+            btn.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            btn.setToolTip(cat)
+            btn.setFont(emoji_font)
+            btn.setStyleSheet("QLabel { border: none; border-radius: 6px; } QLabel:hover { background: #F3E8F6; }")
+            btn.mousePressEvent = lambda checked, c=cat: self._scroll_to_category(c)
+            cat_bar.addWidget(btn)
+            self._cat_buttons[cat] = btn
+        cat_bar.addStretch()
+        main_layout.addLayout(cat_bar)
+
+        # Search
+        self._emoji_search = QLineEdit()
+        self._emoji_search.setPlaceholderText("Search emojis...")
+        self._emoji_search.setClearButtonEnabled(True)
+        self._emoji_search.textChanged.connect(self._filter_emojis)
+        main_layout.addWidget(self._emoji_search)
+
+        # Emoji grid
+        self._emoji_scroll = QScrollArea()
+        self._emoji_scroll.setWidgetResizable(True)
+        self._emoji_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self._emoji_container = QWidget()
+        self._emoji_layout = QVBoxLayout(self._emoji_container)
+        self._emoji_layout.setContentsMargins(0, 0, 0, 0)
+        self._emoji_layout.setSpacing(8)
+        self._emoji_scroll.setWidget(self._emoji_container)
+        main_layout.addWidget(self._emoji_scroll, 1)
+
+        self._build_emoji_grid()
+        return widget
+
+    def _build_emoji_grid(self):
+        while self._emoji_layout.count():
+            item = self._emoji_layout.takeAt(0)
+            if item.widget():
+                item.widget().setParent(None)
+
+        self._emoji_labels = []
+        emoji_font = QFont("Segoe UI Emoji", 18)
+        for category, emojis in EMOJI_DATA.items():
+            cat_label = QLabel(category)
+            cat_label.setStyleSheet("font-size: 12px; font-weight: 600; color: #6b7280; padding: 4px 0px;")
+            cat_label.setProperty("category", category)
+            self._emoji_layout.addWidget(cat_label)
+
+            grid = QGridLayout()
+            grid.setSpacing(2)
+            grid.setContentsMargins(0, 0, 0, 0)
+            for i, emoji in enumerate(emojis):
+                btn = QLabel(emoji)
+                btn.setFixedSize(40, 40)
+                btn.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                btn.setFont(emoji_font)
+                btn.setStyleSheet("QLabel { border: none; border-radius: 6px; } QLabel:hover { background: #F3E8F6; }")
+                btn.mousePressEvent = lambda checked, e=emoji: self._insert_emoji(e)
+                btn.setCursor(Qt.CursorShape.PointingHandCursor)
+                grid.addWidget(btn, i // 8, i % 8)
+                self._emoji_labels.append((btn, category))
+
+            grid_widget = QWidget()
+            grid_widget.setLayout(grid)
+            grid_widget.setProperty("category", category)
+            self._emoji_layout.addWidget(grid_widget)
+
+        self._emoji_layout.addStretch()
+
+    def _scroll_to_category(self, category):
+        for i in range(self._emoji_layout.count()):
+            item = self._emoji_layout.itemAt(i)
+            widget = item.widget() if item else None
+            if widget and widget.property("category") == category:
+                self._emoji_scroll.ensureWidgetVisible(widget)
+                break
+
+    def _filter_emojis(self, text):
+        for btn, category in self._emoji_labels:
+            if text:
+                btn.setVisible(text.lower() in category.lower() or text in btn.text())
+            else:
+                btn.setVisible(True)
+
+    def _insert_emoji(self, emoji):
+        if self.target_edit:
+            self.target_edit.insertPlainText(emoji)
+        self.accept()
+
+    def _build_gif_tab(self):
+        widget = QWidget()
+        main_layout = QVBoxLayout(widget)
+        main_layout.setContentsMargins(8, 8, 8, 8)
+        main_layout.setSpacing(6)
+
+        # Search
+        self._gif_search = QLineEdit()
+        self._gif_search.setPlaceholderText("Search GIFs...")
+        self._gif_search.setClearButtonEnabled(True)
+        main_layout.addWidget(self._gif_search)
+
+        # GIF grid (placeholder with sample categories)
+        gif_scroll = QScrollArea()
+        gif_scroll.setWidgetResizable(True)
+        gif_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        gif_container = QWidget()
+        gif_layout = QVBoxLayout(gif_container)
+        gif_layout.setContentsMargins(0, 0, 0, 0)
+        gif_layout.setSpacing(8)
+
+        gif_categories = {
+            "Trending": ["🎉", "🔥", "❤️", "😂", "👋", "👏", "🙌", "💪"],
+            "Reactions": ["😮", "😍", "🥺", "😭", "🤣", "🙄", "😬", "🤔"],
+            "Celebrations": ["🎊", "🥳", "🎆", "🎇", "🎈", "🎁", "🏆", "🎉"],
+        }
+
+        for cat_name, emojis in gif_categories.items():
+            cat_label = QLabel(cat_name)
+            cat_label.setStyleSheet("font-size: 12px; font-weight: 600; color: #6b7280; padding: 4px 0px;")
+            gif_layout.addWidget(cat_label)
+
+            grid = QGridLayout()
+            grid.setSpacing(4)
+            for i, em in enumerate(emojis):
+                btn = QLabel(em)
+                btn.setFixedSize(80, 80)
+                btn.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                btn.setFont(QFont("Segoe UI Emoji", 24))
+                btn.setStyleSheet("QLabel { border: 1px solid #e5e7eb; border-radius: 8px; background: #f9fafb; } QLabel:hover { background: #F3E8F6; border: 1px solid #CFA6D6; }")
+                btn.mousePressEvent = lambda checked, e=em: self._insert_gif(e)
+                btn.setCursor(Qt.CursorShape.PointingHandCursor)
+                grid.addWidget(btn, i // 4, i % 4)
+            grid_widget = QWidget()
+            grid_widget.setLayout(grid)
+            gif_layout.addWidget(grid_widget)
+
+        gif_layout.addStretch()
+        gif_scroll.setWidget(gif_container)
+        main_layout.addWidget(gif_scroll, 1)
+        return widget
+
+    def _insert_gif(self, gif):
+        if self.target_edit:
+            self.target_edit.insertPlainText(f"[GIF: {gif}]")
+        self.accept()
+
+
 class Sidebar(QWidget):
     page_selected = pyqtSignal(int)
     pages_changed = pyqtSignal()
@@ -208,8 +419,14 @@ class Sidebar(QWidget):
         self.btn_set_template.setIcon(template_icon)
         self.btn_set_template.setFixedWidth(110)
 
+        archive_icon = QIcon(_get_icon_path("folder_archive"))
+        self.btn_archive = QPushButton("Archive")
+        self.btn_archive.setIcon(archive_icon)
+        self.btn_archive.setFixedWidth(110)
+
         btn_layout2.addWidget(self.btn_bulk_named)
         btn_layout2.addWidget(self.btn_set_template)
+        btn_layout2.addWidget(self.btn_archive)
         btn_layout2.addStretch()
         layout.addLayout(btn_layout2)
 
@@ -274,10 +491,18 @@ class Sidebar(QWidget):
         self.btn_new_page.clicked.connect(self._bulk_creation_requested)
         self.btn_bulk_named.clicked.connect(self._bulk_named_dialog)
         self.btn_set_template.clicked.connect(self._save_template_clicked)
+        self.btn_archive.clicked.connect(self._archive_selected)
 
         self._setup_shortcuts()
         self._ensure_templates_folder()
+        self._ensure_archive_folder()
+        self._ensure_fun_imports_folder()
+        self._editor_ref = None
         self._load_pages()
+
+    def set_editor(self, editor):
+        """Set reference to the PageEditor for Fun Imports insertion."""
+        self._editor_ref = editor
 
     def _expand_all(self):
         self.tree.expandAll()
@@ -289,8 +514,22 @@ class Sidebar(QWidget):
 
     def _on_template_item_clicked(self, item, column):
         page_id = item.data(0, Qt.ItemDataRole.UserRole)
+        page_title = item.text(0)
+        if page_title == "Fun Imports":
+            self._open_fun_imports()
+            return
         if page_id:
             self.page_selected.emit(page_id)
+
+    def _open_fun_imports(self):
+        """Open the Fun Imports dialog for emojis and GIFs."""
+        target_edit = None
+        if self._editor_ref:
+            result = self._editor_ref._get_active_text_edit()
+            if result:
+                target_edit = result[0]
+        dialog = FunImportsDialog(self, target_edit=target_edit)
+        dialog.exec()
 
     def _show_template_context_menu(self, pos):
         self._show_context_menu(pos, tree=self.template_tree)
@@ -329,9 +568,39 @@ class Sidebar(QWidget):
         if not templates_folder:
             self.repo.create(Page(title="Templates", page_type="folder"))
 
+    def _ensure_archive_folder(self):
+        """Create the Archive folder if it doesn't exist."""
+        from src.models.page import Page
+        pages = self.repo.get_all()
+        archive_folder = [p for p in pages if p.title == "Archive" and p.page_type == "folder"]
+        if not archive_folder:
+            self.repo.create(Page(title="Archive", page_type="folder"))
+
+    def _ensure_fun_imports_folder(self):
+        """Create the Fun Imports folder if it doesn't exist."""
+        from src.models.page import Page
+        pages = self.repo.get_all()
+        fun_folder = [p for p in pages if p.title == "Fun Imports" and p.page_type == "folder"]
+        if not fun_folder:
+            self.repo.create(Page(title="Fun Imports", page_type="folder"))
+
     def _save_template_clicked(self):
         """Save the current page as a template."""
         self.save_template_requested.emit()
+
+    def _archive_selected(self):
+        """Archive the currently selected item(s) from the upper tree."""
+        selected = self.tree.selectedItems()
+        if not selected:
+            QMessageBox.information(self, "Archive", "Select a page or folder to archive.")
+            return
+        for item in selected:
+            page_id = item.data(0, Qt.ItemDataRole.UserRole)
+            page_type = item.data(0, Qt.ItemDataRole.UserRole + 1) or "page"
+            page = self.repo.get_by_id(page_id)
+            if page and page.title in ("Archive", "Templates"):
+                continue
+            self._archive_item(page_id, page_type)
 
     def _load_pages(self):
         expanded_ids = self._collect_expanded(self.tree)
@@ -344,6 +613,8 @@ class Sidebar(QWidget):
         page_icon = QIcon(_get_icon_path("page"))
         template_icon = QIcon(_get_icon_path("folder_template"))
         template_page_icon = QIcon(_get_icon_path("page_template"))
+        archive_icon = QIcon(_get_icon_path("folder_archive"))
+        fun_icon = QIcon(_get_icon_path("folder_fun"))
 
         # Load templates from database
         from src.repositories.template_repo import TemplateRepo
@@ -357,6 +628,10 @@ class Sidebar(QWidget):
                 if page.page_type == "folder":
                     if page.title == "Templates":
                         item.setIcon(0, template_icon)
+                    elif page.title == "Archive":
+                        item.setIcon(0, archive_icon)
+                    elif page.title == "Fun Imports":
+                        item.setIcon(0, fun_icon)
                     else:
                         item.setIcon(0, folder_icon)
                     item.setText(0, page.title)
@@ -382,9 +657,12 @@ class Sidebar(QWidget):
                         t_item.setData(0, Qt.ItemDataRole.UserRole + 1, "template")
                         t_item.setData(0, Qt.ItemDataRole.UserRole + 2, template.category)
 
-        # Separate templates from regular pages
-        regular_root = [p for p in root_pages if not (p.title == "Templates" and p.page_type == "folder")]
+        # Separate special folders from regular pages
+        special_titles = {"Templates", "Archive", "Fun Imports"}
+        regular_root = [p for p in root_pages if not (p.title in special_titles and p.page_type == "folder")]
+        fun_imports_root = [p for p in root_pages if p.title == "Fun Imports" and p.page_type == "folder"]
         templates_root = [p for p in root_pages if p.title == "Templates" and p.page_type == "folder"]
+        archive_root = [p for p in root_pages if p.title == "Archive" and p.page_type == "folder"]
 
         # Upper tree: regular pages/folders sorted alphabetically
         for page in sorted(regular_root, key=lambda x: x.title.lower()):
@@ -405,10 +683,34 @@ class Sidebar(QWidget):
             item.setData(0, Qt.ItemDataRole.UserRole + 1, page.page_type)
             add_children(item, page.id)
 
+        # Lower tree: Fun Imports folder (above Templates)
+        for page in fun_imports_root:
+            item = QTreeWidgetItem(self.template_tree)
+            item.setIcon(0, fun_icon)
+            item.setText(0, page.title)
+            font = item.font(0)
+            font.setBold(True)
+            item.setFont(0, font)
+            item.setData(0, Qt.ItemDataRole.UserRole, page.id)
+            item.setData(0, Qt.ItemDataRole.UserRole + 1, page.page_type)
+            add_children(item, page.id)
+
         # Lower tree: Templates folder
         for page in templates_root:
             item = QTreeWidgetItem(self.template_tree)
             item.setIcon(0, template_icon)
+            item.setText(0, page.title)
+            font = item.font(0)
+            font.setBold(True)
+            item.setFont(0, font)
+            item.setData(0, Qt.ItemDataRole.UserRole, page.id)
+            item.setData(0, Qt.ItemDataRole.UserRole + 1, page.page_type)
+            add_children(item, page.id)
+
+        # Lower tree: Archive folder
+        for page in archive_root:
+            item = QTreeWidgetItem(self.template_tree)
+            item.setIcon(0, archive_icon)
             item.setText(0, page.title)
             font = item.font(0)
             font.setBold(True)
@@ -829,6 +1131,8 @@ class Sidebar(QWidget):
         if page_type == "folder":
             add_folder_action = menu.addAction("Add Child Folder")
         menu.addSeparator()
+        archive_action = menu.addAction("Archive")
+        menu.addSeparator()
         move_action = menu.addAction("Move to Folder...")
         menu.addSeparator()
         move_up_action = menu.addAction("Move Up")
@@ -892,6 +1196,47 @@ class Sidebar(QWidget):
                 self.repo.update(page)
                 self._load_pages()
                 self.pages_changed.emit()
+
+        elif action == archive_action:
+            page = self.repo.get_by_id(page_id)
+            if page and page.title in ("Archive", "Templates"):
+                QMessageBox.information(self, "Archive", f"Cannot archive the {page.title} folder.")
+            else:
+                self._archive_item(page_id, page_type)
+
+    def _archive_item(self, page_id, page_type):
+        """Archive a page or folder."""
+        pages = self.repo.get_all()
+        archive_folder = [p for p in pages if p.title == "Archive" and p.page_type == "folder"]
+        archive_id = archive_folder[0].id if archive_folder else self.repo.create(Page(title="Archive", page_type="folder"))
+
+        if page_type == "folder":
+            page = self.repo.get_by_id(page_id)
+            if page:
+                page.parent_id = archive_id
+                self.repo.update(page)
+        else:
+            page = self.repo.get_by_id(page_id)
+            if page:
+                if page.parent_id:
+                    parent_page = self.repo.get_by_id(page.parent_id)
+                    if parent_page:
+                        existing = [p for p in pages if p.title == parent_page.title
+                                    and p.parent_id == archive_id and p.page_type == "folder"]
+                        if existing:
+                            target_folder_id = existing[0].id
+                        else:
+                            target_folder_id = self.repo.create(
+                                Page(title=parent_page.title, parent_id=archive_id, page_type="folder")
+                            )
+                        page.parent_id = target_folder_id
+                        self.repo.update(page)
+                else:
+                    page.parent_id = archive_id
+                    self.repo.update(page)
+
+        self._load_pages()
+        self.pages_changed.emit()
 
     def _move_to_folder(self, page_id, page_type):
         """Show dialog to move page/folder to another folder or root."""
@@ -1021,6 +1366,8 @@ class Sidebar(QWidget):
         for pid in all_ids:
             self._sync_template_deletion(pid)
             self.repo.delete(pid)
+        if self._editor_ref and self._editor_ref.current_page_id in all_ids:
+            self._editor_ref.clear_editor()
         self._load_pages()
         self.pages_changed.emit()
 
@@ -1121,6 +1468,8 @@ class Sidebar(QWidget):
                 data["type"] = "page"
                 undo_manager.push(data)
             self.repo.delete(page_id)
+            if self._editor_ref and self._editor_ref.current_page_id == page_id:
+                self._editor_ref.clear_editor()
             self._load_pages()
             self.pages_changed.emit()
 

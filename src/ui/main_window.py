@@ -55,6 +55,7 @@ class MainWindow(QMainWindow):
 
         self.sidebar.page_selected.connect(self.editor.load_page)
         self.sidebar.save_template_requested.connect(self._save_as_template)
+        self.sidebar.set_editor(self.editor)
 
         self._setup_menu()
         self._setup_shortcuts()

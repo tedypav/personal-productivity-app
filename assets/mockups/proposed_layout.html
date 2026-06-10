@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  body { font-family: 'Segoe UI', sans-serif; background: #f5f5f5; padding: 40px; }
+  .app { width: 900px; margin: 0 auto; background: #fff; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); overflow: hidden; }
+  
+  /* Page header toolbar */
+  .toolbar { background: #FFF8F5; border-bottom: 1px solid #F0E6E8; padding: 10px 16px; display: flex; align-items: center; gap: 8px; }
+  .toolbar .title { font-family: 'Playfair Display', serif; font-size: 18px; font-weight: 600; color: #2E2B2B; flex: 1; }
+  .pill-btn { padding: 6px 16px; border: none; border-radius: 20px; background: linear-gradient(#fff, #FFF8F5); font-size: 12px; font-weight: 500; color: #2E2B2B; cursor: pointer; }
+  .pill-btn:hover { background: linear-gradient(#FFF0F3, #F7D1DC); border: 1px solid #F7D1DC; }
+  .sep { color: #E8DDE0; padding: 0 4px; }
+
+  /* Block */
+  .block { margin: 16px; border: 1px solid #F0E6E8; border-radius: 12px; background: #fff; }
+  .block:hover { border-color: #F7D1DC; }
+  .block-header { display: flex; align-items: center; padding: 4px 8px; gap: 4px; min-height: 36px; }
+  .drag-handle { color: #9ca3af; cursor: grab; font-size: 14px; padding: 0 4px; user-select: none; }
+  .header-input { flex: 1; border: none; background: transparent; font-size: 12px; color: #9ca3af; outline: none; padding: 4px 8px; border-radius: 4px; }
+  .header-input:focus { background: #f3f4f6; color: #374151; }
+  .icon-btn { width: 28px; height: 28px; border: 1px solid #e5e7eb; border-radius: 4px; background: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #9ca3af; }
+  .icon-btn:hover { background: #F3E8F6; border-color: #CFA6D6; }
+  .icon-btn.danger:hover { background: #fef2f2; border-color: #ef4444; color: #ef4444; }
+
+  /* Block body */
+  .block-body { padding: 0 12px 12px 12px; }
+  
+  /* Inline formatting toolbar - NEW */
+  .inline-toolbar { display: flex; align-items: center; gap: 2px; padding: 4px 0; border-bottom: 1px solid #f3f4f6; margin-bottom: 8px; }
+  .fmt-btn { width: 28px; height: 26px; border: 1px solid transparent; border-radius: 6px; background: transparent; cursor: pointer; font-size: 13px; color: #6B6770; display: flex; align-items: center; justify-content: center; font-weight: 500; }
+  .fmt-btn:hover { background: #FFF0F3; border-color: #F7D1DC; color: #2E2B2B; }
+  .fmt-btn.active { background: #F3E8F6; border-color: #CFA6D6; color: #2E2B2B; }
+  .fmt-btn.bold { font-weight: bold; font-size: 14px; }
+  .fmt-btn.italic { font-style: italic; font-size: 14px; }
+  .fmt-sep { width: 1px; height: 18px; background: #e5e7eb; margin: 0 4px; }
+  .fmt-size { font-size: 11px; color: #6B6770; padding: 0 4px; }
+  .fmt-select { border: 1px solid #e5e7eb; border-radius: 4px; padding: 2px 4px; font-size: 11px; color: #374151; background: #fff; }
+
+  /* Content area */
+  .content { min-height: 60px; font-size: 13px; color: #374151; line-height: 1.5; }
+
+  /* Alignment dropdown - NEW */
+  .dots-menu { position: relative; }
+  .dropdown { display: none; position: absolute; top: 100%; right: 0; background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); padding: 8px; z-index: 10; min-width: 120px; }
+  .dropdown.show { display: block; }
+  .dropdown-item { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; color: #374151; }
+  .dropdown-item:hover { background: #F3E8F6; }
+  .dropdown-label { font-size: 10px; color: #9ca3af; text-transform: uppercase; padding: 4px 8px 2px; }
+
+  /* Comparison note */
+  .comparison { margin-top: 40px; padding: 20px; background: #f9fafb; border-radius: 8px; border: 1px dashed #d1d5db; }
+  .comparison h3 { margin: 0 0 12px; font-size: 14px; color: #374151; }
+  .comparison table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .comparison th { text-align: left; padding: 8px; background: #fff; border: 1px solid #e5e7eb; color: #6B6770; font-weight: 600; }
+  .comparison td { padding: 8px; background: #fff; border: 1px solid #e5e7eb; }
+  .label-old { background: #fef2f2; color: #991b1b; padding: 2px 6px; border-radius: 4px; font-size: 11px; }
+  .label-new { background: #f0fdf4; color: #166534; padding: 2px 6px; border-radius: 4px; font-size: 11px; }
+</style>
+</head>
+<body>
+
+<h2 style="color:#2E2B2B; margin-bottom:8px;">Proposed Layout Mock-up</h2>
+<p style="color:#6B6770; font-size:13px; margin-bottom:24px;">Formatting buttons moved into each block. Alignment buttons behind ⋮ menu.</p>
+
+<div class="app">
+  <!-- Page Header Toolbar - SIMPLIFIED -->
+  <div class="toolbar">
+    <div class="title">My Page</div>
+    <button class="pill-btn">+ Text</button>
+    <button class="pill-btn">+ Table</button>
+    <button class="pill-btn">+ List</button>
+    <button class="pill-btn">Template</button>
+  </div>
+
+  <!-- TEXT BLOCK -->
+  <div class="block">
+    <div class="block-header">
+      <span class="drag-handle">⋮⋮</span>
+      <input class="header-input" value="Text Block Title" placeholder="Text">
+      <div class="dots-menu">
+        <button class="icon-btn" onclick="this.nextElementSibling.classList.toggle('show')" title="More options">⋮</button>
+        <div class="dropdown">
+          <div class="dropdown-label">Alignment</div>
+          <div class="dropdown-item">⬅ Align Left</div>
+          <div class="dropdown-item">↔ Align Center</div>
+          <div class="dropdown-item">➡ Align Right</div>
+          <div class="dropdown-label" style="margin-top:4px;">Vertical</div>
+          <div class="dropdown-item">⬆ Align Top</div>
+          <div class="dropdown-item">↕ Align Middle</div>
+          <div class="dropdown-item">⬇ Align Bottom</div>
+        </div>
+      </div>
+      <button class="icon-btn" title="Fun Imports">😀</button>
+      <button class="icon-btn danger" title="Delete">✕</button>
+    </div>
+    <div class="block-body">
+      <!-- NEW: Inline formatting toolbar -->
+      <div class="inline-toolbar">
+        <button class="fmt-btn bold">B</button>
+        <button class="fmt-btn italic">I</button>
+        <div class="fmt-sep"></div>
+        <button class="fmt-btn">H1</button>
+        <button class="fmt-btn">H2</button>
+        <button class="fmt-btn">&lt;&gt;</button>
+        <div class="fmt-sep"></div>
+        <button class="fmt-btn">🔗</button>
+        <button class="fmt-btn">•</button>
+        <div class="fmt-sep"></div>
+        <span class="fmt-size">Size:</span>
+        <select class="fmt-select">
+          <option>9</option><option>10</option><option>11</option><option>12</option>
+          <option selected>13</option><option>14</option><option>15</option><option>16</option>
+          <option>18</option><option>20</option><option>22</option><option>24</option>
+        </select>
+      </div>
+      <div class="content">
+        Click anywhere in this text to see the formatting toolbar. The toolbar appears above the content area inside each block.
+      </div>
+    </div>
+  </div>
+
+  <!-- TABLE BLOCK -->
+  <div class="block">
+    <div class="block-header">
+      <span class="drag-handle">⋮⋮</span>
+      <input class="header-input" value="Table Block" placeholder="Table">
+      <div class="dots-menu">
+        <button class="icon-btn" onclick="this.nextElementSibling.classList.toggle('show')" title="More options">⋮</button>
+        <div class="dropdown">
+          <div class="dropdown-label">Alignment</div>
+          <div class="dropdown-item">⬅ Align Left</div>
+          <div class="dropdown-item">↔ Align Center</div>
+          <div class="dropdown-item">➡ Align Right</div>
+        </div>
+      </div>
+      <button class="icon-btn" title="Fun Imports">😀</button>
+      <button class="icon-btn danger" title="Delete">✕</button>
+    </div>
+    <div class="block-body">
+      <!-- Table toolbar stays as-is inside the block -->
+      <div style="display:flex;gap:4px;margin-bottom:8px;">
+        <button class="pill-btn" style="font-size:11px;padding:3px 10px;">+ Row</button>
+        <button class="pill-btn" style="font-size:11px;padding:3px 10px;">- Row</button>
+        <button class="pill-btn" style="font-size:11px;padding:3px 10px;">+ Col</button>
+        <button class="pill-btn" style="font-size:11px;padding:3px 10px;">- Col</button>
+        <button class="pill-btn" style="font-size:11px;padding:3px 10px;">+ Header</button>
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <tr><th style="border:1px solid #e5e7eb;padding:6px;background:#FFF5F7;">Name</th><th style="border:1px solid #e5e7eb;padding:6px;background:#FFF5F7;">Value</th></tr>
+        <tr><td style="border:1px solid #e5e7eb;padding:6px;">Item 1</td><td style="border:1px solid #e5e7eb;padding:6px;">100</td></tr>
+        <tr><td style="border:1px solid #e5e7eb;padding:6px;">Item 2</td><td style="border:1px solid #e5e7eb;padding:6px;">200</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- LIST BLOCK -->
+  <div class="block">
+    <div class="block-header">
+      <span class="drag-handle">⋮⋮</span>
+      <input class="header-input" value="List Block" placeholder="List">
+      <div class="dots-menu">
+        <button class="icon-btn" onclick="this.nextElementSibling.classList.toggle('show')" title="More options">⋮</button>
+        <div class="dropdown">
+          <div class="dropdown-label">Alignment</div>
+          <div class="dropdown-item">⬅ Align Left</div>
+          <div class="dropdown-item">↔ Align Center</div>
+          <div class="dropdown-item">➡ Align Right</div>
+        </div>
+      </div>
+      <button class="icon-btn" title="Fun Imports">😀</button>
+      <button class="icon-btn danger" title="Delete">✕</button>
+    </div>
+    <div class="block-body">
+      <div style="display:flex;align-items:center;gap:8px;padding:4px 0;">
+        <input type="checkbox" style="accent-color:#7DC68E;"> <span>Task item 1</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;padding:4px 0;">
+        <input type="checkbox" style="accent-color:#7DC68E;"> <span>Task item 2</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;padding:4px 0;">
+        <input type="checkbox" checked style="accent-color:#7DC68E;"> <span style="text-decoration:line-through;color:#9ca3af;">Completed task</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Comparison -->
+<div class="comparison" style="width:900px;margin:24px auto 0;">
+  <h3>What Changes</h3>
+  <table>
+    <tr>
+      <th>Element</th>
+      <th><span class="label-old">BEFORE</span></th>
+      <th><span class="label-new">AFTER</span></th>
+    </tr>
+    <tr>
+      <td><strong>Formatting buttons</strong><br>(B, I, H1, H2, &lt;&gt;, 🔗, •)</td>
+      <td>In page header toolbar — always visible, applies to whichever block has focus</td>
+      <td>Inside each text block — appears at the top of the content area, scoped to that block</td>
+    </tr>
+    <tr>
+      <td><strong>Font size selector</strong></td>
+      <td>In page header toolbar</td>
+      <td>Inside each text block, next to formatting buttons</td>
+    </tr>
+    <tr>
+      <td><strong>Alignment buttons</strong><br>(6 buttons: ← ↑ → ↓)</td>
+      <td>Always visible in block header — takes up ~200px of header space</td>
+      <td>Behind ⋮ (3-dot) menu in block header — revealed on click as a dropdown</td>
+    </tr>
+    <tr>
+      <td><strong>Block header</strong></td>
+      <td>Drag | Header | ←↑→↓↑↓ | +Task | 😀 | ✕</td>
+      <td>Drag | Header | ⋮ | 😀 | ✕</td>
+    </tr>
+    <tr>
+      <td><strong>Page toolbar</strong></td>
+      <td>Title | +Text +Table +List Template | B I H1 H2 <> 🔗 • Size</td>
+      <td>Title | +Text +Table +List Template</td>
+    </tr>
+  </table>
+</div>
+
+</body>
+</html>

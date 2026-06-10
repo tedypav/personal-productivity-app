@@ -48,11 +48,6 @@ Core features for initial delivery:
 - Responsive layout that adapts to tablet dimensions
 - Persisted window geometry preferences
 - Application-wide QSS stylesheet for consistent visual styling
-- **Custom fonts** loaded from `assets/fonts/`:
-  - **Magnolia** - Used for the welcome message when no page is selected
-  - **Playfair Display** - Used for elegant headings and the page title
-  - **Inter** - Used for body text, buttons, and UI elements (with Poppins as fallback)
-- **Welcome message** - When no page is selected, displays "Hello, lovely! Let's make it a productive day! ❤️" in Magnolia font
 - Global unhandled exception handler (`sys.excepthook`) showing `QMessageBox.critical` dialog
 
 **Acceptance criteria:**
@@ -62,8 +57,6 @@ Core features for initial delivery:
 - Settings persist across restarts
 - Unhandled exceptions show error dialog instead of silent crash
 - Database uses WAL mode and enforces foreign keys
-- All three fonts display correctly: Magnolia for welcome message, Playfair Display for headings, Inter for UI text
-- Welcome message appears centered when no page is selected
 
 ---
 
@@ -105,19 +98,13 @@ Core features for initial delivery:
 
 ### Module 3: Content Blocks — Text & Styling
 - Pages composed of **content blocks** on a **free-form canvas** (no layout constraints)
-- **Text blocks** supporting rich text formatting (bold, italic, headings, code, links, bullet lists)
+- **Text blocks** supporting Markdown syntax (bold, italic, headings, code, links) with `nl2br` extension
 - **Preview/edit toggle** — click preview to edit (cursor moves to end); blur to return to rendered view
 - Preview updates in real-time as user types (via QStackedWidget switching)
 - HTML auto-detection: content starting with `<` is treated as raw HTML
 - Toolbar for quick formatting (B/I/H1/H2/code/link/bullet) with vertical separator
-- **Formatting buttons** show checked state when style is active at cursor; click to toggle on/off
 - **Font size combo box** ("Size:") in toolbar — sizes [9–32], context-aware via global focus tracking (`QApplication.focusChanged`); applies to header, text content, table cell, or list item depending on focus
 - **Keyboard shortcuts:** `Ctrl+B` bold, `Ctrl+I` italic, formatting buttons for H1/H2/code/link/bullet
-- **Focus preservation** — toolbar buttons don't steal focus from active text edit, allowing formatting to be applied without losing cursor position
-- **Stable button sync** — formatting button states update only on focus changes, not on every cursor movement, preventing crashes during typing
-- **Bullet list safety** — toggle function validates block state before accessing text list, with exception handling to prevent crashes
-- **Multiple bullet lists** — users can create multiple separate bullet lists in the same text box or table cell; toggling off exits the current list and creates a new paragraph for normal text
-- **Delayed format application** — when switching from preview to edit mode, formatting is applied with a 50ms delay to ensure the editor widget is fully initialized
 - Stored in `content_blocks` table (id, page_id, block_type, content_markdown, sort_order, pos_x, pos_y, width, height, header, header_font_size, content_font_size, header_align_h, header_align_v, header_height)
 - Auto-save on content change (debounced, default 1s interval; timer interval updates immediately on settings change)
 - **Free-form positioning** — drag "⋮⋮" handle **or header area** to move blocks anywhere within canvas bounds

@@ -1,0 +1,25 @@
+[project]
+name = "personal-productivity-app"
+version = "0.1.0"
+requires-python = ">=3.10"
+dependencies = [
+    "PyQt6>=6.11",
+    "markdown>=3.10",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+qt_api = "pyqt6"
+
+[tool.coverage.run]
+source = ["src"]
+omit = ["tests/*", "run.py"]
+
+[tool.coverage.report]
+fail_under = 90
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.",
+    "pass",
+]
