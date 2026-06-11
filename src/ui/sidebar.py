@@ -764,6 +764,7 @@ class Sidebar(QWidget):
         self.settings = load_settings()
         self.setMinimumWidth(180)
         self.setMaximumWidth(350)
+        self._empty_hint = None
         self.setStyleSheet("""
             Sidebar {
                 background: #FFF8F5;
@@ -1174,6 +1175,18 @@ class Sidebar(QWidget):
         else:
             self.tree.expandAll()
         self.template_tree.expandAll()
+        has_pages = self.tree.topLevelItemCount() > 0
+        has_templates = self.template_tree.topLevelItemCount() > 0
+        if not has_pages and not has_templates:
+            if not self._empty_hint:
+                self._empty_hint = QLabel("No pages yet.\nClick + to create one.")
+                self._empty_hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                self._empty_hint.setStyleSheet(
+                    "color: #9CA3AF; font-size: 13px; padding: 20px;"
+                )
+                self.layout().addWidget(self._empty_hint)
+        elif self._empty_hint:
+            self._empty_hint.hide()
 
     def _collect_expanded(self, tree=None):
         if tree is None:

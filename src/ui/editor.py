@@ -78,11 +78,11 @@ QFrame#block {
     border-radius: 12px;
 }
 QFrame#block:hover {
-    border-color: #F7D1DC;
+    border-color: #CFA6D6;
 }
 QFrame#block[selected="true"] {
     border: 2px solid #CFA6D6;
-    background: #FFFBFD;
+    background: #F3E8F6;
 }
 """
 
@@ -451,7 +451,7 @@ class _EmbeddedTaskContainer(QWidget):
             "QPushButton { font-size: 11px; border: 1px solid #d1d5db;"
             " border-radius: 3px; background: #f9fafb; padding: 0 8px;"
             " color: #374151; }"
-            " QPushButton:hover { border-color: #6366f1; color: #6366f1; }"
+            " QPushButton:hover { border-color: #CFA6D6; color: #CFA6D6; }"
         )
 
         self._remove_btn = QPushButton("×")
@@ -1177,9 +1177,9 @@ class TableWidget(QWidget):
             " stop:0 #FFFFFF, stop:1 #FFF8F5); color: #2E2B2B; }"
             " QPushButton:hover {"
             " background: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
-            " stop:0 #FFF0F3, stop:1 #F7D1DC);"
-            " border: 1px solid #F7D1DC; }"
-            " QPushButton:pressed { background: #F7D1DC;"
+            " stop:0 #F3E8F6, stop:1 #CFA6D6);"
+            " border: 1px solid #CFA6D6; }"
+            " QPushButton:pressed { background: #CFA6D6;"
             " border: 1px solid #CFA6D6; }"
             " QPushButton:checked {"
             " background: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
@@ -1756,8 +1756,14 @@ class DragHandle(QLabel):
         self.setText("⋮⋮")
         self.setFixedWidth(20)
         self.setCursor(Qt.CursorShape.OpenHandCursor)
-        self.setStyleSheet("color: #d1d5db; font-size: 12px;")
+        self.setStyleSheet("color: #d1d5db; padding: 2px; font-size: 12px;")
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+    def enterEvent(self, event):
+        self.setStyleSheet("color: #6B6770; padding: 2px; font-size: 12px;")
+
+    def leaveEvent(self, event):
+        self.setStyleSheet("color: #d1d5db; padding: 2px; font-size: 12px;")
 
 
 class ResizeHandle(QWidget):
@@ -1896,8 +1902,8 @@ class ResizeHandleHeader(QWidget):
 
     def enterEvent(self, event):
         self.setStyleSheet(
-            "background: #e0e7ff; border-top: 1px solid #6366f1;"
-            " border-bottom: 1px solid #6366f1;"
+            "background: #e0e7ff; border-top: 1px solid #CFA6D6;"
+            " border-bottom: 1px solid #CFA6D6;"
         )
 
     def leaveEvent(self, event):
@@ -1909,7 +1915,7 @@ class ResizeHandleHeader(QWidget):
             self._dragging = True
             self._start_y = event.globalPosition().toPoint().y()
             self._start_h = self._header_container.height()
-            self.setStyleSheet("background: #6366f1;")
+            self.setStyleSheet("background: #CFA6D6;")
             block_w = self._header_container.parent()
             while block_w and not isinstance(block_w, ContentBlockWidget):
                 block_w = block_w.parent()
@@ -2140,7 +2146,7 @@ class ContentBlockWidget(QFrame):
                 " border: 1px solid #e5e7eb; border-radius: 4px; }"
                 " QPushButton:checked { background: #f3e8f6;"
                 " border-color: #CFA6D6; }"
-                " QPushButton:hover { background: #fef2f2; }" + _tip
+                " QPushButton:hover { background: #F3E8F6; }" + _tip
             )
             self._h_align_group.addButton(b)
         self._h_align_group.buttonClicked.connect(self._on_h_align_changed)
@@ -2165,7 +2171,7 @@ class ContentBlockWidget(QFrame):
                 " border: 1px solid #e5e7eb; border-radius: 4px; }"
                 " QPushButton:checked { background: #f3e8f6;"
                 " border-color: #CFA6D6; }"
-                " QPushButton:hover { background: #fef2f2; }" + _tip
+                " QPushButton:hover { background: #F3E8F6; }" + _tip
             )
             self._v_align_group.addButton(b)
         self._v_align_group.buttonClicked.connect(self._on_v_align_changed)
@@ -2194,7 +2200,7 @@ class ContentBlockWidget(QFrame):
             " border-radius: 4px; color: #9ca3af; font-size: 14px;"
             " padding: 0px; min-width: 24px; max-width: 24px; }"
             " QPushButton:hover { color: #ef4444;"
-            " border-color: #ef4444; background: #fef2f2; }" + _tip
+            " border-color: #ef4444; background: #F3E8F6; }" + _tip
         )
 
         header.addWidget(self.drag_handle)
@@ -2206,7 +2212,7 @@ class ContentBlockWidget(QFrame):
             "QPushButton { padding: 0px; min-height: 0px;"
             " border: 1px solid #e5e7eb; border-radius: 4px;"
             " color: #9ca3af; font-size: 11px; }"
-            " QPushButton:hover { background: #fef2f2; }" + _tip
+            " QPushButton:hover { background: #F3E8F6; }" + _tip
         )
         self._add_task_btn.setVisible(False)
         header.addWidget(self._add_task_btn)
@@ -2581,8 +2587,8 @@ class ContentBlockWidget(QFrame):
             "QToolButton { font-size: 13px; border: 1px solid transparent;"
             " border-radius: 6px; padding: 3px 8px; color: #6B6770;"
             " min-width: 24px; }"
-            " QToolButton:hover { background: #FFF0F3;"
-            " border-color: #F7D1DC; color: #2E2B2B; }"
+            " QToolButton:hover { background: #F3E8F6;"
+            " border-color: #CFA6D6; color: #2E2B2B; }"
             " QToolButton:checked { background: #F3E8F6;"
             " border-color: #CFA6D6; color: #2E2B2B; }" + _tip_style
         )
@@ -2596,8 +2602,8 @@ class ContentBlockWidget(QFrame):
             "QToolButton { font-weight: bold; font-size: 14px;"
             " border: 1px solid transparent; border-radius: 6px;"
             " padding: 3px 8px; color: #6B6770; min-width: 24px; }"
-            " QToolButton:hover { background: #FFF0F3;"
-            " border-color: #F7D1DC; color: #2E2B2B; }"
+            " QToolButton:hover { background: #F3E8F6;"
+            " border-color: #CFA6D6; color: #2E2B2B; }"
             " QToolButton:checked { background: #F3E8F6;"
             " border-color: #CFA6D6; color: #2E2B2B; }" + _tip_style
         )
@@ -2611,8 +2617,8 @@ class ContentBlockWidget(QFrame):
             "QToolButton { font-style: italic; font-size: 14px;"
             " border: 1px solid transparent; border-radius: 6px;"
             " padding: 3px 8px; color: #6B6770; min-width: 24px; }"
-            " QToolButton:hover { background: #FFF0F3;"
-            " border-color: #F7D1DC; color: #2E2B2B; }"
+            " QToolButton:hover { background: #F3E8F6;"
+            " border-color: #CFA6D6; color: #2E2B2B; }"
             " QToolButton:checked { background: #F3E8F6;"
             " border-color: #CFA6D6; color: #2E2B2B; }" + _tip_style
         )
@@ -2971,6 +2977,7 @@ class PageEditor(QWidget):
         self._tracked_edit: QTextEdit | None = None
         self._syncing_buttons = False  # Prevent re-entrant calls
         self._template_dirty = False
+        self._empty_hint = None
         self.setStyleSheet("background: #2a1a35;")
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
 
@@ -3091,9 +3098,9 @@ class PageEditor(QWidget):
             " font-size: 12px; font-weight: 500; color: #2E2B2B; }"
             " QPushButton:hover {"
             " background: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
-            " stop:0 #FFF0F3, stop:1 #F7D1DC);"
-            " border: 1px solid #F7D1DC; }"
-            " QPushButton:pressed { background: #F7D1DC;"
+            " stop:0 #F3E8F6, stop:1 #CFA6D6);"
+            " border: 1px solid #CFA6D6; }"
+            " QPushButton:pressed { background: #CFA6D6;"
             " border: 1px solid #CFA6D6; }"
         )
         self._add_block_btn = QPushButton("+ Text")
@@ -3526,6 +3533,25 @@ class PageEditor(QWidget):
             w.show()
             self._block_widgets.append(w)
         self._update_canvas_size()
+        if not blocks:
+            if not self._empty_hint:
+                from PyQt6.QtWidgets import QLabel
+
+                self._empty_hint = QLabel(
+                    "Click + to add your first block", self.content
+                )
+                self._empty_hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                self._empty_hint.setStyleSheet(
+                    "color: #9CA3AF; font-size: 14px; font-style: italic;"
+                    " background: transparent; border: none;"
+                )
+            self._empty_hint.setGeometry(
+                0, 0, self.content.width(), self.content.height()
+            )
+            self._empty_hint.show()
+        else:
+            if self._empty_hint:
+                self._empty_hint.hide()
 
     def _setup_drag(self, widget):
         def _start_drag(ev, w):
@@ -3537,6 +3563,8 @@ class PageEditor(QWidget):
                 ev.globalPosition().toPoint().y(),
             )
             w.raise_()
+            w.setWindowOpacity(0.75)
+            self.content.setCursor(Qt.CursorShape.ClosedHandCursor)
             ev.accept()
 
         def _make_move(orig):
@@ -3562,6 +3590,8 @@ class PageEditor(QWidget):
                     w.block.pos_x = w.x()
                     w.block.pos_y = w.y()
                     w.mark_dirty()
+                    w.setWindowOpacity(1.0)
+                    self.content.setCursor(Qt.CursorShape.ArrowCursor)
                     self._drag_data = None
                     ev.accept()
                 else:
@@ -3636,13 +3666,28 @@ class PageEditor(QWidget):
             self._selected_block_widgets.add(widget)
 
     def _clear_selection(self):
-        for w in self._selected_block_widgets:
-            w.set_selected(False)
-        self._selected_block_widgets.clear()
+        for w in self._block_widgets:
+            if hasattr(w, "set_selected"):
+                w.set_selected(False)
+                w._selected = False
 
     def _delete_selected_blocks(self):
         if not self._selected_block_widgets:
             return
+        selected = [
+            w for w in self._block_widgets if hasattr(w, "_selected") and w._selected
+        ]
+        if len(selected) > 1:
+            from PyQt6.QtWidgets import QMessageBox
+
+            reply = QMessageBox.question(
+                self,
+                "Delete Blocks",
+                f"Delete {len(selected)} blocks?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            )
+            if reply != QMessageBox.StandardButton.Yes:
+                return
         from src.repositories.task_repo import TaskRepo
         from src.undo_manager import _block_dict, _task_dict
 
@@ -3660,6 +3705,25 @@ class PageEditor(QWidget):
         self.load_page(self.current_page_id)
 
     def keyPressEvent(self, event):
+        if event.key() == Qt.Key.Key_Escape:
+            self._clear_selection()
+            for w in self._block_widgets:
+                if (
+                    hasattr(w, "_body")
+                    and hasattr(w._body, "editing")
+                    and w._body.editing
+                ):
+                    w._body._switch_to_preview()
+            return
+        if (
+            event.key() == Qt.Key.Key_A
+            and event.modifiers() & Qt.KeyboardModifier.ControlModifier
+        ):
+            for w in self._block_widgets:
+                if hasattr(w, "set_selected"):
+                    w.set_selected(True)
+                    w._selected = True
+            return
         if event.key() == Qt.Key.Key_Delete:
             self._delete_selected_blocks()
             event.accept()
@@ -3768,6 +3832,7 @@ class PageEditor(QWidget):
                 and bw._body.editing
             ):
                 bw._body._switch_to_preview()
+        self._clear_selection()
 
     def _on_add_list(self):
         """Handle +List button click to add embedded task list."""
@@ -3908,8 +3973,25 @@ class PageEditor(QWidget):
                 pos_y=pos_y,
             )
             self.block_repo.create(block)
-            self.load_page(self.current_page_id)
-            QTimer.singleShot(0, self._scroll_to_newest_block)
+            block = self.block_repo.get_by_id(block.id)
+            if block:
+                idx = len(self._block_widgets)
+                w = ContentBlockWidget(block, index=idx)
+                w.changed.connect(self._on_block_changed)
+                w.delete_requested.connect(self._on_block_deleted)
+                w.clicked.connect(self._on_block_clicked)
+                w.header_focused.connect(self._on_block_header_focused)
+                w.content_focused.connect(self._on_block_content_focused)
+                self._setup_drag(w)
+                w.saved.connect(self._update_canvas_size)
+                w.setParent(self.content)
+                w.move(block.pos_x, block.pos_y)
+                w.show()
+                self._block_widgets.append(w)
+                self._update_canvas_size()
+                QTimer.singleShot(
+                    10, lambda: self.scroll.ensureWidgetVisible(w, 50, 50)
+                )
         except Exception as e:
             traceback.print_exc()
             QMessageBox.critical(self, "Error", f"Failed to add block:\n{e}")
