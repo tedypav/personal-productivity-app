@@ -2,7 +2,6 @@ import json
 import os
 import traceback
 import uuid
-from datetime import datetime, timedelta
 
 import markdown  # type: ignore[import-untyped]
 from PyQt6.QtCore import QEvent, QSize, Qt, QTimer, QUrl, pyqtSignal
@@ -2044,15 +2043,6 @@ class TaskWidget(QWidget):
 
         h_layout.addWidget(edit_container, 1)
 
-        rec_combo = QComboBox()
-        rec_combo.addItems(["none", "daily", "weekly", "monthly"])
-        rec_combo.setCurrentText(task.recurrence_type)
-
-        def make_rec_handler(t):
-            return lambda val: self._set_recurrence(t, val)
-
-        rec_combo.currentTextChanged.connect(make_rec_handler(task))
-
         del_btn = QPushButton("X")
         del_btn.setFixedWidth(30)
 
@@ -2065,8 +2055,6 @@ class TaskWidget(QWidget):
         side_inner = QHBoxLayout(sidebar)
         side_inner.setContentsMargins(0, 0, 0, 0)
         side_inner.setSpacing(0)
-        side_inner.addWidget(QLabel("Recur:"))
-        side_inner.addWidget(rec_combo)
         side_inner.addWidget(del_btn)
 
         h_layout.addWidget(sidebar)
@@ -2096,34 +2084,11 @@ class TaskWidget(QWidget):
 
     def _toggle_task(self, task, state):
         task.is_checked = bool(state)
-        if task.is_checked and task.recurrence_type != "none":
-            self._create_recurring_copy(task)
         self.task_repo.update(task)
         self.task_changed.emit()
 
-    def _create_recurring_copy(self, task):
-        days_map = {"daily": 1, "weekly": 7, "monthly": 30}
-        days = days_map.get(task.recurrence_type, 7)
-        old_due = task.due_date
-        new_due = None
-        if old_due:
-            dt = datetime.strptime(old_due, "%Y-%m-%d")
-            new_due = (dt + timedelta(days=days)).strftime("%Y-%m-%d")
-        new_task = Task(
-            content_block_id=task.content_block_id,
-            text=task.text,
-            recurrence_type=task.recurrence_type,
-            due_date=new_due,
-        )
-        self.task_repo.create(new_task)
-        self._append_task_row(new_task)
-
     def _update_text(self, task, text):
         task.text = text
-        self.task_repo.update(task)
-
-    def _set_recurrence(self, task, val):
-        task.recurrence_type = val
         self.task_repo.update(task)
 
     def _delete_task(self, task):
