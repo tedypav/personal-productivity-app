@@ -575,7 +575,7 @@ class _BlockTextEdit(QTextEdit):
         self.setAcceptRichText(True)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.setMinimumHeight(20)
+        self.setMinimumHeight(0)
         self.setMaximumHeight(10000)
         self.setPlaceholderText("")
         self.setStyleSheet("QTextEdit { border: none; background: transparent; }")
@@ -591,7 +591,7 @@ class _BlockTextEdit(QTextEdit):
 
     def focusInEvent(self, event):
         super().focusInEvent(event)
-        if not self.toPlainText():
+        if not self.toPlainText().strip():
             cursor = self.textCursor()
             cursor.movePosition(QTextCursor.MoveOperation.Start)
             self.setTextCursor(cursor)
@@ -607,7 +607,10 @@ class _BlockTextEdit(QTextEdit):
 
     def _auto_grow(self):
         doc_h = self.document().size().height()
-        new_h = max(20, int(doc_h) + 4)
+        if self.toPlainText().strip():
+            new_h = max(20, int(doc_h) + 4)
+        else:
+            new_h = 20
         if self.height() != new_h:
             self.setMinimumHeight(new_h)
             self.setFixedHeight(new_h)
@@ -657,11 +660,10 @@ class MarkdownBlock(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        self._blocks_container = QWidget()
-        self._blocks_layout = QVBoxLayout(self._blocks_container)
+        self._blocks_layout = QVBoxLayout()
         self._blocks_layout.setContentsMargins(0, 0, 0, 0)
         self._blocks_layout.setSpacing(0)
-        layout.addWidget(self._blocks_container)
+        layout.addLayout(self._blocks_layout)
 
         self.preview = QTextBrowser()
         self.preview.setOpenExternalLinks(True)
@@ -1002,7 +1004,6 @@ class MarkdownBlock(QWidget):
             return
         self.editing = True
         self.preview.setVisible(False)
-        self._blocks_container.setVisible(True)
         for entry in self._blocks:
             entry["widget"].setVisible(True)
         if self._blocks:
@@ -1035,7 +1036,6 @@ class MarkdownBlock(QWidget):
         self.editing = False
         for entry in self._blocks:
             entry["widget"].setVisible(False)
-        self._blocks_container.setVisible(False)
         self._do_update_preview()
         self.preview.setVisible(True)
         self.editing_changed.emit(False)
