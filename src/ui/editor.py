@@ -426,6 +426,11 @@ class _EmbeddedTaskContainer(QWidget):
         self.task_widget = task_widget
         self._resizable = True
         self._min_height = 60
+        self._min_width = 150
+        self._right_resizing = False
+        self._right_resize_start_x = 0
+        self._right_resize_start_w = 0
+        self.setMouseTracking(True)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(4, 2, 4, 0)
         layout.setSpacing(0)
@@ -525,6 +530,38 @@ class _EmbeddedTaskContainer(QWidget):
             self._down_btn.styleSheet().replace("1.0", opacity_down)
         )
 
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            if event.position().toPoint().x() >= self.width() - 8:
+                self._right_resizing = True
+                self._right_resize_start_x = event.globalPosition().toPoint().x()
+                self._right_resize_start_w = self.width()
+                event.accept()
+                return
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event):
+        if self._right_resizing:
+            dx = event.globalPosition().toPoint().x() - self._right_resize_start_x
+            new_w = max(self._min_width, int(self._right_resize_start_w + dx))
+            pw = self.parent().width() if self.parent() else 1000
+            available = pw - self.x() - 10
+            self.setFixedWidth(min(new_w, available))
+            event.accept()
+        else:
+            if event.position().toPoint().x() >= self.width() - 8:
+                self.setCursor(Qt.CursorShape.SizeHorCursor)
+            else:
+                self.setCursor(Qt.CursorShape.ArrowCursor)
+            super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        if self._right_resizing:
+            self._right_resizing = False
+            event.accept()
+        else:
+            super().mouseReleaseEvent(event)
+
 
 class _EmbeddedResizeHandle(QWidget):
     """Drag handle at the bottom of an _EmbeddedTaskContainer to resize it."""
@@ -578,7 +615,10 @@ class _BlockTextEdit(QTextEdit):
         self.setMinimumHeight(0)
         self.setMaximumHeight(10000)
         self.setPlaceholderText("")
-        self.setStyleSheet("QTextEdit { border: none; background: transparent; }")
+        self.document().setDocumentMargin(0)
+        self.setStyleSheet(
+            "QTextEdit { border: none; background: transparent; padding: 0; }"
+        )
 
         if content:
             if content.strip().startswith("<") and ">" in content:
@@ -1014,7 +1054,10 @@ class MarkdownBlock(QWidget):
                     break
             if first_text:
                 first_text.setFocus()
-                first_text.moveCursor(QTextCursor.MoveOperation.End)
+                if not first_text.toPlainText().strip():
+                    first_text.moveCursor(QTextCursor.MoveOperation.Start)
+                else:
+                    first_text.moveCursor(QTextCursor.MoveOperation.End)
         self.editing_changed.emit(True)
 
     def _on_focus_lost(self):

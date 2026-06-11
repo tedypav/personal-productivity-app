@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="600" height="400" viewBox="0 0 600 400" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#FFF8F5"/>
+      <stop offset="1" stop-color="#FFF3F8"/>
+    </linearGradient>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#2E2B2B" flood-opacity="0.08"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="600" height="400" fill="url(#bg)"/>
+
+  <!-- Text block container -->
+  <rect x="20" y="20" width="560" height="360" rx="12" fill="#FFFFFF" stroke="#F0E6E8" filter="url(#shadow)"/>
+
+  <!-- Header bar -->
+  <rect x="20" y="20" width="560" height="40" rx="12" fill="#FFFBFD" stroke="#F0E6E8"/>
+  <rect x="20" y="48" width="560" height="2" fill="#FFFBFD"/>
+  <text x="56" y="46" font-family="Segoe UI, Arial, sans-serif" font-size="12" fill="#2E2B2B" font-weight="600">text</text>
+
+  <!-- Text content area - NO visible gap from header -->
+  <text x="36" y="82" font-family="Segoe UI, Arial, sans-serif" font-size="14" fill="#2E2B2B">First paragraph of text goes here. This is how it should look - tight against the header with no extra gap.</text>
+
+  <!-- Embedded task list -->
+  <rect x="36" y="105" width="524" height="110" rx="6" fill="#FFFFFF" stroke="#d1d5db"/>
+  <!-- Task list header -->
+  <rect x="36" y="105" width="524" height="28" rx="6" fill="#f9fafb" stroke="#d1d5db"/>
+  <rect x="36" y="125" width="524" height="2" fill="#f9fafb"/>
+  <text x="56" y="124" font-family="Segoe UI, Arial, sans-serif" font-size="11" fill="#6b7280" font-weight="bold">Tasks</text>
+  <!-- Task items -->
+  <rect x="48" y="142" width="14" height="14" rx="3" fill="#FFF" stroke="#CFA6D6"/>
+  <text x="70" y="154" font-family="Segoe UI, Arial, sans-serif" font-size="13" fill="#2E2B2B">Task item 1</text>
+  <rect x="48" y="166" width="14" height="14" rx="3" fill="#FFF" stroke="#CFA6D6"/>
+  <text x="70" y="178" font-family="Segoe UI, Arial, sans-serif" font-size="13" fill="#2E2B2B">Task item 2</text>
+
+  <!-- More text after list - tight spacing -->
+  <text x="36" y="248" font-family="Segoe UI, Arial, sans-serif" font-size="14" fill="#2E2B2B">Second paragraph continues right after the list. No extra gap.</text>
+
+  <!-- Cursor at beginning of empty line -->
+  <rect x="36" y="272" width="2" height="18" fill="#2E2B2B"/>
+  <text x="36" y="296" font-family="Segoe UI, Arial, sans-serif" font-size="14" fill="#9CA3AF" font-style="italic">Type here...</text>
+
+  <!-- Annotation: Arrow pointing to tight spacing -->
+  <line x1="15" y1="60" x2="15" y2="78" stroke="#CFA6D6" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="5" y="72" font-family="Segoe UI, Arial, sans-serif" font-size="9" fill="#CFA6D6" font-weight="bold">Tight!</text>
+
+  <!-- Arrow marker -->
+  <defs>
+    <marker id="arrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+      <path d="M0,0 L6,3 L0,6 Z" fill="#CFA6D6"/>
+    </marker>
+  </defs>
+</svg>
