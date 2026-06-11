@@ -48,6 +48,19 @@ class TestAddListStandalone:
         new_block = editor._block_widgets[-1].block
         assert new_block.block_type == "list"
 
+    def test_add_list_creates_initial_task(self, editor, page_with_blocks):
+        """Standalone list block starts with one empty checkbox task."""
+        editor.load_page(page_with_blocks)
+        editor._add_block("list")
+        list_widget = editor._block_widgets[-1]
+        body = list_widget._body
+        from src.ui.editor import TaskWidget
+
+        assert isinstance(body, TaskWidget)
+        # TaskWidget should have one task row after creation
+        layout = body.layout()
+        assert layout.count() >= 1
+
     def test_add_list_standalone_saved_to_db(self, editor, page_with_blocks):
         """Standalone list block is persisted in the database."""
         editor.load_page(page_with_blocks)
