@@ -1059,7 +1059,10 @@ class MarkdownBlock(QWidget):
 
     def _on_focus_lost(self):
         focused = QApplication.focusWidget()
-        if isinstance(focused, QToolButton | QPushButton | QComboBox | QLabel):
+        if isinstance(
+            focused,
+            QToolButton | QPushButton | QComboBox | QLabel | _BlockTextEdit,
+        ):
             return
         if focused is not None and type(focused).__name__ in (
             "ResizeHandle",
