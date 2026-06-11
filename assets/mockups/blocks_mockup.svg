@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="800" height="520" viewBox="0 0 800 520" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#FFF8F5"/>
+      <stop offset="1" stop-color="#FFF3F8"/>
+    </linearGradient>
+    <linearGradient id="cardGrad" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.98"/>
+      <stop offset="1" stop-color="#FFF9FB"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" x2="1">
+      <stop offset="0" stop-color="#CFA6D6"/>
+      <stop offset="1" stop-color="#F7D1DC"/>
+    </linearGradient>
+    <filter id="softShadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="6" stdDeviation="14" flood-color="#2E2B2B" flood-opacity="0.06"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="800" height="520" fill="url(#bg)"/>
+
+  <!-- Page title -->
+  <text x="40" y="48" font-family="Playfair Display, Georgia, serif" font-weight="600" font-size="24" fill="#2E2B2B">Weekly Intentions</text>
+
+  <!-- Text Block (top-left) -->
+  <rect x="40" y="72" width="360" height="180" rx="12" fill="url(#cardGrad)" stroke="#F0E8EA" filter="url(#softShadow)"/>
+  <!-- Block header -->
+  <rect x="40" y="72" width="360" height="40" rx="12" fill="#FFFBFD" stroke="#F0E8EA"/>
+  <rect x="40" y="100" width="360" height="2" fill="#FFFBFD"/>
+  <text x="56" y="98" font-family="Playfair Display, Georgia, serif" font-weight="600" font-size="14" fill="#2E2B2B">Priorities</text>
+  <!-- Alignment dots -->
+  <circle cx="376" cy="92" r="3" fill="#D4A373"/>
+  <circle cx="388" cy="92" r="3" fill="#D4A373"/>
+  <circle cx="400" cy="92" r="3" fill="#D4A373"/>
+  <!-- Body -->
+  <text x="56" y="138" font-family="Inter, Arial, sans-serif" font-size="14" fill="#2E2B2B">Three focused priorities to</text>
+  <text x="56" y="158" font-family="Inter, Arial, sans-serif" font-size="14" fill="#2E2B2B">move you forward this week.</text>
+  <text x="56" y="188" font-family="Inter, Arial, sans-serif" font-size="13" fill="#6B6770">&#9744;  Finish project proposal</text>
+  <text x="56" y="210" font-family="Inter, Arial, sans-serif" font-size="13" fill="#6B6770">&#9744;  Schedule team review</text>
+  <text x="56" y="232" font-family="Inter, Arial, sans-serif" font-size="13" fill="#6B6770">&#9744;  Update documentation</text>
+
+  <!-- Task Block (bottom-left) -->
+  <rect x="40" y="272" width="360" height="220" rx="12" fill="url(#cardGrad)" stroke="#F0E8EA" filter="url(#softShadow)"/>
+  <!-- Block header -->
+  <rect x="40" y="272" width="360" height="40" rx="12" fill="#FFFBFD" stroke="#F0E8EA"/>
+  <rect x="40" y="300" width="360" height="2" fill="#FFFBFD"/>
+  <text x="56" y="298" font-family="Playfair Display, Georgia, serif" font-weight="600" font-size="14" fill="#2E2B2B">Habits</text>
+  <circle cx="376" cy="292" r="3" fill="#D4A373"/>
+  <circle cx="388" cy="292" r="3" fill="#D4A373"/>
+  <circle cx="400" cy="292" r="3" fill="#D4A373"/>
+  <!-- Tasks -->
+  <rect x="56" y="320" width="16" height="16" rx="3" fill="#FFF" stroke="#CFA6D6"/>
+  <text x="80" y="334" font-family="Inter, Arial, sans-serif" font-size="13" fill="#2E2B2B">Morning routine</text>
+  <text x="280" y="334" font-family="Inter, Arial, sans-serif" font-size="11" fill="#9CA3AF">daily</text>
+
+  <rect x="56" y="352" width="16" height="16" rx="3" fill="#FFF" stroke="#CFA6D6"/>
+  <text x="80" y="366" font-family="Inter, Arial, sans-serif" font-size="13" fill="#2E2B2B">Workout</text>
+  <text x="280" y="366" font-family="Inter, Arial, sans-serif" font-size="11" fill="#9CA3AF">3x/week</text>
+
+  <rect x="56" y="384" width="16" height="16" rx="3" fill="#7DC68E"/>
+  <text x="80" y="398" font-family="Inter, Arial, sans-serif" font-size="13" fill="#6B6770" text-decoration="line-through">Read 20 pages</text>
+  <text x="280" y="398" font-family="Inter, Arial, sans-serif" font-size="11" fill="#9CA3AF">daily</text>
+
+  <rect x="56" y="416" width="16" height="16" rx="3" fill="#FFF" stroke="#CFA6D6"/>
+  <text x="80" y="430" font-family="Inter, Arial, sans-serif" font-size="13" fill="#2E2B2B">Journal</text>
+  <text x="280" y="430" font-family="Inter, Arial, sans-serif" font-size="11" fill="#9CA3AF">weekly</text>
+
+  <rect x="56" y="448" width="16" height="16" rx="3" fill="#FFF" stroke="#CFA6D6"/>
+  <text x="80" y="462" font-family="Inter, Arial, sans-serif" font-size="13" fill="#2E2B2B">Meal prep</text>
+  <text x="280" y="462" font-family="Inter, Arial, sans-serif" font-size="11" fill="#9CA3AF">weekly</text>
+
+  <!-- Table Block (right) -->
+  <rect x="424" y="72" width="340" height="200" rx="12" fill="url(#cardGrad)" stroke="#F0E8EA" filter="url(#softShadow)"/>
+  <!-- Block header -->
+  <rect x="424" y="72" width="340" height="40" rx="12" fill="#FFFBFD" stroke="#F0E8EA"/>
+  <rect x="424" y="100" width="340" height="2" fill="#FFFBFD"/>
+  <text x="440" y="98" font-family="Playfair Display, Georgia, serif" font-weight="600" font-size="14" fill="#2E2B2B">Schedule</text>
+  <circle cx="740" cy="92" r="3" fill="#D4A373"/>
+  <circle cx="752" cy="92" r="3" fill="#D4A373"/>
+  <circle cx="764" cy="92" r="3" fill="#D4A373"/>
+  <!-- Table -->
+  <rect x="440" y="120" width="308" height="32" rx="6" fill="#F3E8F6"/>
+  <text x="456" y="141" font-family="Inter, Arial, sans-serif" font-size="12" fill="#2E2B2B" font-weight="600">Day</text>
+  <text x="540" y="141" font-family="Inter, Arial, sans-serif" font-size="12" fill="#2E2B2B" font-weight="600">Focus</text>
+  <text x="660" y="141" font-family="Inter, Arial, sans-serif" font-size="12" fill="#2E2B2B" font-weight="600">Status</text>
+
+  <rect x="440" y="156" width="308" height="28" rx="4" fill="#FFF" stroke="#F2E8EA"/>
+  <text x="456" y="175" font-family="Inter, Arial, sans-serif" font-size="13" fill="#2E2B2B">Monday</text>
+  <text x="540" y="175" font-family="Inter, Arial, sans-serif" font-size="13" fill="#6B6770">Deep work</text>
+  <text x="660" y="175" font-family="Inter, Arial, sans-serif" font-size="13" fill="#7DC68E">Done</text>
+
+  <rect x="440" y="188" width="308" height="28" rx="4" fill="#FFF" stroke="#F2E8EA"/>
+  <text x="456" y="207" font-family="Inter, Arial, sans-serif" font-size="13" fill="#2E2B2B">Tuesday</text>
+  <text x="540" y="207" font-family="Inter, Arial, sans-serif" font-size="13" fill="#6B6770">Meetings</text>
+  <text x="660" y="207" font-family="Inter, Arial, sans-serif" font-size="13" fill="#D4A373">In progress</text>
+
+  <rect x="440" y="220" width="308" height="28" rx="4" fill="#FFF" stroke="#F2E8EA"/>
+  <text x="456" y="239" font-family="Inter, Arial, sans-serif" font-size="13" fill="#2E2B2B">Wednesday</text>
+  <text x="540" y="239" font-family="Inter, Arial, sans-serif" font-size="13" fill="#6B6770">Writing</text>
+  <text x="660" y="239" font-family="Inter, Arial, sans-serif" font-size="13" fill="#9CA3AF">Pending</text>
+
+  <!-- List Block (bottom-right) -->
+  <rect x="424" y="292" width="340" height="200" rx="12" fill="url(#cardGrad)" stroke="#F0E8EA" filter="url(#softShadow)"/>
+  <!-- Block header -->
+  <rect x="424" y="292" width="340" height="40" rx="12" fill="#FFFBFD" stroke="#F0E8EA"/>
+  <rect x="424" y="320" width="340" height="2" fill="#FFFBFD"/>
+  <text x="440" y="318" font-family="Playfair Display, Georgia, serif" font-weight="600" font-size="14" fill="#2E2B2B">Notes</text>
+  <circle cx="740" cy="312" r="3" fill="#D4A373"/>
+  <circle cx="752" cy="312" r="3" fill="#D4A373"/>
+  <circle cx="764" cy="312" r="3" fill="#D4A373"/>
+  <!-- Content -->
+  <text x="440" y="350" font-family="Inter, Arial, sans-serif" font-size="14" fill="#2E2B2B">Key takeaways from this week:</text>
+  <text x="456" y="376" font-family="Inter, Arial, sans-serif" font-size="13" fill="#6B6770">&#8226;  Morning routine is building momentum</text>
+  <text x="456" y="400" font-family="Inter, Arial, sans-serif" font-size="13" fill="#6B6770">&#8226;  Need to batch meetings on Tuesdays</text>
+  <text x="456" y="424" font-family="Inter, Arial, sans-serif" font-size="13" fill="#6B6770">&#8226;  Writing sessions going well</text>
+  <text x="456" y="448" font-family="Inter, Arial, sans-serif" font-size="13" fill="#6B6770">&#8226;  Consider adding meditation habit</text>
+
+  <!-- Floating add button -->
+  <circle cx="740" cy="470" r="28" fill="url(#accent)"/>
+  <text x="730" y="479" font-family="Inter, Arial, sans-serif" font-size="24" fill="#FFFFFF">+</text>
+</svg>
