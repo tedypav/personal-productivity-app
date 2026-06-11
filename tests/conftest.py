@@ -1,6 +1,6 @@
 import os
-import sys
 import sqlite3
+import sys
 import tempfile
 
 import pytest
@@ -23,6 +23,7 @@ def temp_db_path():
 def patch_db(temp_db_path, monkeypatch):
     monkeypatch.setattr("src.database.DB_PATH", temp_db_path)
     import src.database as db_mod
+
     db_mod.DB_PATH = temp_db_path
 
     original_connect = sqlite3.connect
@@ -34,6 +35,7 @@ def patch_db(temp_db_path, monkeypatch):
     monkeypatch.setattr("sqlite3.connect", connect_with_timeout)
 
     from src.database import init_db
+
     init_db()
 
     conn = sqlite3.connect(temp_db_path, timeout=5)
@@ -44,9 +46,31 @@ def patch_db(temp_db_path, monkeypatch):
     conn.close()
 
 
+@pytest.fixture(autouse=True)
+def mock_qmessagebox(monkeypatch):
+    """Mock QMessageBox to prevent dialogs from blocking tests."""
+    from PyQt6.QtWidgets import QMessageBox
+
+    monkeypatch.setattr(
+        QMessageBox, "critical", lambda *args, **kwargs: QMessageBox.StandardButton.Ok
+    )
+    monkeypatch.setattr(
+        QMessageBox, "question", lambda *args, **kwargs: QMessageBox.StandardButton.Yes
+    )
+    monkeypatch.setattr(
+        QMessageBox,
+        "information",
+        lambda *args, **kwargs: QMessageBox.StandardButton.Ok,
+    )
+    monkeypatch.setattr(
+        QMessageBox, "warning", lambda *args, **kwargs: QMessageBox.StandardButton.Ok
+    )
+
+
 @pytest.fixture(scope="session")
 def app_instance():
     from PyQt6.QtWidgets import QApplication
+
     app = QApplication.instance()
     if app is None:
         app = QApplication(sys.argv)
@@ -56,34 +80,40 @@ def app_instance():
 @pytest.fixture
 def page_repo():
     from src.repositories.page_repo import PageRepo
+
     return PageRepo()
 
 
 @pytest.fixture
 def block_repo():
     from src.repositories.block_repo import BlockRepo
+
     return BlockRepo()
 
 
 @pytest.fixture
 def task_repo():
     from src.repositories.task_repo import TaskRepo
+
     return TaskRepo()
 
 
 @pytest.fixture
 def template_repo():
     from src.repositories.template_repo import TemplateRepo
+
     return TemplateRepo()
 
 
 @pytest.fixture
 def undo_mgr():
     from src.undo_manager import UndoManager
+
     return UndoManager()
 
 
 @pytest.fixture
 def in_memory_task_repo():
     from src.repositories.in_memory_task_repo import InMemoryTaskRepo
+
     return InMemoryTaskRepo()

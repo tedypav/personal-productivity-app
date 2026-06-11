@@ -3418,14 +3418,18 @@ class PageEditor(QWidget):
         return super().eventFilter(obj, event)
 
     def _update_canvas_size(self, extend=False):
-        vp = self.scroll.viewport()
-        vp_w = vp.width()
+        try:
+            vp = self.scroll.viewport()
+            vp_w = vp.width()
+            vp_h = vp.height()
+        except Exception:
+            return
         max_bottom = 100
         for w in self._block_widgets:
             b = w.y() + w.height()
             if b > max_bottom:
                 max_bottom = b
-        desired_h = max(vp.height() + 300, max_bottom + 400)
+        desired_h = max(vp_h + 300, max_bottom + 400)
         if extend:
             desired_h = max(desired_h, self.content.height() + 500)
         if desired_h != self.content.height() or vp_w != self.content.width():
