@@ -577,7 +577,7 @@ class _BlockTextEdit(QTextEdit):
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.setMinimumHeight(30)
         self.setMaximumHeight(10000)
-        self.setPlaceholderText("Type '/' for commands...")
+        self.setPlaceholderText("")
         self.setStyleSheet("QTextEdit { border: none; background: transparent; }")
 
         if content:
@@ -4007,9 +4007,8 @@ class PageEditor(QWidget):
                     "color: #9CA3AF; font-size: 14px; font-style: italic;"
                     " background: transparent; border: none;"
                 )
-            self._empty_hint.setGeometry(
-                0, 0, self.content.width(), self.content.height()
-            )
+            h = self.content.height()
+            self._empty_hint.setGeometry(0, int(h * 0.25), self.content.width(), 40)
             self._empty_hint.show()
         else:
             if self._empty_hint:
