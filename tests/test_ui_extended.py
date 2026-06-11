@@ -57,12 +57,17 @@ class TestMainFunctions:
         assert len(APP_STYLESHEET) > 100
 
     def test_excepthook(self, app_instance):
+        from unittest.mock import MagicMock, patch
+
         from src.main import _excepthook
 
-        try:
-            raise ValueError("test error")
-        except ValueError:
-            _excepthook(ValueError, ValueError("test error"), None)
+        mock_dialog = MagicMock()
+        mock_dialog.exec.return_value = 0
+        with patch("PyQt6.QtWidgets.QDialog", return_value=mock_dialog):
+            try:
+                raise ValueError("test error")
+            except ValueError:
+                _excepthook(ValueError, ValueError("test error"), None)
 
 
 class TestEditorFormatting:
