@@ -2,10 +2,27 @@ import os
 import sqlite3
 import sys
 import tempfile
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
+
+@pytest.fixture(autouse=True)
+def mock_qmessagebox():
+    """Mock QMessageBox to prevent dialogs from blocking tests."""
+    mock_instance = MagicMock()
+    mock_instance.exec.return_value = 0
+    mock_instance.clickedButton.return_value = MagicMock()
+
+    with (
+        patch("PyQt6.QtWidgets.QMessageBox", mock_instance),
+        patch("src.ui.editor.QMessageBox", mock_instance),
+        patch("src.ui.sidebar.QMessageBox", mock_instance),
+        patch("src.ui.main_window.QMessageBox", mock_instance),
+    ):
+        yield
 
 
 @pytest.fixture(scope="session")
@@ -44,27 +61,6 @@ def patch_db(temp_db_path, monkeypatch):
         conn.execute(f"DELETE FROM {table}")
     conn.commit()
     conn.close()
-
-
-@pytest.fixture(autouse=True)
-def mock_qmessagebox(monkeypatch):
-    """Mock QMessageBox to prevent dialogs from blocking tests."""
-    from PyQt6.QtWidgets import QMessageBox
-
-    monkeypatch.setattr(
-        QMessageBox, "critical", lambda *args, **kwargs: QMessageBox.StandardButton.Ok
-    )
-    monkeypatch.setattr(
-        QMessageBox, "question", lambda *args, **kwargs: QMessageBox.StandardButton.Yes
-    )
-    monkeypatch.setattr(
-        QMessageBox,
-        "information",
-        lambda *args, **kwargs: QMessageBox.StandardButton.Ok,
-    )
-    monkeypatch.setattr(
-        QMessageBox, "warning", lambda *args, **kwargs: QMessageBox.StandardButton.Ok
-    )
 
 
 @pytest.fixture(scope="session")
