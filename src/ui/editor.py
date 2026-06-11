@@ -419,15 +419,19 @@ class _EmbeddedTaskContainer(QWidget):
     """Container for one embedded task list inside a text block or table cell."""
 
     remove_requested = pyqtSignal(object)
+    move_up_requested = pyqtSignal(object)
+    move_down_requested = pyqtSignal(object)
 
     def __init__(self, task_widget, parent=None):
         super().__init__(parent)
         self.task_widget = task_widget
+        self._resizable = True
+        self._min_height = 60
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(4, 2, 4, 4)
+        layout.setContentsMargins(4, 2, 4, 0)
         layout.setSpacing(0)
 
-        # Top handle bar: drag handle + remove button
+        # Top handle bar: drag handle + label + controls
         top_bar = QHBoxLayout()
         top_bar.setContentsMargins(0, 0, 0, 0)
         top_bar.setSpacing(0)
@@ -444,6 +448,23 @@ class _EmbeddedTaskContainer(QWidget):
         lbl.setStyleSheet(
             "color: #6b7280; font-size: 11px; font-weight: bold; padding: 0 4px;"
         )
+
+        _btn_style = (
+            "QPushButton {{ font-size: 10px; border: 1px solid transparent;"
+            " border-radius: 3px; padding: 0 {pad_h}px; color: #9ca3af;"
+            " min-width: 18px; }}"
+            " QPushButton:hover {{ color: #CFA6D6; border-color: #CFA6D6; }}"
+        )
+
+        self._up_btn = QPushButton("▲")
+        self._up_btn.setFixedSize(18, 18)
+        self._up_btn.setToolTip("Move up")
+        self._up_btn.setStyleSheet(_btn_style.format(pad_h=2))
+
+        self._down_btn = QPushButton("▼")
+        self._down_btn.setFixedSize(18, 18)
+        self._down_btn.setToolTip("Move down")
+        self._down_btn.setStyleSheet(_btn_style.format(pad_h=2))
 
         self._add_btn = QPushButton("+ Add Task")
         self._add_btn.setFixedHeight(22)
@@ -468,6 +489,9 @@ class _EmbeddedTaskContainer(QWidget):
         top_bar.addWidget(self.drag_handle)
         top_bar.addWidget(lbl)
         top_bar.addStretch()
+        top_bar.addWidget(self._up_btn)
+        top_bar.addWidget(self._down_btn)
+        top_bar.addSpacing(2)
         top_bar.addWidget(self._add_btn)
         top_bar.addSpacing(4)
         top_bar.addWidget(self._remove_btn)
@@ -475,8 +499,14 @@ class _EmbeddedTaskContainer(QWidget):
         layout.addLayout(top_bar)
         layout.addWidget(task_widget)
 
+        # Resize handle at bottom
+        self._resize_handle = _EmbeddedResizeHandle(self)
+        layout.addWidget(self._resize_handle)
+
         self._add_btn.clicked.connect(task_widget._add_task)
         self._remove_btn.clicked.connect(lambda: self.remove_requested.emit(self))
+        self._up_btn.clicked.connect(lambda: self.move_up_requested.emit(self))
+        self._down_btn.clicked.connect(lambda: self.move_down_requested.emit(self))
 
         self.setStyleSheet("""
             _EmbeddedTaskContainer {
@@ -485,6 +515,51 @@ class _EmbeddedTaskContainer(QWidget):
                 background: #ffffff;
             }
         """)
+
+    def set_button_states(self, can_move_up, can_move_down):
+        self._up_btn.setEnabled(can_move_up)
+        self._down_btn.setEnabled(can_move_down)
+        opacity_up = "1.0" if can_move_up else "0.3"
+        opacity_down = "1.0" if can_move_down else "0.3"
+        self._up_btn.setStyleSheet(self._up_btn.styleSheet().replace("1.0", opacity_up))
+        self._down_btn.setStyleSheet(
+            self._down_btn.styleSheet().replace("1.0", opacity_down)
+        )
+
+
+class _EmbeddedResizeHandle(QWidget):
+    """Drag handle at the bottom of an _EmbeddedTaskContainer to resize it."""
+
+    def __init__(self, container):
+        super().__init__()
+        self._container = container
+        self.setFixedHeight(6)
+        self.setCursor(Qt.CursorShape.SplitVCursor)
+        self._dragging = False
+        self._start_y = 0
+        self._start_h = 0
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._dragging = True
+            self._start_y = event.globalPosition().y()
+            self._start_h = self._container.height()
+
+    def mouseMoveEvent(self, event):
+        if self._dragging:
+            dy = event.globalPosition().y() - self._start_y
+            new_h = max(self._container._min_height, int(self._start_h + dy))
+            self._container.setFixedHeight(new_h)
+
+    def mouseReleaseEvent(self, event):
+        self._dragging = False
+
+    def paintEvent(self, event):
+        p = QPainter(self)
+        r = self.rect()
+        y = r.height() // 2
+        p.setPen(QColor("#d1d5db"))
+        p.drawLine(r.left() + 12, y, r.right() - 12, y)
 
 
 class MarkdownBlock(QWidget):
@@ -606,10 +681,13 @@ class MarkdownBlock(QWidget):
         tw.task_changed.connect(self._on_embedded_task_changed)
         container = _EmbeddedTaskContainer(tw, self)
         container.remove_requested.connect(self._remove_embedded_list)
+        container.move_up_requested.connect(self._move_embedded_list_up)
+        container.move_down_requested.connect(self._move_embedded_list_down)
         self._embedded_layout.addWidget(container)
         self._embedded_lists.append(
             {"id": eid, "repo": repo, "tw": tw, "container": container}
         )
+        self._update_embedded_button_states()
 
     def add_task_list(self):
         try:
@@ -625,11 +703,14 @@ class MarkdownBlock(QWidget):
             tw.task_changed.connect(self._on_embedded_task_changed)
             container = _EmbeddedTaskContainer(tw, self)
             container.remove_requested.connect(self._remove_embedded_list)
+            container.move_up_requested.connect(self._move_embedded_list_up)
+            container.move_down_requested.connect(self._move_embedded_list_down)
             self._embedded_layout.addWidget(container)
             self._embedded_lists.append(
                 {"id": eid, "repo": repo, "tw": tw, "container": container}
             )
             self._active_list = len(self._embedded_lists) - 1
+            self._update_embedded_button_states()
 
             # Focus the first edit field with error handling
             try:
@@ -671,9 +752,47 @@ class MarkdownBlock(QWidget):
                 if self._active_list is not None:
                     if self._active_list >= len(self._embedded_lists):
                         self._active_list = len(self._embedded_lists) - 1
+                self._update_embedded_button_states()
                 self.embedded_changed.emit()
                 self.changed.emit()
                 return
+
+    def _move_embedded_list_up(self, container):
+        for i, el in enumerate(self._embedded_lists):
+            if el["container"] is container and i > 0:
+                self._embedded_lists[i], self._embedded_lists[i - 1] = (
+                    self._embedded_lists[i - 1],
+                    self._embedded_lists[i],
+                )
+                # Reposition in layout
+                self._embedded_layout.removeWidget(container)
+                self._embedded_layout.insertWidget(i - 1, container)
+                self._update_embedded_button_states()
+                self.embedded_changed.emit()
+                self.changed.emit()
+                return
+
+    def _move_embedded_list_down(self, container):
+        for i, el in enumerate(self._embedded_lists):
+            if el["container"] is container and i < len(self._embedded_lists) - 1:
+                self._embedded_lists[i], self._embedded_lists[i + 1] = (
+                    self._embedded_lists[i + 1],
+                    self._embedded_lists[i],
+                )
+                # Reposition in layout
+                self._embedded_layout.removeWidget(container)
+                self._embedded_layout.insertWidget(i + 1, container)
+                self._update_embedded_button_states()
+                self.embedded_changed.emit()
+                self.changed.emit()
+                return
+
+    def _update_embedded_button_states(self):
+        n = len(self._embedded_lists)
+        for i, el in enumerate(self._embedded_lists):
+            el["container"].set_button_states(
+                can_move_up=i > 0, can_move_down=i < n - 1
+            )
 
     def _add_task_to_active_list(self):
         if self._active_list is not None and self._active_list < len(
@@ -692,7 +811,9 @@ class MarkdownBlock(QWidget):
 
     def to_serialized_content(self):
         try:
-            if not self.editor or self.editor.isDeleted():
+            if not self.editor or (
+                hasattr(self.editor, "isDeleted") and self.editor.isDeleted()
+            ):
                 return ""
             if not self._embedded_lists:
                 return self.editor.toHtml()
