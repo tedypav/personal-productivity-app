@@ -591,6 +591,10 @@ class _BlockTextEdit(QTextEdit):
 
     def focusInEvent(self, event):
         super().focusInEvent(event)
+        if not self.toPlainText():
+            cursor = self.textCursor()
+            cursor.movePosition(QTextCursor.MoveOperation.Start)
+            self.setTextCursor(cursor)
         self.focused.emit()
 
     def focusOutEvent(self, event):
