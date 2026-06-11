@@ -4458,6 +4458,8 @@ class PageEditor(QWidget):
             w.move(block.pos_x, block.pos_y)
             w.show()
             self._block_widgets.append(w)
+            if self._empty_hint:
+                self._empty_hint.hide()
             # List blocks get an initial task so checkboxes are visible
             if block_type in ("list", "checkbox") and hasattr(w, "_body"):
                 w._body._add_task()
