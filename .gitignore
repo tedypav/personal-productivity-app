@@ -222,3 +222,14 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# User-specific runtime config
+settings.json
+
+# AI tool config
+opencode.json
+
+# Temporary files
+test_output*.txt
+create_shortcut.ps1
+plan-plusListFix.prompt.md
