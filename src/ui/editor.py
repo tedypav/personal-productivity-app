@@ -44,7 +44,6 @@ from PyQt6.QtWidgets import (
     QScrollArea,
     QSizePolicy,
     QSpinBox,
-    QStackedWidget,
     QTextBrowser,
     QTextEdit,
     QToolButton,
@@ -562,6 +561,118 @@ class _EmbeddedResizeHandle(QWidget):
         p.drawLine(r.left() + 12, y, r.right() - 12, y)
 
 
+class _BlockTextEdit(QTextEdit):
+    """A single paragraph block in the Notion-style editor."""
+
+    changed = pyqtSignal()
+    split_requested = pyqtSignal()
+    merge_back_requested = pyqtSignal()
+    focus_lost = pyqtSignal()
+    focused = pyqtSignal()
+
+    def __init__(self, content="", parent=None):
+        super().__init__(parent)
+        self.setAcceptRichText(True)
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.setMinimumHeight(30)
+        self.setMaximumHeight(10000)
+        self.setPlaceholderText("Type '/' for commands...")
+        self.setStyleSheet("QTextEdit { border: none; background: transparent; }")
+
+        if content:
+            if content.strip().startswith("<") and ">" in content:
+                self.setHtml(content)
+            else:
+                self.setPlainText(content)
+
+        self.textChanged.connect(self._on_text_changed)
+        self._on_text_changed()
+
+    def focusInEvent(self, event):
+        super().focusInEvent(event)
+        self.focused.emit()
+
+    def focusOutEvent(self, event):
+        super().focusOutEvent(event)
+        self.focus_lost.emit()
+
+    def _on_text_changed(self):
+        self._auto_grow()
+        self.changed.emit()
+
+    def _auto_grow(self):
+        doc_h = self.document().size().height()
+        new_h = max(30, int(doc_h) + 8)
+        if self.height() != new_h:
+            self.setMinimumHeight(new_h)
+            self.setFixedHeight(new_h)
+
+    def keyPressEvent(self, event):
+        if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+            if event.modifiers() & Qt.KeyboardModifier.ShiftModifier:
+                super().keyPressEvent(event)
+                return
+            if self.toPlainText().strip() == "":
+                return
+            self.split_requested.emit()
+            return
+
+        if event.key() == Qt.Key.Key_Backspace:
+            cursor = self.textCursor()
+            if cursor.position() == 0 and cursor.selectionStart() == 0:
+                self.merge_back_requested.emit()
+                return
+
+        super().keyPressEvent(event)
+
+
+class _BlockSeparator(QWidget):
+    """Separator between blocks that shows an insert button on hover."""
+
+    insert_requested = pyqtSignal(object)  # emits self
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setFixedHeight(8)
+        self.setMouseTracking(True)
+        self._hovering = False
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+
+    def enterEvent(self, event):
+        self._hovering = True
+        self.setFixedHeight(20)
+        self.update()
+
+    def leaveEvent(self, event):
+        self._hovering = False
+        self.setFixedHeight(8)
+        self.update()
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.insert_requested.emit(self)
+
+    def paintEvent(self, event):
+        p = QPainter(self)
+        r = self.rect()
+        if self._hovering:
+            p.setPen(QColor("#CFA6D6"))
+            p.setBrush(QColor("#F3E8F6"))
+            cx, cy = r.center().x(), r.center().y()
+            p.drawEllipse(cx - 8, cy - 8, 16, 16)
+            p.setPen(QColor("#CFA6D6"))
+            font = p.font()
+            font.setPointSize(12)
+            font.setBold(True)
+            p.setFont(font)
+            p.drawText(r, Qt.AlignmentFlag.AlignCenter, "+")
+        else:
+            p.setPen(QColor("#e5e7eb"))
+            y = r.height() // 2
+            p.drawLine(r.left() + 20, y, r.right() - 20, y)
+
+
 class MarkdownBlock(QWidget):
     changed = pyqtSignal()
     embedded_changed = pyqtSignal()
@@ -577,6 +688,8 @@ class MarkdownBlock(QWidget):
         self._embedded_lists = []
         self._embedded_id_counter = -1
         self._active_list = None
+        self._blocks = []
+        self._pending_font_size = None
         self._preview_timer = QTimer()
         self._preview_timer.setSingleShot(True)
         self._preview_timer.setInterval(150)
@@ -586,96 +699,102 @@ class MarkdownBlock(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        text_content = self._extract_text_content(content)
-        self.editor = MarkdownTextEdit(block_id, text_content)
-        self.editor.setVisible(False)
-        self.editor.focus_lost.connect(self._on_focus_lost)
-
-        if self.content_font_size:
-            font = self.editor.document().defaultFont()
-            font.setPointSize(self.content_font_size)
-            self.editor.document().setDefaultFont(font)
+        self._blocks_container = QWidget()
+        self._blocks_layout = QVBoxLayout(self._blocks_container)
+        self._blocks_layout.setContentsMargins(0, 0, 0, 0)
+        self._blocks_layout.setSpacing(0)
+        layout.addWidget(self._blocks_container)
 
         self.preview = QTextBrowser()
         self.preview.setOpenExternalLinks(True)
         self.preview.setMinimumHeight(30)
         self.preview.mousePressEvent = lambda e: self._switch_to_edit()
+        self.preview.setVisible(False)
+        layout.addWidget(self.preview)
 
-        self.editor.textChanged.connect(self._on_text_changed)
-        self._pending_font_size = None
+        self.editor = _BlockTextEdit("", self)
+        self.editor.setVisible(False)
+        self.editor.changed.connect(self._on_text_changed)
+        self.editor.split_requested.connect(self._on_split_requested)
+        self.editor.merge_back_requested.connect(self._on_merge_back_requested)
+        self.editor.focus_lost.connect(self._on_focus_lost)
         self.editor.focused.connect(
             lambda: QTimer.singleShot(0, self._apply_pending_font)
         )
 
-        self._text_stack = QStackedWidget()
-        self._text_stack.addWidget(self.preview)
-        self._text_stack.addWidget(self.editor)
-        self._text_stack.setCurrentWidget(self.preview)
-        layout.addWidget(self._text_stack)
+        if content:
+            self._load_embedded_lists(content)
+        else:
+            self._add_text_block("")
 
-        self._embedded_container = QWidget()
-        self._embedded_layout = QVBoxLayout(self._embedded_container)
-        self._embedded_layout.setContentsMargins(0, 0, 0, 0)
-        self._embedded_layout.setSpacing(4)
-        layout.addWidget(self._embedded_container)
+        # self.editor must point to the first text block for backward compat
+        if self._blocks and self._blocks[0]["type"] == "text":
+            self.editor = self._blocks[0]["widget"]
+        self._rebuild_blocks_layout()
 
-        self._do_update_preview()
         self.setStyleSheet("""
             QTextBrowser { background: transparent; border: none; }
             QTextEdit { border: 1px solid #F0E6E8; border-radius: 10px; }
             QTextEdit:focus { border-color: #CFA6D6; }
         """)
 
-        self._load_embedded_lists(content)
-
     @staticmethod
     def _extract_text_content(content):
         if content and content.startswith("{"):
             try:
                 data = json.loads(content)
+                if isinstance(data, dict) and "blocks" in data:
+                    for b in data["blocks"]:
+                        if b.get("type") == "text":
+                            return b.get("content", "")
+                    return ""
                 if isinstance(data, dict) and "text" in data:
                     return data["text"]
             except (json.JSONDecodeError, TypeError):
                 pass
         return content
 
-    def _load_embedded_lists(self, content):
-        if not content or not content.startswith("{"):
-            return
-        try:
-            data = json.loads(content)
-        except (json.JSONDecodeError, TypeError):
-            return
-        if not isinstance(data, dict) or "task_lists" not in data:
-            return
-        text_content = data.get("text", "")
-        if text_content:
-            self.editor.blockSignals(True)
-            self.editor.setHtml(text_content)
-            self.editor.blockSignals(False)
-        for task_list in data["task_lists"]:
-            self._restore_embedded_list(task_list)
-
     def _next_embedded_id(self):
         eid = self._embedded_id_counter
         self._embedded_id_counter -= 1
         return eid
 
-    def _restore_embedded_list(self, tasks_data):
-        eid = self._next_embedded_id()
+    def _add_text_block(self, content=""):
+        te = _BlockTextEdit(content, self)
+        te.changed.connect(self._on_text_changed)
+        te.split_requested.connect(self._on_split_requested)
+        te.merge_back_requested.connect(self._on_merge_back_requested)
+        te.focused.connect(lambda: QTimer.singleShot(0, self._apply_pending_font))
+        if self.content_font_size:
+            font = te.document().defaultFont()
+            font.setPointSize(self.content_font_size)
+            te.document().setDefaultFont(font)
+        block_entry = {"type": "text", "widget": te}
+        self._blocks.append(block_entry)
+        return te
+
+    def _add_task_block(self, tasks_data=None, eid=None):
+        if eid is None:
+            eid = self._next_embedded_id()
         from src.repositories.in_memory_task_repo import InMemoryTaskRepo
 
         repo = InMemoryTaskRepo()
-        for td in tasks_data:
+        if tasks_data:
+            for td in tasks_data:
+                from src.models.task import Task
+
+                task = Task(
+                    content_block_id=eid,
+                    text=td.get("text", ""),
+                    is_checked=td.get("is_checked", False),
+                    recurrence_type=td.get("recurrence_type", "none"),
+                    due_date=td.get("due_date"),
+                )
+                repo.create(task)
+        else:
             from src.models.task import Task
 
-            task = Task(
-                content_block_id=eid,
-                text=td.get("text", ""),
-                is_checked=td.get("is_checked", False),
-                recurrence_type=td.get("recurrence_type", "none"),
-                due_date=td.get("due_date"),
-            )
+            task = Task(content_block_id=eid, text="New task")
             repo.create(task)
         tw = TaskWidget(eid, parent=self, task_repo=repo)
         tw.task_changed.connect(self._on_embedded_task_changed)
@@ -683,36 +802,108 @@ class MarkdownBlock(QWidget):
         container.remove_requested.connect(self._remove_embedded_list)
         container.move_up_requested.connect(self._move_embedded_list_up)
         container.move_down_requested.connect(self._move_embedded_list_down)
-        self._embedded_layout.addWidget(container)
-        self._embedded_lists.append(
-            {"id": eid, "repo": repo, "tw": tw, "container": container}
-        )
+        block_entry = {
+            "type": "tasks",
+            "widget": container,
+            "id": eid,
+            "repo": repo,
+            "tw": tw,
+        }
+        self._blocks.append(block_entry)
+        self._embedded_lists.append(block_entry)
         self._update_embedded_button_states()
+        return container
+
+    def _insert_text_block_after(self, ref_block_entry, content=""):
+        te = _BlockTextEdit(content, self)
+        te.changed.connect(self._on_text_changed)
+        te.split_requested.connect(self._on_split_requested)
+        te.merge_back_requested.connect(self._on_merge_back_requested)
+        te.focused.connect(lambda: QTimer.singleShot(0, self._apply_pending_font))
+        if self.content_font_size:
+            font = te.document().defaultFont()
+            font.setPointSize(self.content_font_size)
+            te.document().setDefaultFont(font)
+        idx = self._blocks.index(ref_block_entry) + 1
+        self._blocks.insert(idx, {"type": "text", "widget": te})
+        return te
+
+    def _load_embedded_lists(self, content):
+        if not content or not content.startswith("{"):
+            if content:
+                self._add_text_block(content)
+            else:
+                self._add_text_block("")
+            return
+        try:
+            data = json.loads(content)
+        except (json.JSONDecodeError, TypeError):
+            if content:
+                self._add_text_block(content)
+            else:
+                self._add_text_block("")
+            return
+        if not isinstance(data, dict):
+            self._add_text_block(content)
+            return
+
+        if "blocks" in data:
+            for blk in data["blocks"]:
+                btype = blk.get("type", "text")
+                if btype == "text":
+                    self._add_text_block(blk.get("content", ""))
+                elif btype == "tasks":
+                    self._add_task_block(tasks_data=blk.get("tasks", []))
+            return
+
+        if "task_lists" in data:
+            text_content = data.get("text", "")
+            self._add_text_block(text_content)
+            for task_list in data["task_lists"]:
+                self._add_task_block(tasks_data=task_list)
+            return
+
+        if "text" in data:
+            self._add_text_block(data.get("text", ""))
+        else:
+            self._add_text_block(content)
+
+    def _rebuild_blocks_layout(self):
+        while self._blocks_layout.count():
+            item = self._blocks_layout.takeAt(0)
+            if item.widget():
+                item.widget().setParent(None)
+            elif item.layout():
+                sub = item.layout()
+                while sub.count():
+                    sub_item = sub.takeAt(0)
+                    if sub_item.widget():
+                        sub_item.widget().setParent(None)
+
+        for entry in self._blocks:
+            sep = _BlockSeparator(self)
+            sep.insert_requested.connect(self._on_separator_insert)
+            self._blocks_layout.addWidget(sep)
+            self._blocks_layout.addWidget(entry["widget"])
+
+        final_sep = _BlockSeparator(self)
+        final_sep.insert_requested.connect(self._on_separator_insert)
+        self._blocks_layout.addWidget(final_sep)
+        self._blocks_layout.addStretch()
+
+    def _refresh_separator_states(self):
+        for i in range(self._blocks_layout.count()):
+            item = self._blocks_layout.itemAt(i)
+            if item and item.widget() and isinstance(item.widget(), _BlockSeparator):
+                pass
 
     def add_task_list(self):
         try:
-            eid = self._next_embedded_id()
-            from src.repositories.in_memory_task_repo import InMemoryTaskRepo
-
-            repo = InMemoryTaskRepo()
-            from src.models.task import Task
-
-            task = Task(content_block_id=eid, text="New task")
-            repo.create(task)
-            tw = TaskWidget(eid, parent=self, task_repo=repo)
-            tw.task_changed.connect(self._on_embedded_task_changed)
-            container = _EmbeddedTaskContainer(tw, self)
-            container.remove_requested.connect(self._remove_embedded_list)
-            container.move_up_requested.connect(self._move_embedded_list_up)
-            container.move_down_requested.connect(self._move_embedded_list_down)
-            self._embedded_layout.addWidget(container)
-            self._embedded_lists.append(
-                {"id": eid, "repo": repo, "tw": tw, "container": container}
-            )
+            self._add_task_block()
+            self._rebuild_blocks_layout()
+            last_task_entry = self._embedded_lists[-1]
             self._active_list = len(self._embedded_lists) - 1
-            self._update_embedded_button_states()
-
-            # Focus the first edit field with error handling
+            tw = last_task_entry["tw"]
             try:
                 first_task_widget = tw.findChild(QTextEdit)
                 if first_task_widget and not first_task_widget.isDeleted():
@@ -721,7 +912,6 @@ class MarkdownBlock(QWidget):
                     )
             except Exception:
                 pass
-
             self.embedded_changed.emit()
             self.changed.emit()
         except Exception as e:
@@ -731,7 +921,6 @@ class MarkdownBlock(QWidget):
             traceback.print_exc()
 
     def _safe_focus_widget(self, widget):
-        """Safely focus a widget with error handling."""
         try:
             if widget and not widget.isDeleted() and widget.isVisible():
                 widget.setFocus()
@@ -745,54 +934,52 @@ class MarkdownBlock(QWidget):
     def _remove_embedded_list(self, container):
         for i, el in enumerate(self._embedded_lists):
             if el["container"] is container:
-                self._embedded_layout.removeWidget(container)
-                container.setParent(None)
-                container.deleteLater()
                 self._embedded_lists.pop(i)
-                if self._active_list is not None:
-                    if self._active_list >= len(self._embedded_lists):
-                        self._active_list = len(self._embedded_lists) - 1
-                self._update_embedded_button_states()
-                self.embedded_changed.emit()
-                self.changed.emit()
-                return
+                break
+        for i, entry in enumerate(self._blocks):
+            if entry["type"] == "tasks" and entry["widget"] is container:
+                self._blocks.pop(i)
+                break
+        if self._active_list is not None:
+            if self._active_list >= len(self._embedded_lists):
+                self._active_list = len(self._embedded_lists) - 1
+        self._rebuild_blocks_layout()
+        self.embedded_changed.emit()
+        self.changed.emit()
 
     def _move_embedded_list_up(self, container):
-        for i, el in enumerate(self._embedded_lists):
-            if el["container"] is container and i > 0:
-                self._embedded_lists[i], self._embedded_lists[i - 1] = (
-                    self._embedded_lists[i - 1],
-                    self._embedded_lists[i],
-                )
-                # Reposition in layout
-                self._embedded_layout.removeWidget(container)
-                self._embedded_layout.insertWidget(i - 1, container)
-                self._update_embedded_button_states()
-                self.embedded_changed.emit()
-                self.changed.emit()
+        for i, entry in enumerate(self._blocks):
+            if entry["type"] == "tasks" and entry["widget"] is container:
+                if i > 0:
+                    self._blocks[i], self._blocks[i - 1] = (
+                        self._blocks[i - 1],
+                        self._blocks[i],
+                    )
+                    self._rebuild_blocks_layout()
+                    self._update_embedded_button_states()
+                    self.embedded_changed.emit()
+                    self.changed.emit()
                 return
 
     def _move_embedded_list_down(self, container):
-        for i, el in enumerate(self._embedded_lists):
-            if el["container"] is container and i < len(self._embedded_lists) - 1:
-                self._embedded_lists[i], self._embedded_lists[i + 1] = (
-                    self._embedded_lists[i + 1],
-                    self._embedded_lists[i],
-                )
-                # Reposition in layout
-                self._embedded_layout.removeWidget(container)
-                self._embedded_layout.insertWidget(i + 1, container)
-                self._update_embedded_button_states()
-                self.embedded_changed.emit()
-                self.changed.emit()
+        for i, entry in enumerate(self._blocks):
+            if entry["type"] == "tasks" and entry["widget"] is container:
+                if i < len(self._blocks) - 1:
+                    self._blocks[i], self._blocks[i + 1] = (
+                        self._blocks[i + 1],
+                        self._blocks[i],
+                    )
+                    self._rebuild_blocks_layout()
+                    self._update_embedded_button_states()
+                    self.embedded_changed.emit()
+                    self.changed.emit()
                 return
 
     def _update_embedded_button_states(self):
-        n = len(self._embedded_lists)
-        for i, el in enumerate(self._embedded_lists):
-            el["container"].set_button_states(
-                can_move_up=i > 0, can_move_down=i < n - 1
-            )
+        task_blocks = [el for el in self._blocks if el["type"] == "tasks"]
+        n = len(task_blocks)
+        for i, el in enumerate(task_blocks):
+            el["widget"].set_button_states(can_move_up=i > 0, can_move_down=i < n - 1)
 
     def _add_task_to_active_list(self):
         if self._active_list is not None and self._active_list < len(
@@ -809,19 +996,98 @@ class MarkdownBlock(QWidget):
         except Exception:
             pass
 
+    def _on_split_requested(self):
+        for i, entry in enumerate(self._blocks):
+            if entry["type"] == "text" and entry["widget"] is self.sender():
+                self._insert_text_block_after(entry, "")
+                self._rebuild_blocks_layout()
+                new_idx = i + 1
+                if new_idx < len(self._blocks):
+                    new_te = self._blocks[new_idx]["widget"]
+                    new_te.setFocus()
+                    if self.editing:
+                        new_te.show()
+                self.changed.emit()
+                return
+
+    def _on_merge_back_requested(self):
+        sender = self.sender()
+        for i, entry in enumerate(self._blocks):
+            if entry["type"] == "text" and entry["widget"] is sender:
+                if i > 0:
+                    prev = self._blocks[i - 1]
+                    if prev["type"] == "text":
+                        prev_te = prev["widget"]
+                        prev_cursor = prev_te.textCursor()
+                        prev_cursor.movePosition(QTextCursor.MoveOperation.End)
+                        prev_te.setTextCursor(prev_cursor)
+                        prev_te.setFocus()
+                        self._blocks.pop(i)
+                        self._rebuild_blocks_layout()
+                        self.changed.emit()
+                return
+
+    def _on_separator_insert(self, sep):
+        idx = None
+        count = 0
+        for i in range(self._blocks_layout.count()):
+            item = self._blocks_layout.itemAt(i)
+            if item and item.widget() and isinstance(item.widget(), _BlockSeparator):
+                if item.widget() is sep:
+                    idx = count
+                    break
+                count += 1
+
+        menu = QMenu(self)
+        menu.setStyleSheet("""
+            QMenu { background: #ffffff; border: 1px solid #e5e7eb;
+                border-radius: 8px; padding: 4px; }
+            QMenu::item { padding: 6px 24px; border-radius: 4px;
+                font-size: 12px; color: #374151; }
+            QMenu::item:selected { background: #F3E8F6; }
+        """)
+        text_action = menu.addAction("Text")
+        task_action = menu.addAction("Task List")
+        action = menu.exec(sep.mapToGlobal(sep.rect().bottomLeft()))
+        if action is None:
+            return
+
+        if idx is None:
+            idx = len(self._blocks)
+
+        if action is text_action:
+            te = _BlockTextEdit("", self)
+            te.changed.connect(self._on_text_changed)
+            te.split_requested.connect(self._on_split_requested)
+            te.merge_back_requested.connect(self._on_merge_back_requested)
+            te.focused.connect(lambda: QTimer.singleShot(0, self._apply_pending_font))
+            if self.content_font_size:
+                font = te.document().defaultFont()
+                font.setPointSize(self.content_font_size)
+                te.document().setDefaultFont(font)
+            self._blocks.insert(idx, {"type": "text", "widget": te})
+        elif action is task_action:
+            self._add_task_block()
+            block_entry = self._blocks.pop(-1)
+            self._blocks.insert(idx, block_entry)
+
+        self._rebuild_blocks_layout()
+        self.embedded_changed.emit()
+        self.changed.emit()
+
     def to_serialized_content(self):
         try:
-            if not self.editor or (
-                hasattr(self.editor, "isDeleted") and self.editor.isDeleted()
-            ):
+            if not self._blocks:
                 return ""
-            if not self._embedded_lists:
-                return self.editor.toHtml()
-            task_lists = []
-            for el in self._embedded_lists:
-                tasks = el["repo"].get_by_block(el["id"])
-                task_lists.append(
-                    [
+            blocks_out = []
+            for entry in self._blocks:
+                if entry["type"] == "text":
+                    te = entry["widget"]
+                    html = te.toHtml()
+                    blocks_out.append({"type": "text", "content": html})
+                elif entry["type"] == "tasks":
+                    tasks = entry["repo"].get_by_block(entry["id"])
+                    tasks_list = [
                         {
                             "text": t.text,
                             "is_checked": t.is_checked,
@@ -830,13 +1096,8 @@ class MarkdownBlock(QWidget):
                         }
                         for t in tasks
                     ]
-                )
-            return json.dumps(
-                {
-                    "text": self.editor.toHtml(),
-                    "task_lists": task_lists,
-                }
-            )
+                    blocks_out.append({"type": "tasks", "tasks": tasks_list})
+            return json.dumps({"blocks": blocks_out})
         except Exception as e:
             print(f"Error in to_serialized_content: {e}")
             return ""
@@ -845,13 +1106,22 @@ class MarkdownBlock(QWidget):
         if self.editing:
             return
         self.editing = True
-        self._text_stack.setCurrentWidget(self.editor)
-        self.editor.setFocus()
-        self.editor.moveCursor(QTextCursor.MoveOperation.End)
+        self.preview.setVisible(False)
+        self._blocks_container.setVisible(True)
+        for entry in self._blocks:
+            entry["widget"].setVisible(True)
+        if self._blocks:
+            first_text = None
+            for entry in self._blocks:
+                if entry["type"] == "text":
+                    first_text = entry["widget"]
+                    break
+            if first_text:
+                first_text.setFocus()
+                first_text.moveCursor(QTextCursor.MoveOperation.End)
         self.editing_changed.emit(True)
 
     def _on_focus_lost(self):
-        """Switch to preview only if focus moved to a non-block widget."""
         focused = QApplication.focusWidget()
         if isinstance(focused, QToolButton | QPushButton | QComboBox | QLabel):
             return
@@ -868,29 +1138,36 @@ class MarkdownBlock(QWidget):
         if not self.editing:
             return
         self.editing = False
-        self._text_stack.setCurrentWidget(self.preview)
+        for entry in self._blocks:
+            entry["widget"].setVisible(False)
+        self._blocks_container.setVisible(False)
         self._do_update_preview()
+        self.preview.setVisible(True)
         self.editing_changed.emit(False)
 
     def _apply_pending_font(self):
         if self._pending_font_size:
-            fmt = QTextCharFormat()
-            fmt.setFontPointSize(self._pending_font_size)
-            self.editor.setCurrentCharFormat(fmt)
+            focused = QApplication.focusWidget()
+            if isinstance(focused, _BlockTextEdit):
+                fmt = QTextCharFormat()
+                fmt.setFontPointSize(self._pending_font_size)
+                focused.setCurrentCharFormat(fmt)
             self._pending_font_size = None
 
     def set_content_font_size(self, size):
         self.content_font_size = size
-        cursor = self.editor.textCursor()
-        if cursor.hasSelection():
-            fmt = QTextCharFormat()
-            fmt.setFontPointSize(size)
-            cursor.mergeCharFormat(fmt)
-        else:
-            fmt = QTextCharFormat()
-            fmt.setFontPointSize(size)
-            self.editor.setCurrentCharFormat(fmt)
-            self._pending_font_size = size
+        focused = QApplication.focusWidget()
+        if isinstance(focused, _BlockTextEdit):
+            cursor = focused.textCursor()
+            if cursor.hasSelection():
+                fmt = QTextCharFormat()
+                fmt.setFontPointSize(size)
+                cursor.mergeCharFormat(fmt)
+            else:
+                fmt = QTextCharFormat()
+                fmt.setFontPointSize(size)
+                focused.setCurrentCharFormat(fmt)
+                self._pending_font_size = size
         self._do_update_preview()
 
     def _on_text_changed(self):
@@ -902,23 +1179,52 @@ class MarkdownBlock(QWidget):
 
     def _do_update_preview(self):
         try:
-            if not self.editor:
+            if not self._blocks:
                 return
-            html = self.editor.toHtml()
-            if self.preview:
-                font = self.editor.document().defaultFont()
-                current_families = list(font.families())
-                if "Segoe UI Emoji" not in current_families:
-                    current_families.insert(0, "Segoe UI Emoji")
-                    font.setFamilies(current_families)
-                self.preview.document().setDefaultFont(font)
-                self.preview.setHtml(html)
+            parts = []
+            for entry in self._blocks:
+                if entry["type"] == "text":
+                    te = entry["widget"]
+                    html = te.toHtml()
+                    parts.append(html)
+                elif entry["type"] == "tasks":
+                    tasks = entry["repo"].get_by_block(entry["id"])
+                    task_items = []
+                    for t in tasks:
+                        checked = "checked" if t.is_checked else ""
+                        task_items.append(
+                            f'<div style="padding:2px 0;">'
+                            f'<input type="checkbox" {checked}> {t.text}'
+                            f"</div>"
+                        )
+                    parts.append(
+                        '<div style="border:1px solid #d1d5db; border-radius:4px;'
+                        ' padding:4px 8px; margin:4px 0; background:#f9fafb;">'
+                        + "".join(task_items)
+                        + "</div>"
+                    )
+            combined = "".join(parts)
+            font = self.editor.document().defaultFont() if self._blocks else QFont()
+            current_families = list(font.families())
+            if "Segoe UI Emoji" not in current_families:
+                current_families.insert(0, "Segoe UI Emoji")
+                font.setFamilies(current_families)
+            self.preview.document().setDefaultFont(font)
+            self.preview.setHtml(
+                f'<html><body style="font-family:Segoe UI, sans-serif; '
+                f"padding:4px 8px; line-height:1.4; "
+                f'font-size:{self.content_font_size}px;">'
+                f"{combined}</body></html>"
+            )
         except Exception as e:
             print(f"Error updating preview: {e}")
 
     def insert_formatting(self, prefix, suffix=""):
         self._switch_to_edit()
-        cursor = self.editor.textCursor()
+        te = self._current_text_edit()
+        if not te:
+            return
+        cursor = te.textCursor()
         selected = cursor.selectedText()
         if selected:
             cursor.insertText(f"{prefix}{selected}{suffix}")
@@ -928,12 +1234,18 @@ class MarkdownBlock(QWidget):
 
     def insert_heading(self, level):
         self._switch_to_edit()
+        te = self._current_text_edit()
+        if not te:
+            return
         prefix = "#" * level + " "
-        self.editor.textCursor().insertText(prefix)
+        te.textCursor().insertText(prefix)
 
     def insert_link(self):
         self._switch_to_edit()
-        cursor = self.editor.textCursor()
+        te = self._current_text_edit()
+        if not te:
+            return
+        cursor = te.textCursor()
         selected = cursor.selectedText()
         if selected:
             cursor.insertText(f"[{selected}](url)")
@@ -942,14 +1254,39 @@ class MarkdownBlock(QWidget):
 
     def insert_bullet_list(self):
         self._switch_to_edit()
-        self.editor.textCursor().insertText("- ")
+        te = self._current_text_edit()
+        if not te:
+            return
+        te.textCursor().insertText("- ")
 
     def apply_rich_format(self, fmt_name):
         self._switch_to_edit()
-        _apply_format_to_edit(self.editor, fmt_name)
+        te = self._current_text_edit()
+        if not te:
+            return
+        _apply_format_to_edit(te, fmt_name)
+
+    def _current_text_edit(self):
+        focused = QApplication.focusWidget()
+        if isinstance(focused, _BlockTextEdit):
+            for entry in self._blocks:
+                if entry["type"] == "text" and entry["widget"] is focused:
+                    return focused
+        for entry in self._blocks:
+            if entry["type"] == "text":
+                return entry["widget"]
+        return None
 
     def toPlainText(self):
-        return self.editor.toPlainText()
+        parts = []
+        for entry in self._blocks:
+            if entry["type"] == "text":
+                parts.append(entry["widget"].toPlainText())
+            elif entry["type"] == "tasks":
+                tasks = entry["repo"].get_by_block(entry["id"])
+                for t in tasks:
+                    parts.append(t.text)
+        return "\n".join(parts)
 
 
 class TableCell(QWidget):
@@ -3361,7 +3698,9 @@ class PageEditor(QWidget):
                 except Exception:
                     pass
                 return  # Skip deferred processing for table cells
-            elif new and isinstance(new, MarkdownTextEdit | QTextBrowser):
+            elif new and isinstance(
+                new, MarkdownTextEdit | _BlockTextEdit | QTextBrowser
+            ):
                 try:
                     block_w = self._find_block_widget(new)
                     if (
@@ -3434,7 +3773,7 @@ class PageEditor(QWidget):
             ):
                 self._font_target = (block_w, "list_item")
                 self._set_font_combo_from_target()
-            elif new_type in ("MarkdownTextEdit", "QTextBrowser"):
+            elif new_type in ("MarkdownTextEdit", "_BlockTextEdit", "QTextBrowser"):
                 try:
                     self._font_target = (block_w, "content")
                     self._set_font_combo_from_target()
@@ -3475,7 +3814,7 @@ class PageEditor(QWidget):
         try:
             focus_widget = QApplication.focusWidget()
             if focus_widget:
-                if isinstance(focus_widget, MarkdownTextEdit):
+                if isinstance(focus_widget, MarkdownTextEdit | _BlockTextEdit):
                     for w in self._block_widgets:
                         try:
                             if hasattr(w, "_body") and isinstance(

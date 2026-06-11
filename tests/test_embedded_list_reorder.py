@@ -42,6 +42,11 @@ def text_block_with_embedded(editor, page_with_blocks):
     return text_widgets[0]
 
 
+def _get_task_blocks(body):
+    """Get task block entries from MarkdownBlock._blocks."""
+    return [el for el in body._blocks if el["type"] == "tasks"]
+
+
 class TestEmbeddedListReorder:
     """Test that embedded task lists can be reordered within a text block."""
 
@@ -53,9 +58,10 @@ class TestEmbeddedListReorder:
         assert isinstance(body, MarkdownBlock)
         body.add_task_list()
         body.add_task_list()
-        assert len(body._embedded_lists) == 2
-        c0 = body._embedded_lists[0]["container"]
-        c1 = body._embedded_lists[1]["container"]
+        task_blocks = _get_task_blocks(body)
+        assert len(task_blocks) == 2
+        c0 = task_blocks[0]["widget"]
+        c1 = task_blocks[1]["widget"]
         assert hasattr(c0, "_up_btn")
         assert hasattr(c0, "_down_btn")
         assert hasattr(c1, "_up_btn")
@@ -69,10 +75,12 @@ class TestEmbeddedListReorder:
         assert isinstance(body, MarkdownBlock)
         body.add_task_list()
         body.add_task_list()
-        c0 = body._embedded_lists[0]["container"]
-        id_before = [el["id"] for el in body._embedded_lists]
+        task_blocks = _get_task_blocks(body)
+        c0 = task_blocks[0]["widget"]
+        id_before = [el["id"] for el in task_blocks]
         body._move_embedded_list_down(c0)
-        id_after = [el["id"] for el in body._embedded_lists]
+        task_blocks = _get_task_blocks(body)
+        id_after = [el["id"] for el in task_blocks]
         assert id_after[0] == id_before[1]
         assert id_after[1] == id_before[0]
 
@@ -84,10 +92,12 @@ class TestEmbeddedListReorder:
         assert isinstance(body, MarkdownBlock)
         body.add_task_list()
         body.add_task_list()
-        c1 = body._embedded_lists[1]["container"]
-        id_before = [el["id"] for el in body._embedded_lists]
+        task_blocks = _get_task_blocks(body)
+        c1 = task_blocks[1]["widget"]
+        id_before = [el["id"] for el in task_blocks]
         body._move_embedded_list_up(c1)
-        id_after = [el["id"] for el in body._embedded_lists]
+        task_blocks = _get_task_blocks(body)
+        id_after = [el["id"] for el in task_blocks]
         assert id_after[0] == id_before[1]
         assert id_after[1] == id_before[0]
 
@@ -98,10 +108,12 @@ class TestEmbeddedListReorder:
         body = text_block_with_embedded._body
         assert isinstance(body, MarkdownBlock)
         body.add_task_list()
-        c0 = body._embedded_lists[0]["container"]
-        id_before = [el["id"] for el in body._embedded_lists]
+        task_blocks = _get_task_blocks(body)
+        c0 = task_blocks[0]["widget"]
+        id_before = [el["id"] for el in task_blocks]
         body._move_embedded_list_up(c0)
-        id_after = [el["id"] for el in body._embedded_lists]
+        task_blocks = _get_task_blocks(body)
+        id_after = [el["id"] for el in task_blocks]
         assert id_after == id_before
 
     def test_move_down_at_bottom_noop(self, text_block_with_embedded):
@@ -111,10 +123,12 @@ class TestEmbeddedListReorder:
         body = text_block_with_embedded._body
         assert isinstance(body, MarkdownBlock)
         body.add_task_list()
-        c0 = body._embedded_lists[0]["container"]
-        id_before = [el["id"] for el in body._embedded_lists]
+        task_blocks = _get_task_blocks(body)
+        c0 = task_blocks[0]["widget"]
+        id_before = [el["id"] for el in task_blocks]
         body._move_embedded_list_down(c0)
-        id_after = [el["id"] for el in body._embedded_lists]
+        task_blocks = _get_task_blocks(body)
+        id_after = [el["id"] for el in task_blocks]
         assert id_after == id_before
 
     def test_button_states_update(self, text_block_with_embedded):
@@ -126,9 +140,10 @@ class TestEmbeddedListReorder:
         body.add_task_list()
         body.add_task_list()
         body.add_task_list()
-        c0 = body._embedded_lists[0]["container"]
-        c1 = body._embedded_lists[1]["container"]
-        c2 = body._embedded_lists[2]["container"]
+        task_blocks = _get_task_blocks(body)
+        c0 = task_blocks[0]["widget"]
+        c1 = task_blocks[1]["widget"]
+        c2 = task_blocks[2]["widget"]
         # First: can't move up, can move down
         assert c0._up_btn.isEnabled() is False
         assert c0._down_btn.isEnabled() is True
@@ -150,7 +165,8 @@ class TestEmbeddedListReorder:
         body.add_task_list()
         body.add_task_list()
         # Move second to first
-        c1 = body._embedded_lists[1]["container"]
+        task_blocks = _get_task_blocks(body)
+        c1 = task_blocks[1]["widget"]
         body._move_embedded_list_up(c1)
         # Save
         editor.save_current()
@@ -159,7 +175,7 @@ class TestEmbeddedListReorder:
         text_w2 = [w for w in editor._block_widgets if w.block.block_type == "text"][0]
         body2 = text_w2._body
         assert isinstance(body2, MarkdownBlock)
-        assert len(body2._embedded_lists) == 2
+        assert len(_get_task_blocks(body2)) == 2
 
 
 class TestEmbeddedResize:
@@ -172,6 +188,7 @@ class TestEmbeddedResize:
         body = text_block_with_embedded._body
         assert isinstance(body, MarkdownBlock)
         body.add_task_list()
-        container = body._embedded_lists[0]["container"]
+        task_blocks = _get_task_blocks(body)
+        container = task_blocks[0]["widget"]
         assert hasattr(container, "_resize_handle")
         assert isinstance(container._resize_handle, _EmbeddedResizeHandle)
