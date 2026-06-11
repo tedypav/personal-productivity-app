@@ -575,7 +575,7 @@ class _BlockTextEdit(QTextEdit):
         self.setAcceptRichText(True)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.setMinimumHeight(30)
+        self.setMinimumHeight(20)
         self.setMaximumHeight(10000)
         self.setPlaceholderText("")
         self.setStyleSheet("QTextEdit { border: none; background: transparent; }")
@@ -603,7 +603,7 @@ class _BlockTextEdit(QTextEdit):
 
     def _auto_grow(self):
         doc_h = self.document().size().height()
-        new_h = max(30, int(doc_h) + 8)
+        new_h = max(20, int(doc_h) + 4)
         if self.height() != new_h:
             self.setMinimumHeight(new_h)
             self.setFixedHeight(new_h)
