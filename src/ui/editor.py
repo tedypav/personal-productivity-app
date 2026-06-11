@@ -733,8 +733,6 @@ class MarkdownBlock(QWidget):
 
         self.setStyleSheet("""
             QTextBrowser { background: transparent; border: none; }
-            QTextEdit { border: 1px solid #F0E6E8; border-radius: 10px; }
-            QTextEdit:focus { border-color: #CFA6D6; }
         """)
 
     @staticmethod
