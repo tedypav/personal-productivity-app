@@ -3836,19 +3836,29 @@ class PageEditor(QWidget):
 
     def _on_add_list(self):
         """Handle +List button click to add embedded task list."""
-        # Capture active references immediately before they change
         active_text_body = self._active_text_body
         active_table_cell = self._active_table_cell
 
         def _do_add():
             try:
-                # Try to find table cell or block from focus widget
                 focus_widget = QApplication.focusWidget()
 
-                # Check if focus is in a text editing context
+                # If focus is on a toolbar button, create standalone block
+                if focus_widget and isinstance(
+                    focus_widget,
+                    QPushButton
+                    | QToolButton
+                    | QComboBox
+                    | QLabel
+                    | QSpinBox
+                    | QDateEdit,
+                ):
+                    self._add_block("list")
+                    return
+
                 is_in_text_edit = False
                 if focus_widget:
-                    # Check if focus is in a table cell (safe check)
+                    # Check if focus is in a table cell
                     try:
                         table_cell = self._find_nearest_table_cell(focus_widget)
                         if table_cell:
@@ -3882,15 +3892,18 @@ class PageEditor(QWidget):
                     except Exception:
                         pass
 
-                    # Check if focus is in any text edit widget
                     is_in_text_edit = isinstance(
                         focus_widget, QTextEdit | FormattedTextEdit | MarkdownTextEdit
                     )
 
-                # If focus is not in a text edit, check fallback references
-                # Handles user clicking text box/cell then +List button
+                # Fallback: use tracked active references only if focus is
+                # still in a content widget (not on a button/toolbar)
+                if not is_in_text_edit and focus_widget:
+                    if isinstance(focus_widget, QPushButton | QToolButton):
+                        self._add_block("list")
+                        return
+
                 if not is_in_text_edit:
-                    # Try table cell first
                     if active_table_cell:
                         try:
                             if active_table_cell.isVisible():
@@ -3908,7 +3921,6 @@ class PageEditor(QWidget):
                         except Exception:
                             self._active_table_cell = None
 
-                    # Try text body
                     if active_text_body:
                         try:
                             if active_text_body.isVisible():
@@ -3926,7 +3938,6 @@ class PageEditor(QWidget):
                         except Exception:
                             self._active_text_body = None
                 else:
-                    # Focus is in a text edit, use fallback references
                     if active_text_body and active_text_body.isVisible():
                         try:
                             active_text_body.add_task_list()
@@ -3942,7 +3953,7 @@ class PageEditor(QWidget):
                             self._active_table_cell = None
 
                 # If all else fails, create a new standalone list block
-                self._add_block("checkbox")
+                self._add_block("list")
             except Exception as e:
                 print(f"Error in _on_add_list: {e}")
                 import traceback
