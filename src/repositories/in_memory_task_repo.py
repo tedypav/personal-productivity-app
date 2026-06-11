@@ -13,7 +13,9 @@ class InMemoryTaskRepo:
         tid = self._next_id
         self._next_id += 1
         task.id = tid
-        siblings = [t for t in self._tasks if t.content_block_id == task.content_block_id]
+        siblings = [
+            t for t in self._tasks if t.content_block_id == task.content_block_id
+        ]
         task.sort_order = max((t.sort_order for t in siblings), default=-1) + 1
         self._tasks.append(task)
         return tid

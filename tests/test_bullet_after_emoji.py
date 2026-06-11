@@ -1,13 +1,13 @@
 import sys
+
 import pytest
-from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QApplication
 
 from src.database import init_db
-from src.models.page import Page
 from src.models.content_block import ContentBlock
-from src.repositories.page_repo import PageRepo
+from src.models.page import Page
 from src.repositories.block_repo import BlockRepo
+from src.repositories.page_repo import PageRepo
 
 
 @pytest.fixture
@@ -26,8 +26,15 @@ def app_instance():
 @pytest.fixture
 def text_block(app_instance, db_init):
     from src.ui.editor import ContentBlockWidget
+
     pid = PageRepo.create(Page(title="Test"))
-    bid = BlockRepo.create(ContentBlock(page_id=pid, block_type="text", content_markdown="<p>Hello</p>"))
+    BlockRepo.create(
+        ContentBlock(
+            page_id=pid,
+            block_type="text",
+            content_markdown="<p>Hello</p>",
+        )
+    )
     block = BlockRepo.get_by_page(pid)[0]
     cbw = ContentBlockWidget(block=block)
     yield cbw
@@ -45,6 +52,7 @@ class TestBulletAfterEmoji:
         edit.setTextCursor(cursor)
 
         from src.ui.editor import _apply_format_to_edit
+
         _apply_format_to_edit(edit, "bullet", text_block)
         assert "😀" in edit.toPlainText()
 
@@ -58,6 +66,7 @@ class TestBulletAfterEmoji:
         edit.setTextCursor(cursor)
 
         from src.ui.editor import _apply_format_to_edit
+
         _apply_format_to_edit(edit, "bullet", text_block)
         assert "😀🎉🚀" in edit.toPlainText()
 
@@ -71,6 +80,7 @@ class TestBulletAfterEmoji:
         edit.setTextCursor(cursor)
 
         from src.ui.editor import _apply_format_to_edit
+
         _apply_format_to_edit(edit, "bullet", text_block)
         assert "Hello" in edit.toPlainText()
 
@@ -87,6 +97,7 @@ class TestBulletAfterEmoji:
         edit.setTextCursor(cursor)
 
         from src.ui.editor import _apply_format_to_edit
+
         _apply_format_to_edit(edit, "bold", text_block)
         assert "Bold" in edit.toPlainText()
 
@@ -103,6 +114,7 @@ class TestBulletAfterEmoji:
         edit.setTextCursor(cursor)
 
         from src.ui.editor import _apply_format_to_edit
+
         _apply_format_to_edit(edit, "italic", text_block)
         assert "Italic" in edit.toPlainText()
 
@@ -116,6 +128,7 @@ class TestBulletAfterEmoji:
         edit.setTextCursor(cursor)
 
         from src.ui.editor import _apply_format_to_edit
+
         _apply_format_to_edit(edit, "h1", text_block)
         assert "Heading" in edit.toPlainText()
 
@@ -129,6 +142,7 @@ class TestBulletAfterEmoji:
         edit.setTextCursor(cursor)
 
         from src.ui.editor import _apply_format_to_edit
+
         _apply_format_to_edit(edit, "h2", text_block)
         assert "Subheading" in edit.toPlainText()
 
@@ -142,6 +156,7 @@ class TestBulletAfterEmoji:
         edit.setTextCursor(cursor)
 
         from src.ui.editor import _apply_format_to_edit
+
         _apply_format_to_edit(edit, "code", text_block)
         assert "Code" in edit.toPlainText()
 

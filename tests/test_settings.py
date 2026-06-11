@@ -1,8 +1,7 @@
 import json
 import os
 
-import pytest
-from src.settings import load_settings, save_settings, DEFAULT_SETTINGS, SETTINGS_PATH
+from src.settings import DEFAULT_SETTINGS, SETTINGS_PATH, load_settings, save_settings
 
 
 class TestLoadSettings:
@@ -37,7 +36,8 @@ class TestLoadSettings:
             json.dump({"week_start_day": "Sunday"}, f)
         result = load_settings()
         assert result["week_start_day"] == "Sunday"
-        assert result["auto_save_interval_ms"] == DEFAULT_SETTINGS["auto_save_interval_ms"]
+        auto_save = DEFAULT_SETTINGS["auto_save_interval_ms"]
+        assert result["auto_save_interval_ms"] == auto_save
         assert result["sidebar_width"] == DEFAULT_SETTINGS["sidebar_width"]
         assert result["font_size"] == DEFAULT_SETTINGS["font_size"]
         assert result["theme"] == DEFAULT_SETTINGS["theme"]
@@ -45,8 +45,13 @@ class TestLoadSettings:
     def test_full_settings_file(self, monkeypatch, tmp_path):
         fake_path = str(tmp_path / "settings.json")
         monkeypatch.setattr("src.settings.SETTINGS_PATH", fake_path)
-        custom = {"week_start_day": "Friday", "auto_save_interval_ms": 2000,
-                  "sidebar_width": 300, "font_size": 18, "theme": "dark"}
+        custom = {
+            "week_start_day": "Friday",
+            "auto_save_interval_ms": 2000,
+            "sidebar_width": 300,
+            "font_size": 18,
+            "theme": "dark",
+        }
         with open(fake_path, "w") as f:
             json.dump(custom, f)
         result = load_settings()
@@ -95,8 +100,13 @@ class TestSaveSettings:
     def test_round_trip(self, monkeypatch, tmp_path):
         fake_path = str(tmp_path / "settings.json")
         monkeypatch.setattr("src.settings.SETTINGS_PATH", fake_path)
-        custom = {"week_start_day": "Sunday", "auto_save_interval_ms": 2000,
-                  "sidebar_width": 300, "font_size": 18, "theme": "dark"}
+        custom = {
+            "week_start_day": "Sunday",
+            "auto_save_interval_ms": 2000,
+            "sidebar_width": 300,
+            "font_size": 18,
+            "theme": "dark",
+        }
         save_settings(custom)
         loaded = load_settings()
         assert loaded == custom

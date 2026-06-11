@@ -1,10 +1,11 @@
 import pytest
+
 from src.database import init_db
-from src.models.page import Page
 from src.models.content_block import ContentBlock
+from src.models.page import Page
 from src.models.task import Task
-from src.repositories.page_repo import PageRepo
 from src.repositories.block_repo import BlockRepo
+from src.repositories.page_repo import PageRepo
 from src.repositories.task_repo import TaskRepo
 
 
@@ -49,12 +50,24 @@ class TestTaskRepoCreate:
         assert tasks[1].sort_order == 1
 
     def test_stores_is_checked_as_int(self, task_repo, sample_block):
-        tid = task_repo.create(Task(content_block_id=sample_block, text="T", is_checked=True))
+        task_repo.create(
+            Task(
+                content_block_id=sample_block,
+                text="T",
+                is_checked=True,
+            )
+        )
         tasks = task_repo.get_by_block(sample_block)
         assert tasks[0].is_checked == 1
 
     def test_stores_recurrence_type(self, task_repo, sample_block):
-        tid = task_repo.create(Task(content_block_id=sample_block, text="T", recurrence_type="weekly"))
+        task_repo.create(
+            Task(
+                content_block_id=sample_block,
+                text="T",
+                recurrence_type="weekly",
+            )
+        )
         tasks = task_repo.get_by_block(sample_block)
         assert tasks[0].recurrence_type == "weekly"
 
@@ -78,7 +91,7 @@ class TestTaskRepoRead:
 
 class TestTaskRepoUpdate:
     def test_updates_task(self, task_repo, sample_block):
-        tid = task_repo.create(Task(content_block_id=sample_block, text="Old"))
+        task_repo.create(Task(content_block_id=sample_block, text="Old"))
         task = task_repo.get_by_block(sample_block)[0]
         task.text = "New"
         task.is_checked = True
@@ -92,7 +105,7 @@ class TestTaskRepoUpdate:
         assert updated[0].due_date == "2024-06-15"
 
     def test_update_preserves_content_block_id(self, task_repo, sample_block):
-        tid = task_repo.create(Task(content_block_id=sample_block, text="T"))
+        task_repo.create(Task(content_block_id=sample_block, text="T"))
         task = task_repo.get_by_block(sample_block)[0]
         original_block_id = task.content_block_id
         task.text = "Changed"

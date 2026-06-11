@@ -21,9 +21,14 @@ class PageRepo:
     def get_children(parent_id: int | None) -> list[Page]:
         conn = get_connection()
         if parent_id is None:
-            rows = conn.execute("SELECT * FROM pages WHERE parent_id IS NULL ORDER BY sort_order").fetchall()
+            rows = conn.execute(
+                "SELECT * FROM pages WHERE parent_id IS NULL ORDER BY sort_order"
+            ).fetchall()
         else:
-            rows = conn.execute("SELECT * FROM pages WHERE parent_id=? ORDER BY sort_order", (parent_id,)).fetchall()
+            rows = conn.execute(
+                "SELECT * FROM pages WHERE parent_id=? ORDER BY sort_order",
+                (parent_id,),
+            ).fetchall()
         conn.close()
         return [Page(**dict(r)) for r in rows]
 
@@ -31,12 +36,20 @@ class PageRepo:
     def create(page: Page) -> int:
         conn = get_connection()
         max_order = conn.execute(
-            "SELECT COALESCE(MAX(sort_order), -1) + 1 FROM pages WHERE parent_id IS ?",
-            (page.parent_id,)
+            "SELECT COALESCE(MAX(sort_order), -1) + 1"
+            " FROM pages WHERE parent_id IS ?",
+            (page.parent_id,),
         ).fetchone()[0]
         cursor = conn.execute(
-            "INSERT INTO pages (title, parent_id, sort_order, page_type) VALUES (?, ?, ?, ?)",
-            (page.title, page.parent_id, page.sort_order if page.sort_order else max_order, page.page_type)
+            "INSERT INTO pages"
+            " (title, parent_id, sort_order, page_type)"
+            " VALUES (?, ?, ?, ?)",
+            (
+                page.title,
+                page.parent_id,
+                page.sort_order if page.sort_order else max_order,
+                page.page_type,
+            ),
         )
         conn.commit()
         page_id = cursor.lastrowid
@@ -47,8 +60,10 @@ class PageRepo:
     def update(page: Page):
         conn = get_connection()
         conn.execute(
-            "UPDATE pages SET title=?, parent_id=?, sort_order=?, page_type=?, updated_at=datetime('now') WHERE id=?",
-            (page.title, page.parent_id, page.sort_order, page.page_type, page.id)
+            "UPDATE pages SET title=?, parent_id=?,"
+            " sort_order=?, page_type=?,"
+            " updated_at=datetime('now') WHERE id=?",
+            (page.title, page.parent_id, page.sort_order, page.page_type, page.id),
         )
         conn.commit()
         conn.close()
@@ -64,8 +79,9 @@ class PageRepo:
     def reorder(page_id: int, new_sort_order: int, new_parent_id: int | None):
         conn = get_connection()
         conn.execute(
-            "UPDATE pages SET sort_order=?, parent_id=?, updated_at=datetime('now') WHERE id=?",
-            (new_sort_order, new_parent_id, page_id)
+            "UPDATE pages SET sort_order=?, parent_id=?,"
+            " updated_at=datetime('now') WHERE id=?",
+            (new_sort_order, new_parent_id, page_id),
         )
         conn.commit()
         conn.close()

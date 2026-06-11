@@ -1,5 +1,5 @@
-import sqlite3
 import os
+import sqlite3
 
 DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "app.db")
 
@@ -28,20 +28,25 @@ def init_db():
 
         CREATE TABLE IF NOT EXISTS content_blocks (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            page_id INTEGER NOT NULL REFERENCES pages(id) ON DELETE CASCADE,
-            block_type TEXT NOT NULL CHECK(block_type IN ('text','table','list','checkbox')),
+            page_id INTEGER NOT NULL
+                REFERENCES pages(id) ON DELETE CASCADE,
+            block_type TEXT NOT NULL
+                CHECK(block_type IN ('text','table','list','checkbox')),
             content_markdown TEXT NOT NULL DEFAULT '',
             sort_order INTEGER NOT NULL DEFAULT 0
         );
 
         CREATE TABLE IF NOT EXISTS tasks (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            content_block_id INTEGER NOT NULL REFERENCES content_blocks(id) ON DELETE CASCADE,
+            content_block_id INTEGER NOT NULL
+                REFERENCES content_blocks(id) ON DELETE CASCADE,
             text TEXT NOT NULL DEFAULT '',
             is_checked INTEGER NOT NULL DEFAULT 0,
-            recurrence_type TEXT NOT NULL DEFAULT 'none' CHECK(recurrence_type IN ('none','daily','weekly')),
+            recurrence_type TEXT NOT NULL DEFAULT 'none'
+                CHECK(recurrence_type IN ('none','daily','weekly')),
             due_date TEXT,
-            parent_task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
+            parent_task_id INTEGER REFERENCES tasks(id)
+                ON DELETE CASCADE,
             sort_order INTEGER NOT NULL DEFAULT 0
         );
 
@@ -90,12 +95,16 @@ def init_db():
         pass
 
     try:
-        conn.execute("ALTER TABLE content_blocks ADD COLUMN header_align_h TEXT DEFAULT 'left'")
+        conn.execute(
+            "ALTER TABLE content_blocks ADD COLUMN header_align_h TEXT DEFAULT 'left'"
+        )
     except sqlite3.OperationalError:
         pass
 
     try:
-        conn.execute("ALTER TABLE content_blocks ADD COLUMN header_align_v TEXT DEFAULT 'center'")
+        conn.execute(
+            "ALTER TABLE content_blocks ADD COLUMN header_align_v TEXT DEFAULT 'center'"
+        )
     except sqlite3.OperationalError:
         pass
 
@@ -105,12 +114,18 @@ def init_db():
         pass
 
     try:
-        conn.execute("ALTER TABLE pages ADD COLUMN page_type TEXT NOT NULL DEFAULT 'page'")
+        conn.execute(
+            "ALTER TABLE pages ADD COLUMN page_type TEXT NOT NULL DEFAULT 'page'"
+        )
     except sqlite3.OperationalError:
         pass
 
-    conn.execute("UPDATE content_blocks SET header_font_size = NULL WHERE header_font_size < 1")
-    conn.execute("UPDATE content_blocks SET content_font_size = NULL WHERE content_font_size < 1")
+    conn.execute(
+        "UPDATE content_blocks SET header_font_size = NULL WHERE header_font_size < 1"
+    )
+    conn.execute(
+        "UPDATE content_blocks SET content_font_size = NULL WHERE content_font_size < 1"
+    )
 
     conn.commit()
     conn.close()

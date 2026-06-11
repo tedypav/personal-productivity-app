@@ -1,11 +1,12 @@
 import pytest
+
 from src.database import init_db
-from src.models.page import Page
 from src.models.content_block import ContentBlock
-from src.repositories.page_repo import PageRepo
-from src.repositories.block_repo import BlockRepo
-from src.repositories.task_repo import TaskRepo
+from src.models.page import Page
 from src.models.task import Task
+from src.repositories.block_repo import BlockRepo
+from src.repositories.page_repo import PageRepo
+from src.repositories.task_repo import TaskRepo
 
 
 @pytest.fixture
@@ -35,7 +36,9 @@ def sample_page(page_repo):
 
 class TestBlockRepoCreate:
     def test_creates_block_and_returns_id(self, block_repo, sample_page):
-        block_id = block_repo.create(ContentBlock(page_id=sample_page, block_type="text"))
+        block_id = block_repo.create(
+            ContentBlock(page_id=sample_page, block_type="text")
+        )
         assert block_id > 0
 
     def test_sets_block_id_on_object(self, block_repo, sample_page):
@@ -54,12 +57,19 @@ class TestBlockRepoCreate:
 
     def test_stores_all_properties(self, block_repo, sample_page):
         block = ContentBlock(
-            page_id=sample_page, block_type="table",
-            content_markdown="| a | b |", height=300, width=400,
-            header="My Table", header_font_size=16,
-            header_align_h="center", header_align_v="top",
-            header_height=50, content_font_size=14,
-            pos_x=100, pos_y=200,
+            page_id=sample_page,
+            block_type="table",
+            content_markdown="| a | b |",
+            height=300,
+            width=400,
+            header="My Table",
+            header_font_size=16,
+            header_align_h="center",
+            header_align_v="top",
+            header_height=50,
+            content_font_size=14,
+            pos_x=100,
+            pos_y=200,
         )
         block_repo.create(block)
         blocks = block_repo.get_by_page(sample_page)

@@ -429,12 +429,6 @@ Run this after any code change:
  82. Change auto-save interval in settings → verify new interval applied without restart
 ```
 
-## Project Workflow
-
-- **All feature requests must be written in `project_plan.md` before implementation.**
-- **Test all features listed in the plan** before saving new changes.
-- Keep `project_plan.md` updated to reflect the current state of the application.
-
 ## Missing Dependency (Historical)
 
 - `markdown` library is required (used in `editor.py` for rendering). It has been added to `requirements.txt` as `markdown>=3.10`.

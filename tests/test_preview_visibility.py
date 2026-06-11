@@ -1,13 +1,13 @@
 import sys
+
 import pytest
-from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QApplication
 
 from src.database import init_db
-from src.models.page import Page
 from src.models.content_block import ContentBlock
-from src.repositories.page_repo import PageRepo
+from src.models.page import Page
 from src.repositories.block_repo import BlockRepo
+from src.repositories.page_repo import PageRepo
 
 
 @pytest.fixture
@@ -26,8 +26,15 @@ def app_instance():
 @pytest.fixture
 def text_block(app_instance, db_init):
     from src.ui.editor import ContentBlockWidget
+
     pid = PageRepo.create(Page(title="Test"))
-    bid = BlockRepo.create(ContentBlock(page_id=pid, block_type="text", content_markdown="<p>Hello</p>"))
+    BlockRepo.create(
+        ContentBlock(
+            page_id=pid,
+            block_type="text",
+            content_markdown="<p>Hello</p>",
+        )
+    )
     block = BlockRepo.get_by_page(pid)[0]
     cbw = ContentBlockWidget(block=block)
     cbw.show()
@@ -65,6 +72,7 @@ class TestPreviewVisible:
         body._switch_to_edit()
         edit = body.editor
         from src.ui.editor import _apply_format_to_edit
+
         _apply_format_to_edit(edit, "bullet", text_block)
         cursor = edit.textCursor()
         cursor.insertText("List item")
@@ -85,6 +93,7 @@ class TestPreviewVisible:
         cursor.select(cursor.SelectionType.Document)
         edit.setTextCursor(cursor)
         from src.ui.editor import _apply_format_to_edit
+
         _apply_format_to_edit(edit, "bold", text_block)
         body._switch_to_preview()
         preview_text = body.preview.toPlainText()
@@ -99,6 +108,7 @@ class TestPreviewVisible:
         cursor.insertText("My Heading")
         edit.setTextCursor(cursor)
         from src.ui.editor import _apply_format_to_edit
+
         _apply_format_to_edit(edit, "h1", text_block)
         body._switch_to_preview()
         preview_text = body.preview.toPlainText()

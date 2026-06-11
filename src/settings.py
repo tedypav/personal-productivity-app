@@ -1,7 +1,9 @@
 import json
 import os
 
-SETTINGS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "settings.json")
+SETTINGS_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(__file__)), "settings.json"
+)
 
 DEFAULT_SETTINGS = {
     "week_start_day": "Monday",
@@ -17,7 +19,7 @@ def load_settings() -> dict:
         save_settings(DEFAULT_SETTINGS)
         return dict(DEFAULT_SETTINGS)
     try:
-        with open(SETTINGS_PATH, "r", encoding="utf-8") as f:
+        with open(SETTINGS_PATH, encoding="utf-8") as f:
             data = json.load(f)
             merged = dict(DEFAULT_SETTINGS)
             merged.update(data)

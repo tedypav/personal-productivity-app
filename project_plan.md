@@ -308,3 +308,7 @@ Core features for initial delivery:
 1. **All feature requests must be written in this project plan** before implementation.
 2. **Test all features in the plan** before saving new changes — run through the checklist in `instructions`.
 3. Update this plan when scope changes so it always reflects the current state of the application.
+4. **Read the `instructions` file** before starting work to understand testing requirements for your feature type.
+5. **Update the `instructions` file** when adding new features to maintain regression checklist and testing guides.
+
+**For detailed development workflow, commands, and AI guidelines, see `DEVELOPMENT.md`.**

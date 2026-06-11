@@ -4,36 +4,71 @@ import traceback
 import uuid
 from datetime import datetime, timedelta
 
-import markdown
-from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QTextEdit, QPushButton, QHBoxLayout,
-    QComboBox, QLabel, QCheckBox, QGridLayout, QLineEdit,
-    QScrollArea, QDialog, QDialogButtonBox, QMessageBox,
-    QListWidget, QFrame, QTextBrowser, QSizePolicy,
-    QToolButton, QApplication, QButtonGroup, QStackedWidget,
-    QFileDialog, QInputDialog, QSpinBox, QDateEdit, QTabWidget, QMenu
-)
-from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QPoint, QEvent, QMimeData, QUrl, QSize
+import markdown  # type: ignore[import-untyped]
+from PyQt6.QtCore import QEvent, QSize, Qt, QTimer, QUrl, pyqtSignal
 from PyQt6.QtGui import (
-    QFont, QAction, QKeySequence, QTextCursor, QTextCharFormat,
-    QPainter, QColor, QImage, QPixmap, QIcon, QClipboard, QTextBlockFormat,
-    QTextListFormat, QTextDocument, QTextImageFormat, QActionGroup
+    QAction,
+    QActionGroup,
+    QColor,
+    QFont,
+    QIcon,
+    QImage,
+    QPainter,
+    QPixmap,
+    QTextBlockFormat,
+    QTextCharFormat,
+    QTextCursor,
+    QTextDocument,
+    QTextImageFormat,
+    QTextListFormat,
+)
+from PyQt6.QtWidgets import (
+    QApplication,
+    QButtonGroup,
+    QCheckBox,
+    QComboBox,
+    QDateEdit,
+    QDialog,
+    QDialogButtonBox,
+    QFileDialog,
+    QFrame,
+    QGridLayout,
+    QHBoxLayout,
+    QInputDialog,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QMenu,
+    QMessageBox,
+    QPushButton,
+    QScrollArea,
+    QSizePolicy,
+    QSpinBox,
+    QStackedWidget,
+    QTextBrowser,
+    QTextEdit,
+    QToolButton,
+    QVBoxLayout,
+    QWidget,
 )
 
+from src.models.content_block import ContentBlock
+from src.models.task import Task
 from src.repositories.block_repo import BlockRepo
 from src.repositories.task_repo import TaskRepo
 from src.repositories.template_repo import TemplateRepo
-from src.models.content_block import ContentBlock
-from src.models.task import Task
 from src.undo_manager import undo_manager
-
 
 MD_EXTENSIONS = ["fenced_code", "tables", "nl2br"]
 
 
 def render_markdown(text: str, font_size: int = 13) -> str:
     html = markdown.markdown(text, extensions=MD_EXTENSIONS)
-    return f"""<html><body style="font-family:Segoe UI, sans-serif; padding:4px 8px; line-height:1.4; font-size:{font_size}px;">{html}</body></html>"""
+    return (
+        f'<html><body style="font-family:Segoe UI, sans-serif; '
+        f'padding:4px 8px; line-height:1.4; font-size:{font_size}px;">'
+        f"{html}</body></html>"
+    )
 
 
 BLOCK_STYLE = """
@@ -55,7 +90,8 @@ QFrame#block[selected="true"] {
 def _get_edit_html_body(edit):
     html = edit.toHtml()
     import re
-    body_match = re.search(r'<body[^>]*>(.*)</body>', html, re.DOTALL)
+
+    body_match = re.search(r"<body[^>]*>(.*)</body>", html, re.DOTALL)
     if body_match:
         return body_match.group(1).strip()
     return html
@@ -71,11 +107,19 @@ def _apply_format_to_edit(edit, fmt_name, parent_widget=None):
             if cursor.hasSelection():
                 fmt = QTextCharFormat()
                 current_weight = cursor.charFormat().fontWeight()
-                fmt.setFontWeight(QFont.Weight.Normal if current_weight >= QFont.Weight.Bold else QFont.Weight.Bold)
+                fmt.setFontWeight(
+                    QFont.Weight.Normal
+                    if current_weight >= QFont.Weight.Bold
+                    else QFont.Weight.Bold
+                )
                 cursor.mergeCharFormat(fmt)
             else:
                 fmt = cursor.charFormat()
-                fmt.setFontWeight(QFont.Weight.Normal if fmt.fontWeight() >= QFont.Weight.Bold else QFont.Weight.Bold)
+                fmt.setFontWeight(
+                    QFont.Weight.Normal
+                    if fmt.fontWeight() >= QFont.Weight.Bold
+                    else QFont.Weight.Bold
+                )
                 cursor.setCharFormat(fmt)
         elif fmt_name == "italic":
             if cursor.hasSelection():
@@ -157,8 +201,11 @@ def _insert_link_dialog(edit, parent_widget=None):
     cursor = edit.textCursor()
     selected = cursor.selectedText()
     url, ok = QInputDialog.getText(
-        parent_widget or edit, "Insert Link",
-        "URL:", QLineEdit.EchoMode.Normal, "https://"
+        parent_widget or edit,
+        "Insert Link",
+        "URL:",
+        QLineEdit.EchoMode.Normal,
+        "https://",
     )
     if not ok or not url.strip():
         return
@@ -193,7 +240,7 @@ def _insert_bullet(cursor, edit):
 
 def _toggle_bullet(cursor, edit):
     """Toggle bullet list on/off at current cursor position.
-    
+
     - Empty block with bullet: remove it
     - Block without bullet: add one
     - Non-empty block already in list: do nothing
@@ -202,10 +249,10 @@ def _toggle_bullet(cursor, edit):
         block = cursor.block()
         if not block.isValid():
             return
-        
+
         text_list = block.textList()
         has_text = bool(block.text().strip())
-        
+
         if text_list and text_list.format().style() == QTextListFormat.Style.ListDisc:
             if has_text:
                 return
@@ -222,8 +269,12 @@ def _toggle_bullet(cursor, edit):
 
 def _attach_file(edit, parent_widget=None):
     file_path, _ = QFileDialog.getOpenFileName(
-        parent_widget or edit, "Attach File", "",
-        "All Files (*);;Images (*.png *.jpg *.jpeg *.gif *.bmp *.svg);;Documents (*.pdf *.doc *.docx *.txt)"
+        parent_widget or edit,
+        "Attach File",
+        "",
+        "All Files (*);;"
+        "Images (*.png *.jpg *.jpeg *.gif *.bmp *.svg);;"
+        "Documents (*.pdf *.doc *.docx *.txt)",
     )
     if not file_path:
         return
@@ -239,9 +290,15 @@ def _embed_file_at_cursor(cursor, file_path, edit):
         if not img.isNull():
             doc = edit.document()
             img_name = f"img_{uuid.uuid4().hex}{ext}"
-            doc.addResource(QTextDocument.ResourceType.ImageResource, QUrl(img_name), img)
+            doc.addResource(
+                QTextDocument.ResourceType.ImageResource, QUrl(img_name), img
+            )
             img_fmt = QTextImageFormat()
-            max_w = min(img.width(), edit.viewport().width() - 40) if edit.viewport().width() > 60 else img.width()
+            max_w = (
+                min(img.width(), edit.viewport().width() - 40)
+                if edit.viewport().width() > 60
+                else img.width()
+            )
             if img.width() > max_w:
                 ratio = max_w / img.width()
                 img_fmt.setWidth(int(max_w))
@@ -278,9 +335,13 @@ class MarkdownTextEdit(QTextEdit):
         if stripped.startswith("<") and ">" in stripped:
             self.setHtml(content)
         else:
-            import markdown
-            html = markdown.markdown(content, extensions=["fenced_code", "tables", "nl2br"])
-            wrapped = f'<html><body style="font-family:Segoe UI, sans-serif; font-size:13px;">{html}</body></html>'
+            html = markdown.markdown(
+                content, extensions=["fenced_code", "tables", "nl2br"]
+            )
+            wrapped = (
+                '<html><body style="font-family:Segoe UI, sans-serif; '
+                f'font-size:13px;">{html}</body></html>'
+            )
             self.setHtml(wrapped)
 
     def focusInEvent(self, event):
@@ -298,9 +359,15 @@ class MarkdownTextEdit(QTextEdit):
                 cursor = self.textCursor()
                 doc = self.document()
                 img_name = f"img_{uuid.uuid4().hex}.png"
-                doc.addResource(QTextDocument.ResourceType.ImageResource, QUrl(img_name), img)
+                doc.addResource(
+                    QTextDocument.ResourceType.ImageResource, QUrl(img_name), img
+                )
                 img_fmt = QTextImageFormat()
-                max_w = min(img.width(), self.viewport().width() - 40) if self.viewport().width() > 60 else img.width()
+                max_w = (
+                    min(img.width(), self.viewport().width() - 40)
+                    if self.viewport().width() > 60
+                    else img.width()
+                )
                 if img.width() > max_w:
                     ratio = max_w / img.width()
                     img_fmt.setWidth(int(max_w))
@@ -326,9 +393,15 @@ class FormattedTextEdit(QTextEdit):
                 cursor = self.textCursor()
                 doc = self.document()
                 img_name = f"img_{uuid.uuid4().hex}.png"
-                doc.addResource(QTextDocument.ResourceType.ImageResource, QUrl(img_name), img)
+                doc.addResource(
+                    QTextDocument.ResourceType.ImageResource, QUrl(img_name), img
+                )
                 img_fmt = QTextImageFormat()
-                max_w = min(img.width(), self.viewport().width() - 40) if self.viewport().width() > 60 else img.width()
+                max_w = (
+                    min(img.width(), self.viewport().width() - 40)
+                    if self.viewport().width() > 60
+                    else img.width()
+                )
                 if img.width() > max_w:
                     ratio = max_w / img.width()
                     img_fmt.setWidth(int(max_w))
@@ -344,6 +417,7 @@ class FormattedTextEdit(QTextEdit):
 
 class _EmbeddedTaskContainer(QWidget):
     """Container for one embedded task list inside a text block or table cell."""
+
     remove_requested = pyqtSignal(object)
 
     def __init__(self, task_widget, parent=None):
@@ -362,18 +436,33 @@ class _EmbeddedTaskContainer(QWidget):
         self.drag_handle.setFixedWidth(20)
         self.drag_handle.setCursor(Qt.CursorShape.OpenHandCursor)
         self.drag_handle.setStyleSheet("color: #9ca3af; font-size: 14px;")
-        self.drag_handle.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        self.drag_handle.setAlignment(
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+        )
 
         lbl = QLabel("Tasks")
-        lbl.setStyleSheet("color: #6b7280; font-size: 11px; font-weight: bold; padding: 0 4px;")
+        lbl.setStyleSheet(
+            "color: #6b7280; font-size: 11px; font-weight: bold; padding: 0 4px;"
+        )
 
         self._add_btn = QPushButton("+ Add Task")
         self._add_btn.setFixedHeight(22)
-        self._add_btn.setStyleSheet("QPushButton { font-size: 11px; border: 1px solid #d1d5db; border-radius: 3px; background: #f9fafb; padding: 0 8px; color: #374151; } QPushButton:hover { border-color: #6366f1; color: #6366f1; }")
+        self._add_btn.setStyleSheet(
+            "QPushButton { font-size: 11px; border: 1px solid #d1d5db;"
+            " border-radius: 3px; background: #f9fafb; padding: 0 8px;"
+            " color: #374151; }"
+            " QPushButton:hover { border-color: #6366f1; color: #6366f1; }"
+        )
 
         self._remove_btn = QPushButton("×")
         self._remove_btn.setFixedSize(20, 20)
-        self._remove_btn.setStyleSheet("QPushButton { border: none; font-size: 14px; color: #9ca3af; } QPushButton:hover { color: #ef4444; } QToolTip { background-color: #FFFFFF; color: #2E2B2B; border: 1px solid #F0E6E8; border-radius: 8px; padding: 6px 10px; font-size: 12px; }")
+        self._remove_btn.setStyleSheet(
+            "QPushButton { border: none; font-size: 14px; color: #9ca3af; }"
+            " QPushButton:hover { color: #ef4444; }"
+            " QToolTip { background-color: #FFFFFF; color: #2E2B2B;"
+            " border: 1px solid #F0E6E8; border-radius: 8px;"
+            " padding: 6px 10px; font-size: 12px; }"
+        )
         self._remove_btn.setToolTip("Remove this task list")
 
         top_bar.addWidget(self.drag_handle)
@@ -407,7 +496,9 @@ class MarkdownBlock(QWidget):
         super().__init__(parent)
         self.block_id = block_id
         self.editing = False
-        self.content_font_size = content_font_size if content_font_size and content_font_size >= 1 else 13
+        self.content_font_size = (
+            content_font_size if content_font_size and content_font_size >= 1 else 13
+        )
         self._embedded_lists = []
         self._embedded_id_counter = -1
         self._active_list = None
@@ -433,7 +524,9 @@ class MarkdownBlock(QWidget):
 
         self.editor.textChanged.connect(self._on_text_changed)
         self._pending_font_size = None
-        self.editor.focused.connect(lambda: QTimer.singleShot(0, self._apply_pending_font))
+        self.editor.focused.connect(
+            lambda: QTimer.singleShot(0, self._apply_pending_font)
+        )
 
         self._text_stack = QStackedWidget()
         self._text_stack.addWidget(self.preview)
@@ -492,9 +585,11 @@ class MarkdownBlock(QWidget):
     def _restore_embedded_list(self, tasks_data):
         eid = self._next_embedded_id()
         from src.repositories.in_memory_task_repo import InMemoryTaskRepo
+
         repo = InMemoryTaskRepo()
         for td in tasks_data:
             from src.models.task import Task
+
             task = Task(
                 content_block_id=eid,
                 text=td.get("text", ""),
@@ -508,14 +603,18 @@ class MarkdownBlock(QWidget):
         container = _EmbeddedTaskContainer(tw, self)
         container.remove_requested.connect(self._remove_embedded_list)
         self._embedded_layout.addWidget(container)
-        self._embedded_lists.append({"id": eid, "repo": repo, "tw": tw, "container": container})
+        self._embedded_lists.append(
+            {"id": eid, "repo": repo, "tw": tw, "container": container}
+        )
 
     def add_task_list(self):
         try:
             eid = self._next_embedded_id()
             from src.repositories.in_memory_task_repo import InMemoryTaskRepo
+
             repo = InMemoryTaskRepo()
             from src.models.task import Task
+
             task = Task(content_block_id=eid, text="New task")
             repo.create(task)
             tw = TaskWidget(eid, parent=self, task_repo=repo)
@@ -523,24 +622,29 @@ class MarkdownBlock(QWidget):
             container = _EmbeddedTaskContainer(tw, self)
             container.remove_requested.connect(self._remove_embedded_list)
             self._embedded_layout.addWidget(container)
-            self._embedded_lists.append({"id": eid, "repo": repo, "tw": tw, "container": container})
+            self._embedded_lists.append(
+                {"id": eid, "repo": repo, "tw": tw, "container": container}
+            )
             self._active_list = len(self._embedded_lists) - 1
-            
+
             # Focus the first edit field with error handling
             try:
                 first_task_widget = tw.findChild(QTextEdit)
                 if first_task_widget and not first_task_widget.isDeleted():
-                    QTimer.singleShot(10, lambda: self._safe_focus_widget(first_task_widget))
+                    QTimer.singleShot(
+                        10, lambda: self._safe_focus_widget(first_task_widget)
+                    )
             except Exception:
                 pass
-            
+
             self.embedded_changed.emit()
             self.changed.emit()
         except Exception as e:
             print(f"Error in add_task_list: {e}")
             import traceback
+
             traceback.print_exc()
-    
+
     def _safe_focus_widget(self, widget):
         """Safely focus a widget with error handling."""
         try:
@@ -568,7 +672,9 @@ class MarkdownBlock(QWidget):
                 return
 
     def _add_task_to_active_list(self):
-        if self._active_list is not None and self._active_list < len(self._embedded_lists):
+        if self._active_list is not None and self._active_list < len(
+            self._embedded_lists
+        ):
             self._embedded_lists[self._active_list]["tw"]._add_task()
 
     def set_active_list_from_widget(self, widget):
@@ -589,19 +695,23 @@ class MarkdownBlock(QWidget):
             task_lists = []
             for el in self._embedded_lists:
                 tasks = el["repo"].get_by_block(el["id"])
-                task_lists.append([
-                    {
-                        "text": t.text,
-                        "is_checked": t.is_checked,
-                        "recurrence_type": t.recurrence_type,
-                        "due_date": t.due_date,
-                    }
-                    for t in tasks
-                ])
-            return json.dumps({
-                "text": self.editor.toHtml(),
-                "task_lists": task_lists,
-            })
+                task_lists.append(
+                    [
+                        {
+                            "text": t.text,
+                            "is_checked": t.is_checked,
+                            "recurrence_type": t.recurrence_type,
+                            "due_date": t.due_date,
+                        }
+                        for t in tasks
+                    ]
+                )
+            return json.dumps(
+                {
+                    "text": self.editor.toHtml(),
+                    "task_lists": task_lists,
+                }
+            )
         except Exception as e:
             print(f"Error in to_serialized_content: {e}")
             return ""
@@ -618,11 +728,14 @@ class MarkdownBlock(QWidget):
     def _on_focus_lost(self):
         """Switch to preview only if focus moved to a non-block widget."""
         focused = QApplication.focusWidget()
-        if focused is None:
+        if isinstance(focused, QToolButton | QPushButton | QComboBox | QLabel):
             return
-        if isinstance(focused, (QToolButton, QPushButton, QComboBox, QLabel)):
-            return
-        if type(focused).__name__ in ('ResizeHandle', 'ResizeHandleHeader', 'DragHandle', 'ContentBlockWidget'):
+        if focused is not None and type(focused).__name__ in (
+            "ResizeHandle",
+            "ResizeHandleHeader",
+            "DragHandle",
+            "ContentBlockWidget",
+        ):
             return
         self._switch_to_preview()
 
@@ -670,8 +783,8 @@ class MarkdownBlock(QWidget):
             if self.preview:
                 font = self.editor.document().defaultFont()
                 current_families = list(font.families())
-                if 'Segoe UI Emoji' not in current_families:
-                    current_families.insert(0, 'Segoe UI Emoji')
+                if "Segoe UI Emoji" not in current_families:
+                    current_families.insert(0, "Segoe UI Emoji")
                     font.setFamilies(current_families)
                 self.preview.document().setDefaultFont(font)
                 self.preview.setHtml(html)
@@ -747,10 +860,13 @@ class TableCell(QWidget):
 
     def _set_selected(self, selected: bool):
         try:
-            if not hasattr(self, '_edit') or not self._edit:
+            if not hasattr(self, "_edit") or not self._edit:
                 return
             if selected:
-                self._edit.setStyleSheet("QTextEdit { border: 2px solid #CFA6D6; border-radius: 8px; background: #FFFBFD; }")
+                self._edit.setStyleSheet(
+                    "QTextEdit { border: 2px solid #CFA6D6;"
+                    " border-radius: 8px; background: #FFFBFD; }"
+                )
             else:
                 self._edit.setStyleSheet("")
         except Exception as e:
@@ -774,6 +890,7 @@ class TableCell(QWidget):
         except Exception as e:
             print(f"Error in toPlainText: {e}")
             import traceback
+
             traceback.print_exc()
             return ""
 
@@ -804,7 +921,9 @@ class TableCell(QWidget):
         return self._edit.minimumHeight()
 
     def hasFocus(self):
-        return self._edit.hasFocus() or (self._task_widget and self._task_widget.hasFocus())
+        return self._edit.hasFocus() or (
+            self._task_widget and self._task_widget.hasFocus()
+        )
 
     def setFocus(self, reason=...):
         if self._task_widget:
@@ -817,14 +936,14 @@ class TableCell(QWidget):
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key.Key_Tab:
-            if self._table and hasattr(self._table, '_focus_next_cell'):
+            if self._table and hasattr(self._table, "_focus_next_cell"):
                 try:
                     self._table._focus_next_cell(self._table_row, self._table_col)
                 except Exception:
                     pass
             event.accept()
         elif event.key() == Qt.Key.Key_Backtab:
-            if self._table and hasattr(self._table, '_focus_prev_cell'):
+            if self._table and hasattr(self._table, "_focus_prev_cell"):
                 try:
                     self._table._focus_prev_cell(self._table_row, self._table_col)
                 except Exception:
@@ -839,16 +958,22 @@ class TableCell(QWidget):
                 return
             self._task_block_id -= 1
             from src.repositories.in_memory_task_repo import InMemoryTaskRepo
+
             self._task_repo = InMemoryTaskRepo()
             from src.models.task import Task
+
             task = Task(content_block_id=self._task_block_id, text="New task")
             self._task_repo.create(task)
-            self._task_widget = TaskWidget(self._task_block_id, parent=self, task_repo=self._task_repo)
+            self._task_widget = TaskWidget(
+                self._task_block_id, parent=self, task_repo=self._task_repo
+            )
             self._task_widget.task_changed.connect(self._on_tasks_changed)
             self.layout().addWidget(self._task_widget)
             if self._table:
                 try:
-                    self._table.rows[self._table_row][self._table_col] = self.toPlainText()
+                    self._table.rows[self._table_row][self._table_col] = (
+                        self.toPlainText()
+                    )
                     self._table._mark_dirty()
                     self._table.tasks_changed.emit()
                 except Exception:
@@ -857,6 +982,7 @@ class TableCell(QWidget):
         except Exception as e:
             print(f"Error in TableCell.add_task_list: {e}")
             import traceback
+
             traceback.print_exc()
 
     def _remove_task_widget(self):
@@ -868,10 +994,13 @@ class TableCell(QWidget):
                 self._task_repo = None
                 self._edit.setVisible(True)
                 if self._table:
-                    self._table.rows[self._table_row][self._table_col] = self._edit.toPlainText()
+                    self._table.rows[self._table_row][self._table_col] = (
+                        self._edit.toPlainText()
+                    )
         except Exception as e:
             print(f"Error in _remove_task_widget: {e}")
             import traceback
+
             traceback.print_exc()
 
     def _notify_block_widget(self):
@@ -888,6 +1017,7 @@ class TableCell(QWidget):
         except Exception as e:
             print(f"Error in _notify_block_widget: {e}")
             import traceback
+
             traceback.print_exc()
 
     def _serialize_tasks(self):
@@ -895,21 +1025,24 @@ class TableCell(QWidget):
             if not self._task_repo:
                 return self._edit.toPlainText()
             tasks = self._task_repo.get_by_block(self._task_block_id)
-            return json.dumps({
-                "_type": "tasks",
-                "tasks": [
-                    {
-                        "text": t.text,
-                        "is_checked": t.is_checked,
-                        "recurrence_type": t.recurrence_type,
-                        "due_date": t.due_date,
-                    }
-                    for t in tasks
-                ]
-            })
+            return json.dumps(
+                {
+                    "_type": "tasks",
+                    "tasks": [
+                        {
+                            "text": t.text,
+                            "is_checked": t.is_checked,
+                            "recurrence_type": t.recurrence_type,
+                            "due_date": t.due_date,
+                        }
+                        for t in tasks
+                    ],
+                }
+            )
         except Exception as e:
             print(f"Error in _serialize_tasks: {e}")
             import traceback
+
             traceback.print_exc()
             return ""
 
@@ -922,6 +1055,7 @@ class TableCell(QWidget):
         except Exception as e:
             print(f"Error in _on_tasks_changed: {e}")
             import traceback
+
             traceback.print_exc()
 
     @staticmethod
@@ -930,9 +1064,11 @@ class TableCell(QWidget):
         cell.__init__("", row=row, col=col, table_widget=table_widget)
         cell._task_block_id -= 1
         from src.repositories.in_memory_task_repo import InMemoryTaskRepo
+
         cell._task_repo = InMemoryTaskRepo()
         for td in tasks_data:
             from src.models.task import Task
+
             task = Task(
                 content_block_id=cell._task_block_id,
                 text=td.get("text", ""),
@@ -941,7 +1077,9 @@ class TableCell(QWidget):
                 due_date=td.get("due_date"),
             )
             cell._task_repo.create(task)
-        cell._task_widget = TaskWidget(cell._task_block_id, parent=cell, task_repo=cell._task_repo)
+        cell._task_widget = TaskWidget(
+            cell._task_block_id, parent=cell, task_repo=cell._task_repo
+        )
         cell._task_widget.task_changed.connect(cell._on_tasks_changed)
         cell.layout().addWidget(cell._task_widget)
         if cell._table:
@@ -964,7 +1102,10 @@ class TableHeaderCell(QTextEdit):
         font.setBold(True)
         self.document().setDefaultFont(font)
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.setStyleSheet("QTextEdit { background: #FFF5F7; border: 1px solid #F0E6E8; border-radius: 8px; font-weight: bold; color: #2E2B2B; }")
+        self.setStyleSheet(
+            "QTextEdit { background: #FFF5F7; border: 1px solid #F0E6E8;"
+            " border-radius: 8px; font-weight: bold; color: #2E2B2B; }"
+        )
         self.textChanged.connect(self._on_changed)
 
     def _on_changed(self):
@@ -990,7 +1131,11 @@ class RowNumCell(QLabel):
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setMinimumHeight(30)
         self.setFixedWidth(40)
-        self.setStyleSheet("QLabel { background: #FFF5F7; border: 1px solid #F0E6E8; border-radius: 8px; font-weight: bold; color: #CFA6D6; font-size: 11px; padding: 2px; }")
+        self.setStyleSheet(
+            "QLabel { background: #FFF5F7; border: 1px solid #F0E6E8;"
+            " border-radius: 8px; font-weight: bold; color: #CFA6D6;"
+            " font-size: 11px; padding: 2px; }"
+        )
 
 
 class TableWidget(QWidget):
@@ -1021,7 +1166,22 @@ class TableWidget(QWidget):
     def _build_toolbar(self, parent):
         bar = QHBoxLayout()
         bar.setContentsMargins(0, 0, 0, 0)
-        btn_style = "QPushButton { font-size: 11px; padding: 4px 10px; border: none; border-radius: 14px; background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #FFFFFF, stop:1 #FFF8F5); color: #2E2B2B; } QPushButton:hover { background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #FFF0F3, stop:1 #F7D1DC); border: 1px solid #F7D1DC; } QPushButton:pressed { background: #F7D1DC; border: 1px solid #CFA6D6; } QPushButton:checked { background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #F3E8F6, stop:1 #E8DDE0); border: 1px solid #CFA6D6; }"
+        btn_style = (
+            "QPushButton { font-size: 11px; padding: 4px 10px;"
+            " border: none; border-radius: 14px;"
+            " background: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
+            " stop:0 #FFFFFF, stop:1 #FFF8F5); color: #2E2B2B; }"
+            " QPushButton:hover {"
+            " background: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
+            " stop:0 #FFF0F3, stop:1 #F7D1DC);"
+            " border: 1px solid #F7D1DC; }"
+            " QPushButton:pressed { background: #F7D1DC;"
+            " border: 1px solid #CFA6D6; }"
+            " QPushButton:checked {"
+            " background: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
+            " stop:0 #F3E8F6, stop:1 #E8DDE0);"
+            " border: 1px solid #CFA6D6; }"
+        )
         btn_add_row = QPushButton("+ Row")
         btn_add_row.setStyleSheet(btn_style)
         btn_del_row = QPushButton("- Row")
@@ -1058,7 +1218,9 @@ class TableWidget(QWidget):
         self._show_row_numbers = False
         lines = content.strip().split("\n")
         for line in lines:
-            if line.startswith("{") and ('"headers"' in line or '"row_numbers"' in line):
+            if line.startswith("{") and (
+                '"headers"' in line or '"row_numbers"' in line
+            ):
                 try:
                     data = json.loads(line)
                     if isinstance(data, dict):
@@ -1108,7 +1270,9 @@ class TableWidget(QWidget):
             try:
                 data = json.loads(val)
                 if isinstance(data, dict) and data.get("_type") == "tasks":
-                    return TableCell.from_task_data(data.get("tasks", []), row=r, col=c, table_widget=self)
+                    return TableCell.from_task_data(
+                        data.get("tasks", []), row=r, col=c, table_widget=self
+                    )
             except (json.JSONDecodeError, TypeError):
                 pass
         return TableCell(val, row=r, col=c, table_widget=self)
@@ -1116,7 +1280,7 @@ class TableWidget(QWidget):
     def _toggle_header(self, checked):
         if checked:
             cols = len(self.rows[0]) if self.rows else 2
-            self._headers = [f"Column {i+1}" for i in range(cols)]
+            self._headers = [f"Column {i + 1}" for i in range(cols)]
             self._btn_header.setText("- Header")
         else:
             self._headers = []
@@ -1192,12 +1356,13 @@ class TableWidget(QWidget):
                 self._selected_cells.clear()
                 self._selected_cells.add((row, col))
                 self._selection_anchor = (row, col)
-            
+
             # Update visual selection
             self._update_cell_selection_visual()
         except Exception as e:
             print(f"Error in _cell_clicked: {e}")
             import traceback
+
             traceback.print_exc()
 
     def _update_cell_selection_visual(self):
@@ -1205,9 +1370,9 @@ class TableWidget(QWidget):
         try:
             col_offset = 1 if self._show_row_numbers else 0
             row_offset = 1 if self._headers else 0
-            
+
             for r, row in enumerate(self.rows):
-                for c, val in enumerate(row):
+                for c, _val in enumerate(row):
                     try:
                         w = self.grid.itemAtPosition(r + row_offset, c + col_offset)
                         if w and w.widget() and isinstance(w.widget(), TableCell):
@@ -1219,6 +1384,7 @@ class TableWidget(QWidget):
         except Exception as e:
             print(f"Error in _update_cell_selection_visual: {e}")
             import traceback
+
             traceback.print_exc()
 
     def _delete_selected_cells(self):
@@ -1226,20 +1392,21 @@ class TableWidget(QWidget):
         try:
             if not self._selected_cells:
                 return
-            
+
             col_offset = 1 if self._show_row_numbers else 0
             row_offset = 1 if self._headers else 0
-            
+
             for row, col in self._selected_cells:
                 w = self.grid.itemAtPosition(row + row_offset, col + col_offset)
                 if w and w.widget() and isinstance(w.widget(), TableCell):
                     cell = w.widget()
                     cell._edit.clear()
-            
+
             self._mark_dirty()
         except Exception as e:
             print(f"Error in _delete_selected_cells: {e}")
             import traceback
+
             traceback.print_exc()
 
     def _clear_selection(self):
@@ -1281,7 +1448,10 @@ class TableWidget(QWidget):
         for r, row in enumerate(self.rows):
             cells = []
             for c in range(len(row)):
-                w = self.grid.itemAtPosition(r + (1 if self._headers else 0), c + (1 if self._show_row_numbers else 0))
+                w = self.grid.itemAtPosition(
+                    r + (1 if self._headers else 0),
+                    c + (1 if self._show_row_numbers else 0),
+                )
                 text = w.widget().toPlainText() if w and w.widget() else ""
                 cells.append(text)
             lines.append("| " + " | ".join(cells) + " |")
@@ -1318,7 +1488,9 @@ class TableWidget(QWidget):
             w.widget().setFocus()
 
     def save_content(self):
-        BlockRepo().update(ContentBlock(id=self.block_id, content_markdown=self.to_markdown()))
+        BlockRepo().update(
+            ContentBlock(id=self.block_id, content_markdown=self.to_markdown())
+        )
 
 
 class _TaskRowResizeHandle(QWidget):
@@ -1357,7 +1529,10 @@ class _TaskRowResizeHandle(QWidget):
 
 
 class _TaskRowSplitHandle(QWidget):
-    """Drag handle between the QTextEdit and sidebar that resizes only the edit width."""
+    """Drag handle between the QTextEdit and sidebar.
+
+    Resizes only the edit width.
+    """
 
     def __init__(self, edit_widget):
         super().__init__()
@@ -1402,6 +1577,7 @@ class TaskWidget(QWidget):
         super().__init__(parent)
         self.block_id = block_id
         from src.repositories.task_repo import TaskRepo
+
         self.task_repo = task_repo if task_repo is not None else TaskRepo()
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -1456,12 +1632,15 @@ class TaskWidget(QWidget):
             else:
                 edit.setPlainText(task_text)
             edit.blockSignals(False)
-            edit.textChanged.connect(lambda t=task, e=edit: (
-                self._update_text(t, _get_edit_html_body(e)),
-                self._auto_grow_edit(e, container)
-            ))
+            edit.textChanged.connect(
+                lambda t=task, e=edit, c=container: (
+                    self._update_text(t, _get_edit_html_body(e)),
+                    self._auto_grow_edit(e, c),
+                )
+            )
 
-            # edit_container stretches; inside: edit at left, split handle, stretch pushes them left
+            # edit_container stretches; inside: edit at left,
+            # split handle, stretch pushes them left
             edit_container = QWidget()
             edit_inner = QHBoxLayout(edit_container)
             edit_inner.setContentsMargins(0, 0, 0, 0)
@@ -1508,9 +1687,7 @@ class TaskWidget(QWidget):
 
             # Start at single-line height; auto-grow after layout resolves
             container.setFixedHeight(30)
-            QTimer.singleShot(0, lambda c=container, e=edit: (
-                self._auto_grow_edit(e, c)
-            ))
+            QTimer.singleShot(0, lambda c=container, e=edit: self._auto_grow_edit(e, c))
 
             layout.addWidget(container)
 
@@ -1555,10 +1732,13 @@ class TaskWidget(QWidget):
 
     def _delete_task(self, task):
         from src.undo_manager import _task_dict
-        undo_manager.push({
-            "type": "task",
-            "task": _task_dict(task),
-        })
+
+        undo_manager.push(
+            {
+                "type": "task",
+                "task": _task_dict(task),
+            }
+        )
         self.task_repo.delete(task.id)
         self._load()
         self.task_changed.emit()
@@ -1609,7 +1789,9 @@ class ResizeHandle(QWidget):
         p.setPen(QColor("#d1d5db"))
         cx = w // 2
         for i in range(3):
-            p.drawLine(cx - 8 + i * 5, self.height() // 2, cx - 4 + i * 5, self.height() // 2)
+            p.drawLine(
+                cx - 8 + i * 5, self.height() // 2, cx - 4 + i * 5, self.height() // 2
+            )
 
     def enterEvent(self, event):
         self._hovered = True
@@ -1655,14 +1837,16 @@ class ResizeHandle(QWidget):
                     self.block_widget._body.preview.setMinimumHeight(editor_h)
                 elif isinstance(self.block_widget._body, TableWidget):
                     data_rows = len(self.block_widget._body.rows)
-                    total_rows = data_rows + (1 if self.block_widget._body._headers else 0)
+                    total_rows = data_rows + (
+                        1 if self.block_widget._body._headers else 0
+                    )
                     for i in range(self.block_widget._body.grid.count()):
                         it = self.block_widget._body.grid.itemAt(i)
                         if it and it.widget():
                             if isinstance(it.widget(), TableCell):
                                 cell_h = max(30, (new_h - 80) // max(1, data_rows))
                                 it.widget().setMaximumHeight(cell_h + 20)
-                            elif isinstance(it.widget(), (TableHeaderCell, RowNumCell)):
+                            elif isinstance(it.widget(), TableHeaderCell | RowNumCell):
                                 hdr_h = max(36, (new_h - 80) // max(1, total_rows))
                                 it.widget().setFixedHeight(hdr_h + 10)
             except Exception as e:
@@ -1671,14 +1855,18 @@ class ResizeHandle(QWidget):
             in_corner = self._is_in_corner(event.position().toPoint().x())
             if in_corner != self._in_corner:
                 self._in_corner = in_corner
-                self.setCursor(Qt.CursorShape.SizeFDiagCursor if in_corner else Qt.CursorShape.SizeVerCursor)
+                self.setCursor(
+                    Qt.CursorShape.SizeFDiagCursor
+                    if in_corner
+                    else Qt.CursorShape.SizeVerCursor
+                )
 
     def mouseReleaseEvent(self, event):
         self._dragging = False
         self._hovered = True
         self.update()
         try:
-            if hasattr(self.block_widget, 'save'):
+            if hasattr(self.block_widget, "save"):
                 self.block_widget.save()
         except Exception as e:
             print(f"Error saving after resize: {e}")
@@ -1707,7 +1895,10 @@ class ResizeHandleHeader(QWidget):
             p.drawLine(cx - 6, y, cx + 6, y)
 
     def enterEvent(self, event):
-        self.setStyleSheet("background: #e0e7ff; border-top: 1px solid #6366f1; border-bottom: 1px solid #6366f1;")
+        self.setStyleSheet(
+            "background: #e0e7ff; border-top: 1px solid #6366f1;"
+            " border-bottom: 1px solid #6366f1;"
+        )
 
     def leaveEvent(self, event):
         if not self._dragging:
@@ -1787,7 +1978,10 @@ class ContentBlockWidget(QFrame):
                 event.accept()
                 return
             mods = QApplication.keyboardModifiers()
-            add_to_selection = mods in (Qt.KeyboardModifier.ShiftModifier, Qt.KeyboardModifier.ControlModifier)
+            add_to_selection = mods in (
+                Qt.KeyboardModifier.ShiftModifier,
+                Qt.KeyboardModifier.ControlModifier,
+            )
             self.clicked.emit(self, add_to_selection)
         super().mousePressEvent(event)
         event.accept()
@@ -1824,8 +2018,14 @@ class ContentBlockWidget(QFrame):
         header.setAlignment(Qt.AlignmentFlag.AlignVCenter)
         self.drag_handle = DragHandle()
 
-        default_header = self.block.header if self.block.header else self.block.block_type
-        header_size = self.block.header_font_size if self.block.header_font_size and self.block.header_font_size >= 1 else 9
+        default_header = (
+            self.block.header if self.block.header else self.block.block_type
+        )
+        header_size = (
+            self.block.header_font_size
+            if self.block.header_font_size and self.block.header_font_size >= 1
+            else 9
+        )
         self._pending_header_font_size = None
         self._header_align_h = self.block.header_align_h
         self._header_align_v = self.block.header_align_v
@@ -1842,33 +2042,45 @@ class ContentBlockWidget(QFrame):
         self._header_edit.setObjectName("block_header_edit")
         self._header_edit.setPlainText(default_header)
         self._header_edit.setPlaceholderText(self.block.block_type)
-        self._header_edit.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self._header_edit.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self._header_edit.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        self._header_edit.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
         self._header_edit.setTabChangesFocus(True)
         self._header_edit.setFont(header_font)
         self._header_edit.setFrameShape(QFrame.Shape.NoFrame)
         self._header_edit.document().setDocumentMargin(1)
         self._header_edit.setFixedHeight(max(30, int(header_size * 1.6 + 8)))
-        self._header_edit.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self._header_edit.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
+        )
         _orig_header_focus = self._header_edit.focusInEvent
+
         def _on_header_focus(ev, orig=_orig_header_focus, me=self):
             orig(ev)
             me.header_focused.emit(me)
             QTimer.singleShot(0, me._apply_pending_header_font)
+
         self._header_edit.focusInEvent = _on_header_focus
         _orig_header_focus_out = self._header_edit.focusOutEvent
+
         def _on_header_focus_out(ev, orig=_orig_header_focus_out, me=self):
             orig(ev)
-            if hasattr(me, '_inline_toolbar') and not me._body.editing:
+            if hasattr(me, "_inline_toolbar") and not me._body.editing:
                 me._inline_toolbar.setVisible(False)
+
         self._header_edit.focusOutEvent = _on_header_focus_out
         _orig_header_key = self._header_edit.keyPressEvent
+
         def _header_key(ev, orig=_orig_header_key, me=self):
             if ev.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
                 ev.accept()
                 me._header_edit.clearFocus()
             else:
                 orig(ev)
+
         self._header_edit.keyPressEvent = _header_key
         self._header_edit.setStyleSheet(
             "QTextEdit { border: none; background: transparent; color: #2E2B2B; }"
@@ -1877,8 +2089,14 @@ class ContentBlockWidget(QFrame):
 
         self._apply_v_alignment_layout()
 
-        h_align_map = {"left": Qt.AlignmentFlag.AlignLeft, "center": Qt.AlignmentFlag.AlignCenter, "right": Qt.AlignmentFlag.AlignRight}
-        self._header_edit.setAlignment(h_align_map.get(self._header_align_h, Qt.AlignmentFlag.AlignLeft))
+        h_align_map = {
+            "left": Qt.AlignmentFlag.AlignLeft,
+            "center": Qt.AlignmentFlag.AlignCenter,
+            "right": Qt.AlignmentFlag.AlignRight,
+        }
+        self._header_edit.setAlignment(
+            h_align_map.get(self._header_align_h, Qt.AlignmentFlag.AlignLeft)
+        )
 
         container_h = self.block.header_height or max(36, int(header_size * 1.6 + 12))
         self._header_container.setFixedHeight(container_h)
@@ -1886,45 +2104,63 @@ class ContentBlockWidget(QFrame):
         self._align_target_kind = "header"
         self._align_target_edit = self._header_edit
 
-        icons_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'assets', 'icons')
+        icons_dir = os.path.join(
+            os.path.dirname(__file__), "..", "..", "assets", "icons"
+        )
 
-        _tip = " QToolTip { background-color: #FFFFFF; color: #2E2B2B; border: 1px solid #F0E6E8; border-radius: 8px; padding: 6px 10px; font-size: 12px; }"
+        _tip = (
+            " QToolTip { background-color: #FFFFFF; color: #2E2B2B;"
+            " border: 1px solid #F0E6E8; border-radius: 8px;"
+            " padding: 6px 10px; font-size: 12px; }"
+        )
 
         self._h_align_group = QButtonGroup(self)
         self._h_left_btn = QPushButton()
-        self._h_left_btn.setIcon(QIcon(os.path.join(icons_dir, 'align_left.svg')))
+        self._h_left_btn.setIcon(QIcon(os.path.join(icons_dir, "align_left.svg")))
         self._h_left_btn.setToolTip("Align left")
         self._h_center_btn = QPushButton()
-        self._h_center_btn.setIcon(QIcon(os.path.join(icons_dir, 'align_center.svg')))
+        self._h_center_btn.setIcon(QIcon(os.path.join(icons_dir, "align_center.svg")))
         self._h_center_btn.setToolTip("Align center")
         self._h_right_btn = QPushButton()
-        self._h_right_btn.setIcon(QIcon(os.path.join(icons_dir, 'align_right.svg')))
+        self._h_right_btn.setIcon(QIcon(os.path.join(icons_dir, "align_right.svg")))
         self._h_right_btn.setToolTip("Align right")
         for b in (self._h_left_btn, self._h_center_btn, self._h_right_btn):
             b.setCheckable(True)
             b.setFixedHeight(container_h)
             b.setFixedWidth(32)
             b.setIconSize(QSize(18, 18))
-            b.setStyleSheet("QPushButton { padding: 0px; min-height: 0px; border: 1px solid #e5e7eb; border-radius: 4px; } QPushButton:checked { background: #f3e8f6; border-color: #CFA6D6; } QPushButton:hover { background: #fef2f2; }" + _tip)
+            b.setStyleSheet(
+                "QPushButton { padding: 0px; min-height: 0px;"
+                " border: 1px solid #e5e7eb; border-radius: 4px; }"
+                " QPushButton:checked { background: #f3e8f6;"
+                " border-color: #CFA6D6; }"
+                " QPushButton:hover { background: #fef2f2; }" + _tip
+            )
             self._h_align_group.addButton(b)
         self._h_align_group.buttonClicked.connect(self._on_h_align_changed)
 
         self._v_align_group = QButtonGroup(self)
         self._v_top_btn = QPushButton()
-        self._v_top_btn.setIcon(QIcon(os.path.join(icons_dir, 'align_top.svg')))
+        self._v_top_btn.setIcon(QIcon(os.path.join(icons_dir, "align_top.svg")))
         self._v_top_btn.setToolTip("Align top")
         self._v_center_btn = QPushButton()
-        self._v_center_btn.setIcon(QIcon(os.path.join(icons_dir, 'align_middle.svg')))
+        self._v_center_btn.setIcon(QIcon(os.path.join(icons_dir, "align_middle.svg")))
         self._v_center_btn.setToolTip("Align middle")
         self._v_bottom_btn = QPushButton()
-        self._v_bottom_btn.setIcon(QIcon(os.path.join(icons_dir, 'align_bottom.svg')))
+        self._v_bottom_btn.setIcon(QIcon(os.path.join(icons_dir, "align_bottom.svg")))
         self._v_bottom_btn.setToolTip("Align bottom")
         for b in (self._v_top_btn, self._v_center_btn, self._v_bottom_btn):
             b.setCheckable(True)
             b.setFixedHeight(container_h)
             b.setFixedWidth(32)
             b.setIconSize(QSize(18, 18))
-            b.setStyleSheet("QPushButton { padding: 0px; min-height: 0px; border: 1px solid #e5e7eb; border-radius: 4px; } QPushButton:checked { background: #f3e8f6; border-color: #CFA6D6; } QPushButton:hover { background: #fef2f2; }" + _tip)
+            b.setStyleSheet(
+                "QPushButton { padding: 0px; min-height: 0px;"
+                " border: 1px solid #e5e7eb; border-radius: 4px; }"
+                " QPushButton:checked { background: #f3e8f6;"
+                " border-color: #CFA6D6; }"
+                " QPushButton:hover { background: #fef2f2; }" + _tip
+            )
             self._v_align_group.addButton(b)
         self._v_align_group.buttonClicked.connect(self._on_v_align_changed)
 
@@ -1935,29 +2171,51 @@ class ContentBlockWidget(QFrame):
         self._dots_btn.setFixedWidth(28)
         self._dots_btn.setToolTip("Alignment & options")
         self._dots_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self._dots_btn.setStyleSheet("QPushButton { border: 1px solid #e5e7eb; border-radius: 4px; color: #9ca3af; font-size: 16px; font-weight: bold; padding: 0px; } QPushButton:hover { background: #F3E8F6; border-color: #CFA6D6; }" + _tip)
+        self._dots_btn.setStyleSheet(
+            "QPushButton { border: 1px solid #e5e7eb;"
+            " border-radius: 4px; color: #9ca3af; font-size: 16px;"
+            " font-weight: bold; padding: 0px; }"
+            " QPushButton:hover { background: #F3E8F6;"
+            " border-color: #CFA6D6; }" + _tip
+        )
         self._dots_btn.clicked.connect(self._show_alignment_menu)
 
         del_btn = QPushButton("✕")
         del_btn.setFixedHeight(container_h)
         del_btn.setToolTip("Delete block")
-        del_btn.setStyleSheet("QPushButton { border: 1px solid #e5e7eb; border-radius: 4px; color: #9ca3af; font-size: 14px; padding: 0px; min-width: 24px; max-width: 24px; } QPushButton:hover { color: #ef4444; border-color: #ef4444; background: #fef2f2; }" + _tip)
+        del_btn.setStyleSheet(
+            "QPushButton { border: 1px solid #e5e7eb;"
+            " border-radius: 4px; color: #9ca3af; font-size: 14px;"
+            " padding: 0px; min-width: 24px; max-width: 24px; }"
+            " QPushButton:hover { color: #ef4444;"
+            " border-color: #ef4444; background: #fef2f2; }" + _tip
+        )
 
         header.addWidget(self.drag_handle)
         header.addWidget(self._header_container, 1)
         header.addWidget(self._dots_btn)
         self._add_task_btn = QPushButton("+ Add Task")
         self._add_task_btn.setFixedHeight(container_h)
-        self._add_task_btn.setStyleSheet("QPushButton { padding: 0px; min-height: 0px; border: 1px solid #e5e7eb; border-radius: 4px; color: #9ca3af; font-size: 11px; } QPushButton:hover { background: #fef2f2; }" + _tip)
+        self._add_task_btn.setStyleSheet(
+            "QPushButton { padding: 0px; min-height: 0px;"
+            " border: 1px solid #e5e7eb; border-radius: 4px;"
+            " color: #9ca3af; font-size: 11px; }"
+            " QPushButton:hover { background: #fef2f2; }" + _tip
+        )
         self._add_task_btn.setVisible(False)
         header.addWidget(self._add_task_btn)
 
         self._fun_imports_btn = QPushButton()
-        self._fun_imports_btn.setIcon(QIcon(os.path.join(icons_dir, 'folder_fun.svg')))
+        self._fun_imports_btn.setIcon(QIcon(os.path.join(icons_dir, "folder_fun.svg")))
         self._fun_imports_btn.setFixedSize(container_h, container_h)
         self._fun_imports_btn.setToolTip("Fun Imports (Emoji & GIF)")
         self._fun_imports_btn.setIconSize(QSize(18, 18))
-        self._fun_imports_btn.setStyleSheet("QPushButton { padding: 0px; min-height: 0px; border: 1px solid #e5e7eb; border-radius: 4px; } QPushButton:hover { background: #F3E8F6; border-color: #CFA6D6; }" + _tip)
+        self._fun_imports_btn.setStyleSheet(
+            "QPushButton { padding: 0px; min-height: 0px;"
+            " border: 1px solid #e5e7eb; border-radius: 4px; }"
+            " QPushButton:hover { background: #F3E8F6;"
+            " border-color: #CFA6D6; }" + _tip
+        )
         self._fun_imports_btn.clicked.connect(self._open_fun_imports)
         header.addWidget(self._fun_imports_btn)
 
@@ -1965,14 +2223,24 @@ class ContentBlockWidget(QFrame):
 
         layout.addLayout(header)
 
-        self._header_resize_handle = ResizeHandleHeader(self._header_container, self._header_edit)
+        self._header_resize_handle = ResizeHandleHeader(
+            self._header_container, self._header_edit
+        )
         layout.addWidget(self._header_resize_handle)
 
         self._body = None
 
         if self.block.block_type == "text":
-            content_size = self.block.content_font_size if self.block.content_font_size and self.block.content_font_size >= 1 else 13
-            self._body = MarkdownBlock(self.block.id, self.block.content_markdown, content_font_size=content_size)
+            content_size = (
+                self.block.content_font_size
+                if self.block.content_font_size and self.block.content_font_size >= 1
+                else 13
+            )
+            self._body = MarkdownBlock(
+                self.block.id,
+                self.block.content_markdown,
+                content_font_size=content_size,
+            )
             self._body.changed.connect(self._on_content_changed)
             self._body.embedded_changed.connect(self._fit_to_content)
             self._body.embedded_changed.connect(self._sync_add_task_btn)
@@ -1981,7 +2249,9 @@ class ContentBlockWidget(QFrame):
             self._body.editing_changed.connect(self._on_editing_changed)
             self.header_focused.connect(self._on_header_focus_changed)
             layout.addWidget(self._body)
-            self._body.editor.focused.connect(lambda ed=self: self.content_focused.emit(ed))
+            self._body.editor.focused.connect(
+                lambda ed=self: self.content_focused.emit(ed)
+            )
             self._add_task_btn.clicked.connect(self._body._add_task_to_active_list)
             QTimer.singleShot(0, self._sync_add_task_btn)
         elif self.block.block_type == "table":
@@ -1998,8 +2268,12 @@ class ContentBlockWidget(QFrame):
             self._body_scroll = QScrollArea()
             self._body_scroll.setWidget(self._body)
             self._body_scroll.setWidgetResizable(True)
-            self._body_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-            self._body_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+            self._body_scroll.setVerticalScrollBarPolicy(
+                Qt.ScrollBarPolicy.ScrollBarAsNeeded
+            )
+            self._body_scroll.setHorizontalScrollBarPolicy(
+                Qt.ScrollBarPolicy.ScrollBarAsNeeded
+            )
             self._body_scroll.setFrameShape(QFrame.Shape.NoFrame)
             layout.addWidget(self._body_scroll)
             if self.block.height:
@@ -2036,8 +2310,10 @@ class ContentBlockWidget(QFrame):
                         if isinstance(w.widget(), TableCell):
                             cell_h = max(30, (h - 64) // max(1, data_rows))
                             w.widget().setMaximumHeight(cell_h)
-                        elif isinstance(w.widget(), (TableHeaderCell, RowNumCell)):
-                            w.widget().setFixedHeight(max(36, (h - 64) // max(1, total_rows)))
+                        elif isinstance(w.widget(), TableHeaderCell | RowNumCell):
+                            w.widget().setFixedHeight(
+                                max(36, (h - 64) // max(1, total_rows))
+                            )
             elif isinstance(self._body, TaskWidget):
                 inner_h = max(30, h - 64)
                 self._body_scroll.setMinimumHeight(inner_h)
@@ -2064,12 +2340,13 @@ class ContentBlockWidget(QFrame):
         except Exception as e:
             print(f"Error in _add_task_to_active_cell: {e}")
             import traceback
+
             traceback.print_exc()
 
     def _on_table_cell_activated(self, cell):
         try:
             self._active_task_cell = cell
-            if hasattr(self, '_add_task_btn') and self._add_task_btn:
+            if hasattr(self, "_add_task_btn") and self._add_task_btn:
                 if cell and cell._task_widget:
                     self._add_task_btn.setVisible(True)
                 else:
@@ -2077,6 +2354,7 @@ class ContentBlockWidget(QFrame):
         except Exception as e:
             print(f"Error in _on_table_cell_activated: {e}")
             import traceback
+
             traceback.print_exc()
 
     def _on_content_changed(self):
@@ -2085,12 +2363,30 @@ class ContentBlockWidget(QFrame):
             self._fit_to_content()
 
     def _on_editing_changed(self, editing):
-        if hasattr(self, '_inline_toolbar'):
+        if hasattr(self, "_inline_toolbar"):
             self._inline_toolbar.setVisible(editing)
+        if hasattr(self, "_dots_btn"):
+            self._dots_btn.setVisible(editing)
+        if hasattr(self, "_fun_imports_btn"):
+            self._fun_imports_btn.setVisible(editing)
+        if not editing and hasattr(self, "_header_edit"):
+            self._saved_header_align = self._header_edit.alignment()
+            self._header_edit.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        elif (
+            editing
+            and hasattr(self, "_header_edit")
+            and hasattr(self, "_saved_header_align")
+        ):
+            self._header_edit.setAlignment(self._saved_header_align)
 
     def _on_header_focus_changed(self, block_w):
-        if hasattr(self, '_inline_toolbar') and block_w is self:
-            self._inline_toolbar.setVisible(True)
+        if block_w is self:
+            if hasattr(self, "_inline_toolbar"):
+                self._inline_toolbar.setVisible(True)
+            if hasattr(self, "_dots_btn"):
+                self._dots_btn.setVisible(True)
+            if hasattr(self, "_fun_imports_btn"):
+                self._fun_imports_btn.setVisible(True)
 
     def _fit_to_content(self):
         if self._manual_resize:
@@ -2116,8 +2412,7 @@ class ContentBlockWidget(QFrame):
             layout_spacing = self.layout().spacing()
             header_h = self._header_container.height()
             handle_h = self.resize_handle.height()
-            padding = (margins.top() + margins.bottom() +
-                       layout_spacing * 2 + 16)
+            padding = margins.top() + margins.bottom() + layout_spacing * 2 + 16
             h = max(60, hh + header_h + handle_h + padding)
         else:
             self.layout().activate()
@@ -2130,17 +2425,21 @@ class ContentBlockWidget(QFrame):
 
     def _delete(self):
         from src.undo_manager import _block_dict, _task_dict
+
         tasks_data = [_task_dict(t) for t in TaskRepo().get_by_block(self.block.id)]
-        undo_manager.push({
-            "type": "block",
-            "block": _block_dict(self.block),
-            "tasks": tasks_data,
-        })
+        undo_manager.push(
+            {
+                "type": "block",
+                "block": _block_dict(self.block),
+                "tasks": tasks_data,
+            }
+        )
         BlockRepo().delete(self.block.id)
         self.delete_requested.emit(self)
 
     def _open_fun_imports(self):
         from src.ui.sidebar import FunImportsDialog
+
         target_edit = None
 
         focused = QApplication.focusWidget()
@@ -2152,7 +2451,7 @@ class ContentBlockWidget(QFrame):
                 self._body._switch_to_edit()
             target_edit = self._body.editor
         elif isinstance(self._body, TableWidget):
-            if self._active_task_cell and hasattr(self._active_task_cell, '_edit'):
+            if self._active_task_cell and hasattr(self._active_task_cell, "_edit"):
                 target_edit = self._active_task_cell._edit
             elif focused and isinstance(focused, FormattedTextEdit):
                 target_edit = focused
@@ -2169,11 +2468,15 @@ class ContentBlockWidget(QFrame):
 
     def _show_alignment_menu(self):
         """Show alignment dropdown menu from the ⋮ button."""
-        icons_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'assets', 'icons')
+        icons_dir = os.path.join(
+            os.path.dirname(__file__), "..", "..", "assets", "icons"
+        )
         menu = QMenu(self)
         menu.setStyleSheet("""
-            QMenu { background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 4px; }
-            QMenu::item { padding: 6px 24px; border-radius: 4px; font-size: 12px; color: #374151; }
+            QMenu { background: #ffffff; border: 1px solid #e5e7eb;
+                border-radius: 8px; padding: 4px; }
+            QMenu::item { padding: 6px 24px; border-radius: 4px;
+                font-size: 12px; color: #374151; }
             QMenu::item:selected { background: #F3E8F6; }
             QMenu::separator { height: 1px; background: #e5e7eb; margin: 4px 8px; }
         """)
@@ -2181,11 +2484,11 @@ class ContentBlockWidget(QFrame):
         h_group = QActionGroup(self)
         h_group.setExclusive(True)
         h_left = QAction("Align Left", self)
-        h_left.setIcon(QIcon(os.path.join(icons_dir, 'align_left.svg')))
+        h_left.setIcon(QIcon(os.path.join(icons_dir, "align_left.svg")))
         h_center = QAction("Align Center", self)
-        h_center.setIcon(QIcon(os.path.join(icons_dir, 'align_center.svg')))
+        h_center.setIcon(QIcon(os.path.join(icons_dir, "align_center.svg")))
         h_right = QAction("Align Right", self)
-        h_right.setIcon(QIcon(os.path.join(icons_dir, 'align_right.svg')))
+        h_right.setIcon(QIcon(os.path.join(icons_dir, "align_right.svg")))
         for a in (h_left, h_center, h_right):
             h_group.addAction(a)
             menu.addAction(a)
@@ -2198,11 +2501,11 @@ class ContentBlockWidget(QFrame):
         v_group = QActionGroup(self)
         v_group.setExclusive(True)
         v_top = QAction("Align Top", self)
-        v_top.setIcon(QIcon(os.path.join(icons_dir, 'align_top.svg')))
+        v_top.setIcon(QIcon(os.path.join(icons_dir, "align_top.svg")))
         v_center = QAction("Align Middle", self)
-        v_center.setIcon(QIcon(os.path.join(icons_dir, 'align_middle.svg')))
+        v_center.setIcon(QIcon(os.path.join(icons_dir, "align_middle.svg")))
         v_bottom = QAction("Align Bottom", self)
-        v_bottom.setIcon(QIcon(os.path.join(icons_dir, 'align_bottom.svg')))
+        v_bottom.setIcon(QIcon(os.path.join(icons_dir, "align_bottom.svg")))
         for a in (v_top, v_center, v_bottom):
             v_group.addAction(a)
             menu.addAction(a)
@@ -2217,8 +2520,14 @@ class ContentBlockWidget(QFrame):
                 self._header_align_h = "center"
             elif action == h_right:
                 self._header_align_h = "right"
-            h_align_map = {"left": Qt.AlignmentFlag.AlignLeft, "center": Qt.AlignmentFlag.AlignCenter, "right": Qt.AlignmentFlag.AlignRight}
-            self._header_edit.setAlignment(h_align_map.get(self._header_align_h, Qt.AlignmentFlag.AlignLeft))
+            h_align_map = {
+                "left": Qt.AlignmentFlag.AlignLeft,
+                "center": Qt.AlignmentFlag.AlignCenter,
+                "right": Qt.AlignmentFlag.AlignRight,
+            }
+            self._header_edit.setAlignment(
+                h_align_map.get(self._header_align_h, Qt.AlignmentFlag.AlignLeft)
+            )
             self._apply_alignment_button_states()
             self.save()
 
@@ -2246,22 +2555,50 @@ class ContentBlockWidget(QFrame):
         tb_layout.setContentsMargins(4, 4, 4, 4)
         tb_layout.setSpacing(2)
 
-        _tip_style = " QToolTip { background-color: #FFFFFF; color: #2E2B2B; border: 1px solid #F0E6E8; border-radius: 8px; padding: 6px 10px; font-size: 12px; }"
-        tb_style = "QToolButton { font-size: 13px; border: 1px solid transparent; border-radius: 6px; padding: 3px 8px; color: #6B6770; min-width: 24px; } QToolButton:hover { background: #FFF0F3; border-color: #F7D1DC; color: #2E2B2B; } QToolButton:checked { background: #F3E8F6; border-color: #CFA6D6; color: #2E2B2B; }" + _tip_style
+        _tip_style = (
+            " QToolTip { background-color: #FFFFFF; color: #2E2B2B;"
+            " border: 1px solid #F0E6E8; border-radius: 8px;"
+            " padding: 6px 10px; font-size: 12px; }"
+        )
+        tb_style = (
+            "QToolButton { font-size: 13px; border: 1px solid transparent;"
+            " border-radius: 6px; padding: 3px 8px; color: #6B6770;"
+            " min-width: 24px; }"
+            " QToolButton:hover { background: #FFF0F3;"
+            " border-color: #F7D1DC; color: #2E2B2B; }"
+            " QToolButton:checked { background: #F3E8F6;"
+            " border-color: #CFA6D6; color: #2E2B2B; }" + _tip_style
+        )
 
         self._in_bold_btn = QToolButton()
         self._in_bold_btn.setText("B")
         self._in_bold_btn.setCheckable(True)
         self._in_bold_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self._in_bold_btn.setToolTip("Bold (Ctrl+B)")
-        self._in_bold_btn.setStyleSheet("QToolButton { font-weight: bold; font-size: 14px; border: 1px solid transparent; border-radius: 6px; padding: 3px 8px; color: #6B6770; min-width: 24px; } QToolButton:hover { background: #FFF0F3; border-color: #F7D1DC; color: #2E2B2B; } QToolButton:checked { background: #F3E8F6; border-color: #CFA6D6; color: #2E2B2B; }" + _tip_style)
+        self._in_bold_btn.setStyleSheet(
+            "QToolButton { font-weight: bold; font-size: 14px;"
+            " border: 1px solid transparent; border-radius: 6px;"
+            " padding: 3px 8px; color: #6B6770; min-width: 24px; }"
+            " QToolButton:hover { background: #FFF0F3;"
+            " border-color: #F7D1DC; color: #2E2B2B; }"
+            " QToolButton:checked { background: #F3E8F6;"
+            " border-color: #CFA6D6; color: #2E2B2B; }" + _tip_style
+        )
 
         self._in_italic_btn = QToolButton()
         self._in_italic_btn.setText("I")
         self._in_italic_btn.setCheckable(True)
         self._in_italic_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self._in_italic_btn.setToolTip("Italic (Ctrl+I)")
-        self._in_italic_btn.setStyleSheet("QToolButton { font-style: italic; font-size: 14px; border: 1px solid transparent; border-radius: 6px; padding: 3px 8px; color: #6B6770; min-width: 24px; } QToolButton:hover { background: #FFF0F3; border-color: #F7D1DC; color: #2E2B2B; } QToolButton:checked { background: #F3E8F6; border-color: #CFA6D6; color: #2E2B2B; }" + _tip_style)
+        self._in_italic_btn.setStyleSheet(
+            "QToolButton { font-style: italic; font-size: 14px;"
+            " border: 1px solid transparent; border-radius: 6px;"
+            " padding: 3px 8px; color: #6B6770; min-width: 24px; }"
+            " QToolButton:hover { background: #FFF0F3;"
+            " border-color: #F7D1DC; color: #2E2B2B; }"
+            " QToolButton:checked { background: #F3E8F6;"
+            " border-color: #CFA6D6; color: #2E2B2B; }" + _tip_style
+        )
 
         sep1 = QLabel("│")
         sep1.setStyleSheet("color: #e5e7eb; padding: 0 2px; font-size: 12px;")
@@ -2309,18 +2646,40 @@ class ContentBlockWidget(QFrame):
         size_label = QLabel("Size:")
         size_label.setStyleSheet("color: #6B6770; font-size: 11px; padding: 0 2px;")
         self._in_font_size_combo = QComboBox()
-        self._in_font_size_combo.addItems([str(s) for s in [9, 10, 11, 12, 13, 14, 15, 16, 18, 20, 22, 24, 28, 32]])
-        initial_size = self.block.content_font_size if self.block.content_font_size and self.block.content_font_size >= 1 else 13
+        self._in_font_size_combo.addItems(
+            [str(s) for s in [9, 10, 11, 12, 13, 14, 15, 16, 18, 20, 22, 24, 28, 32]]
+        )
+        initial_size = (
+            self.block.content_font_size
+            if self.block.content_font_size and self.block.content_font_size >= 1
+            else 13
+        )
         self._in_font_size_combo.setCurrentText(str(initial_size))
         self._in_font_size_combo.setFixedWidth(36)
         self._in_font_size_combo.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self._in_font_size_combo.setToolTip("Font size")
-        self._in_font_size_combo.setStyleSheet("QComboBox { font-size: 11px; padding: 2px 2px; border: 1px solid #e5e7eb; border-radius: 4px; background: #fff; } QComboBox::drop-down { border: none; width: 12px; } QComboBox QAbstractItemView { font-size: 11px; }" + _tip_style)
+        self._in_font_size_combo.setStyleSheet(
+            "QComboBox { font-size: 11px; padding: 2px 2px;"
+            " border: 1px solid #e5e7eb; border-radius: 4px;"
+            " background: #fff; }"
+            " QComboBox::drop-down { border: none; width: 12px; }"
+            " QComboBox QAbstractItemView { font-size: 11px; }" + _tip_style
+        )
 
-        for w in (self._in_bold_btn, self._in_italic_btn, sep1,
-                  self._in_h1_btn, self._in_h2_btn, self._in_code_btn, sep2,
-                  self._in_link_btn, self._in_bullet_btn, sep3,
-                  size_label, self._in_font_size_combo):
+        for w in (
+            self._in_bold_btn,
+            self._in_italic_btn,
+            sep1,
+            self._in_h1_btn,
+            self._in_h2_btn,
+            self._in_code_btn,
+            sep2,
+            self._in_link_btn,
+            self._in_bullet_btn,
+            sep3,
+            size_label,
+            self._in_font_size_combo,
+        ):
             tb_layout.addWidget(w)
         tb_layout.addStretch()
 
@@ -2333,7 +2692,9 @@ class ContentBlockWidget(QFrame):
         self._in_code_btn.clicked.connect(lambda: self._inline_format("code"))
         self._in_link_btn.clicked.connect(lambda: self._inline_format("link"))
         self._in_bullet_btn.clicked.connect(lambda: self._inline_format("bullet"))
-        self._in_font_size_combo.currentTextChanged.connect(self._on_inline_font_size_changed)
+        self._in_font_size_combo.currentTextChanged.connect(
+            self._on_inline_font_size_changed
+        )
 
     def _inline_format(self, fmt):
         """Apply formatting from the inline toolbar to this block's editor."""
@@ -2402,8 +2763,16 @@ class ContentBlockWidget(QFrame):
             self._header_v_layout.addStretch()
 
     def _apply_alignment_button_states(self):
-        h_map = {"left": self._h_left_btn, "center": self._h_center_btn, "right": self._h_right_btn}
-        v_map = {"top": self._v_top_btn, "center": self._v_center_btn, "bottom": self._v_bottom_btn}
+        h_map = {
+            "left": self._h_left_btn,
+            "center": self._h_center_btn,
+            "right": self._h_right_btn,
+        }
+        v_map = {
+            "top": self._v_top_btn,
+            "center": self._v_center_btn,
+            "bottom": self._v_bottom_btn,
+        }
         self._h_align_group.blockSignals(True)
         self._v_align_group.blockSignals(True)
         btn = h_map.get(self._header_align_h)
@@ -2439,7 +2808,11 @@ class ContentBlockWidget(QFrame):
         self._v_center_btn.setEnabled(hdr_kind)
         self._v_bottom_btn.setEnabled(hdr_kind)
         if hdr_kind:
-            v_map = {"top": self._v_top_btn, "center": self._v_center_btn, "bottom": self._v_bottom_btn}
+            v_map = {
+                "top": self._v_top_btn,
+                "center": self._v_center_btn,
+                "bottom": self._v_bottom_btn,
+            }
             btn = v_map.get(self._header_align_v)
             if btn:
                 btn.setChecked(True)
@@ -2477,7 +2850,9 @@ class ContentBlockWidget(QFrame):
         try:
             self.block.pos_x = self.x()
             self.block.pos_y = self.y()
-            self.block.height = self.minimumHeight() if self.minimumHeight() > 0 else None
+            self.block.height = (
+                self.minimumHeight() if self.minimumHeight() > 0 else None
+            )
             if self.minimumWidth() > 0 and self.minimumWidth() == self.maximumWidth():
                 self.block.width = self.minimumWidth()
             else:
@@ -2486,7 +2861,9 @@ class ContentBlockWidget(QFrame):
             self.block.header = text if text and text != self.block.block_type else None
             cursor = self._header_edit.textCursor()
             pt = cursor.charFormat().fontPointSize()
-            self.block.header_font_size = int(pt) if pt >= 1 else self._header_edit.font().pointSize()
+            self.block.header_font_size = (
+                int(pt) if pt >= 1 else self._header_edit.font().pointSize()
+            )
             self.block.header_align_h = self._header_align_h
             self.block.header_align_v = self._header_align_v
             self.block.header_height = self._header_container.height()
@@ -2514,7 +2891,12 @@ class Canvas(QWidget):
         self._show_photo_bg = False
         if Canvas._bg_pixmap is None:
             bg_path = os.path.join(
-                os.path.dirname(__file__), '..', '..', 'assets', 'background', 'frontpage_bg.png'
+                os.path.dirname(__file__),
+                "..",
+                "..",
+                "assets",
+                "background",
+                "frontpage_bg.png",
             )
             if os.path.exists(bg_path):
                 Canvas._bg_pixmap = QPixmap(bg_path)
@@ -2539,7 +2921,8 @@ class Canvas(QWidget):
             target_w = int(vp_w * dpr)
             target_h = int(vp_h * dpr)
             scaled = Canvas._bg_pixmap.scaled(
-                target_w, target_h,
+                target_w,
+                target_h,
                 Qt.AspectRatioMode.KeepAspectRatioByExpanding,
                 Qt.TransformationMode.SmoothTransformation,
             )
@@ -2604,21 +2987,26 @@ class PageEditor(QWidget):
             padding: 40px;
         """)
         self.welcome_label.setTextFormat(Qt.TextFormat.RichText)
-        self.welcome_label.setText('Hello, lovely!<br>Let\'s make it a productive day! <span style="font-size:35px;">❤️</span>')
+        self.welcome_label.setText(
+            "Hello, lovely!<br>Let's make it a productive day!"
+            ' <span style="font-size:35px;">❤️</span>'
+        )
         self.welcome_label.setParent(self.content)
         self.welcome_label.adjustSize()
         self.welcome_label.show()
 
         main_layout.addWidget(self.scroll, 1)
 
-        self._drag_data = None  # (widget, start_x, start_y, start_mouse_x, start_mouse_y)
+        self._drag_data = (
+            None  # (widget, start_x, start_y, start_mouse_x, start_mouse_y)
+        )
         self._canvas_click_pos: tuple[int, int] | None = None
 
         QApplication.instance().focusChanged.connect(self._on_focus_changed)
 
     def _center_welcome_label(self):
         """Center the welcome label in the canvas."""
-        if hasattr(self, 'welcome_label') and self.welcome_label.isVisible():
+        if hasattr(self, "welcome_label") and self.welcome_label.isVisible():
             canvas_width = self.content.width()
             canvas_height = self.content.height()
             label_width = self.welcome_label.width()
@@ -2661,17 +3049,34 @@ class PageEditor(QWidget):
 
     def _build_toolbar(self, parent_layout):
         toolbar_widget = QWidget()
-        toolbar_widget.setStyleSheet("background: #FFF8F5; border-bottom: 1px solid #F0E6E8;")
+        toolbar_widget.setStyleSheet(
+            "background: #FFF8F5; border-bottom: 1px solid #F0E6E8;"
+        )
         toolbar = QHBoxLayout(toolbar_widget)
         toolbar.setContentsMargins(12, 6, 12, 6)
 
         self.page_title = QLabel("Select a page")
         self.page_title.setObjectName("page_title")
-        self.page_title.setStyleSheet("font-size: 18px; font-weight: 600; padding: 4px 8px; color: #2E2B2B; font-family: 'Playfair Display', serif;")
+        self.page_title.setStyleSheet(
+            "font-size: 18px; font-weight: 600; padding: 4px 8px;"
+            " color: #2E2B2B; font-family: 'Playfair Display', serif;"
+        )
         toolbar.addWidget(self.page_title)
         toolbar.addStretch()
 
-        btn_style = "QPushButton { padding: 6px 16px; border: none; border-radius: 20px; background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #FFFFFF, stop:1 #FFF8F5); font-size: 12px; font-weight: 500; color: #2E2B2B; } QPushButton:hover { background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #FFF0F3, stop:1 #F7D1DC); border: 1px solid #F7D1DC; } QPushButton:pressed { background: #F7D1DC; border: 1px solid #CFA6D6; }"
+        btn_style = (
+            "QPushButton { padding: 6px 16px; border: none;"
+            " border-radius: 20px;"
+            " background: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
+            " stop:0 #FFFFFF, stop:1 #FFF8F5);"
+            " font-size: 12px; font-weight: 500; color: #2E2B2B; }"
+            " QPushButton:hover {"
+            " background: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
+            " stop:0 #FFF0F3, stop:1 #F7D1DC);"
+            " border: 1px solid #F7D1DC; }"
+            " QPushButton:pressed { background: #F7D1DC;"
+            " border: 1px solid #CFA6D6; }"
+        )
         self._add_block_btn = QPushButton("+ Text")
         self._add_block_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self._add_block_btn.setStyleSheet(btn_style)
@@ -2685,7 +3090,12 @@ class PageEditor(QWidget):
         self._template_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self._template_btn.setStyleSheet(btn_style)
 
-        for b in [self._add_block_btn, self._table_btn, self._list_btn, self._template_btn]:
+        for b in [
+            self._add_block_btn,
+            self._table_btn,
+            self._list_btn,
+            self._template_btn,
+        ]:
             toolbar.addWidget(b)
 
         parent_layout.addWidget(toolbar_widget)
@@ -2734,7 +3144,7 @@ class PageEditor(QWidget):
             pt = cursor.charFormat().fontPointSize()
             size = int(pt) if pt >= 1 else block_w._header_edit.font().pointSize()
         elif part == "list_item":
-            line = getattr(block_w, '_active_line', None)
+            line = getattr(block_w, "_active_line", None)
             if line:
                 size = line.font().pointSize() if line else 13
             else:
@@ -2747,7 +3157,7 @@ class PageEditor(QWidget):
                 else:
                     size = 13
         elif part == "table_cell":
-            cell = getattr(block_w, '_active_cell', None)
+            cell = getattr(block_w, "_active_cell", None)
             if cell:
                 cursor = cell.textCursor()
                 pt = cursor.charFormat().fontPointSize()
@@ -2760,7 +3170,7 @@ class PageEditor(QWidget):
                 size = block_w._body.content_font_size
             except AttributeError:
                 return
-        if hasattr(block_w, '_in_font_size_combo') and block_w._in_font_size_combo:
+        if hasattr(block_w, "_in_font_size_combo") and block_w._in_font_size_combo:
             block_w._in_font_size_combo.blockSignals(True)
             block_w._in_font_size_combo.setCurrentText(str(size))
             block_w._in_font_size_combo.blockSignals(False)
@@ -2782,6 +3192,15 @@ class PageEditor(QWidget):
             return False
 
     def _on_focus_changed(self, old, new):
+        if new is None:
+            for bw in self._block_widgets:
+                if (
+                    hasattr(bw, "_body")
+                    and hasattr(bw._body, "editing")
+                    and bw._body.editing
+                ):
+                    bw._body._switch_to_preview()
+            return
         # Track table cell / text body focus IMMEDIATELY so _on_add_list can use it
         try:
             if new and isinstance(new, FormattedTextEdit):
@@ -2793,10 +3212,14 @@ class PageEditor(QWidget):
                 except Exception:
                     pass
                 return  # Skip deferred processing for table cells
-            elif new and isinstance(new, (MarkdownTextEdit, QTextBrowser)):
+            elif new and isinstance(new, MarkdownTextEdit | QTextBrowser):
                 try:
                     block_w = self._find_block_widget(new)
-                    if block_w and hasattr(block_w, '_body') and isinstance(block_w._body, MarkdownBlock):
+                    if (
+                        block_w
+                        and hasattr(block_w, "_body")
+                        and isinstance(block_w._body, MarkdownBlock)
+                    ):
                         self._active_text_body = block_w._body
                         self._active_table_cell = None
                 except Exception:
@@ -2804,12 +3227,14 @@ class PageEditor(QWidget):
                 return  # Skip deferred processing for text blocks
         except Exception:
             pass
-        
+
         # Skip ALL deferred processing for buttons, combos, labels, etc.
         # Only process focus changes for actual content widgets
-        if new and isinstance(new, (QToolButton, QComboBox, QPushButton, QLabel, QSpinBox, QDateEdit)):
+        if new and isinstance(
+            new, QToolButton | QComboBox | QPushButton | QLabel | QSpinBox | QDateEdit
+        ):
             return
-        
+
         # Defer processing only for content widgets (text edits, headers, etc.)
         try:
             QTimer.singleShot(0, lambda n=new: self._process_focus_change(n))
@@ -2825,7 +3250,7 @@ class PageEditor(QWidget):
                     return
             except Exception:
                 return
-            
+
             try:
                 block_w = self._find_block_widget(new)
             except Exception:
@@ -2833,19 +3258,31 @@ class PageEditor(QWidget):
             if not block_w:
                 self._sync_format_buttons()
                 return
-            
+
             new_type = type(new).__name__
-            
-            if new_type == "QTextEdit" and hasattr(new, 'objectName') and new.objectName() == "block_header_edit":
+
+            if (
+                new_type == "QTextEdit"
+                and hasattr(new, "objectName")
+                and new.objectName() == "block_header_edit"
+            ):
                 self._font_target = (block_w, "header")
                 self._set_font_combo_from_target()
-                if hasattr(block_w, '_set_align_target'):
+                if hasattr(block_w, "_set_align_target"):
                     block_w._set_align_target("header", block_w._header_edit)
-            elif new_type == "QLineEdit" and hasattr(block_w, '_body') and isinstance(block_w._body, TaskWidget):
+            elif (
+                new_type == "QLineEdit"
+                and hasattr(block_w, "_body")
+                and isinstance(block_w._body, TaskWidget)
+            ):
                 block_w._active_line = new
                 self._font_target = (block_w, "list_item")
                 self._set_font_combo_from_target()
-            elif new_type == "QTextEdit" and hasattr(block_w, '_body') and isinstance(block_w._body, TaskWidget):
+            elif (
+                new_type == "QTextEdit"
+                and hasattr(block_w, "_body")
+                and isinstance(block_w._body, TaskWidget)
+            ):
                 self._font_target = (block_w, "list_item")
                 self._set_font_combo_from_target()
             elif new_type in ("MarkdownTextEdit", "QTextBrowser"):
@@ -2854,12 +3291,16 @@ class PageEditor(QWidget):
                     self._set_font_combo_from_target()
                 except AttributeError:
                     pass
-                if hasattr(block_w, '_set_align_target') and hasattr(block_w, '_body'):
+                if hasattr(block_w, "_set_align_target") and hasattr(block_w, "_body"):
                     try:
                         block_w._set_align_target("content", block_w._body.editor)
                     except Exception:
                         pass
-            elif new_type == "QTextEdit" and hasattr(block_w, '_body') and isinstance(block_w._body, MarkdownBlock):
+            elif (
+                new_type == "QTextEdit"
+                and hasattr(block_w, "_body")
+                and isinstance(block_w._body, MarkdownBlock)
+            ):
                 try:
                     p = new.parent()
                     while p:
@@ -2869,11 +3310,12 @@ class PageEditor(QWidget):
                         p = p.parent()
                 except Exception:
                     pass
-            
+
             QTimer.singleShot(0, self._sync_format_buttons)
         except Exception as e:
             print(f"Error in _process_focus_change: {e}")
             import traceback
+
             traceback.print_exc()
 
     def _connect_cursor_tracking(self):
@@ -2887,7 +3329,9 @@ class PageEditor(QWidget):
                 if isinstance(focus_widget, MarkdownTextEdit):
                     for w in self._block_widgets:
                         try:
-                            if hasattr(w, '_body') and isinstance(w._body, MarkdownBlock):
+                            if hasattr(w, "_body") and isinstance(
+                                w._body, MarkdownBlock
+                            ):
                                 if w._body.editor.hasFocus():
                                     return w._body.editor, w
                         except RuntimeError:
@@ -2897,25 +3341,33 @@ class PageEditor(QWidget):
                     if block_w:
                         if self._is_in_table_cell(focus_widget):
                             return focus_widget, block_w
-                        if hasattr(block_w, '_body') and isinstance(block_w._body, TaskWidget):
+                        if hasattr(block_w, "_body") and isinstance(
+                            block_w._body, TaskWidget
+                        ):
                             return focus_widget, block_w
-                        if hasattr(block_w, '_body') and isinstance(block_w._body, MarkdownBlock):
+                        if hasattr(block_w, "_body") and isinstance(
+                            block_w._body, MarkdownBlock
+                        ):
                             p = focus_widget.parent()
                             while p:
                                 if isinstance(p, _EmbeddedTaskContainer):
                                     return focus_widget, block_w
                                 p = p.parent()
-                        if hasattr(block_w, '_body') and isinstance(block_w._body, TableWidget):
+                        if hasattr(block_w, "_body") and isinstance(
+                            block_w._body, TableWidget
+                        ):
                             return focus_widget, block_w
             if self._active_text_body:
                 try:
-                    if hasattr(self._active_text_body, 'editor'):
-                        return self._active_text_body.editor, self._find_block_widget(self._active_text_body)
+                    if hasattr(self._active_text_body, "editor"):
+                        return self._active_text_body.editor, self._find_block_widget(
+                            self._active_text_body
+                        )
                 except RuntimeError:
                     self._active_text_body = None
             if self._active_table_cell:
                 try:
-                    if hasattr(self._active_table_cell, '_edit'):
+                    if hasattr(self._active_table_cell, "_edit"):
                         block_w = self._find_block_widget(self._active_table_cell)
                         return self._active_table_cell._edit, block_w
                 except RuntimeError:
@@ -2927,16 +3379,16 @@ class PageEditor(QWidget):
     def _sync_format_buttons(self):
         if self._syncing_buttons:
             return
-        
+
         try:
             self._syncing_buttons = True
-            
+
             edit, block_w = self._get_active_text_edit()
             if not edit or not block_w:
                 return
 
             # Sync inline toolbar buttons if this is a text block
-            if not hasattr(block_w, '_in_bold_btn') or not block_w._in_bold_btn:
+            if not hasattr(block_w, "_in_bold_btn") or not block_w._in_bold_btn:
                 return
 
             try:
@@ -2960,12 +3412,20 @@ class PageEditor(QWidget):
                 if block.isValid():
                     text_list = block.textList()
                     if text_list:
-                        is_bullet = text_list.format().style() == QTextListFormat.Style.ListDisc
+                        is_bullet = (
+                            text_list.format().style() == QTextListFormat.Style.ListDisc
+                        )
             except Exception:
                 pass
 
-            btns = (block_w._in_bold_btn, block_w._in_italic_btn, block_w._in_h1_btn,
-                    block_w._in_h2_btn, block_w._in_code_btn, block_w._in_bullet_btn)
+            btns = (
+                block_w._in_bold_btn,
+                block_w._in_italic_btn,
+                block_w._in_h1_btn,
+                block_w._in_h2_btn,
+                block_w._in_code_btn,
+                block_w._in_bullet_btn,
+            )
             for btn in btns:
                 btn.blockSignals(True)
             block_w._in_bold_btn.setChecked(is_bold)
@@ -3009,6 +3469,7 @@ class PageEditor(QWidget):
         self._active_text_body = None
         self._active_table_cell = None
         from src.repositories.page_repo import PageRepo
+
         page = PageRepo().get_by_id(page_id)
         self.page_title.setText(page.title if page else "Untitled")
         self._clear_selection()
@@ -3049,7 +3510,13 @@ class PageEditor(QWidget):
 
     def _setup_drag(self, widget):
         def _start_drag(ev, w):
-            self._drag_data = (w, w.x(), w.y(), ev.globalPosition().toPoint().x(), ev.globalPosition().toPoint().y())
+            self._drag_data = (
+                w,
+                w.x(),
+                w.y(),
+                ev.globalPosition().toPoint().x(),
+                ev.globalPosition().toPoint().y(),
+            )
             w.raise_()
             ev.accept()
 
@@ -3067,6 +3534,7 @@ class PageEditor(QWidget):
                     ev.accept()
                 else:
                     orig(ev)
+
             return _drag_move
 
         def _make_release(orig):
@@ -3079,21 +3547,29 @@ class PageEditor(QWidget):
                     ev.accept()
                 else:
                     orig(ev)
+
             return _drag_release
 
         # Drag handle patching (keep existing)
         orig_handle_press = widget.drag_handle.mousePressEvent
+
         def _handle_press(ev, w=widget):
             if ev.button() == Qt.MouseButton.LeftButton:
                 _start_drag(ev, w)
             else:
                 orig_handle_press(ev)
+
         widget.drag_handle.mousePressEvent = _handle_press
-        widget.drag_handle.mouseMoveEvent = _make_move(widget.drag_handle.mouseMoveEvent)
-        widget.drag_handle.mouseReleaseEvent = _make_release(widget.drag_handle.mouseReleaseEvent)
+        widget.drag_handle.mouseMoveEvent = _make_move(
+            widget.drag_handle.mouseMoveEvent
+        )
+        widget.drag_handle.mouseReleaseEvent = _make_release(
+            widget.drag_handle.mouseReleaseEvent
+        )
 
         # Block widget top-area drag (click on header area → drag entire block)
         orig_block_press = widget.mousePressEvent
+
         def _block_press(ev, w=widget):
             if ev.button() == Qt.MouseButton.LeftButton:
                 x = ev.position().toPoint().x()
@@ -3102,12 +3578,17 @@ class PageEditor(QWidget):
                     orig_block_press(ev)
                     return
                 top = w._header_container.y() if w._header_container else 0
-                bottom = top + w._header_container.height() if w._header_container else 0
-                bottom += w._header_resize_handle.height() if w._header_resize_handle else 0
+                bottom = (
+                    top + w._header_container.height() if w._header_container else 0
+                )
+                bottom += (
+                    w._header_resize_handle.height() if w._header_resize_handle else 0
+                )
                 if y <= bottom + 4:
                     _start_drag(ev, w)
                     return
             orig_block_press(ev)
+
         widget.mousePressEvent = _block_press
         widget.mouseMoveEvent = _make_move(widget.mouseMoveEvent)
         widget.mouseReleaseEvent = _make_release(widget.mouseReleaseEvent)
@@ -3143,15 +3624,18 @@ class PageEditor(QWidget):
     def _delete_selected_blocks(self):
         if not self._selected_block_widgets:
             return
-        from src.undo_manager import _block_dict, _task_dict
         from src.repositories.task_repo import TaskRepo
+        from src.undo_manager import _block_dict, _task_dict
+
         for w in list(self._selected_block_widgets):
             tasks_data = [_task_dict(t) for t in TaskRepo().get_by_block(w.block.id)]
-            undo_manager.push({
-                "type": "block",
-                "block": _block_dict(w.block),
-                "tasks": tasks_data,
-            })
+            undo_manager.push(
+                {
+                    "type": "block",
+                    "block": _block_dict(w.block),
+                    "tasks": tasks_data,
+                }
+            )
             BlockRepo().delete(w.block.id)
         self._clear_selection()
         self.load_page(self.current_page_id)
@@ -3160,16 +3644,25 @@ class PageEditor(QWidget):
         if event.key() == Qt.Key.Key_Delete:
             self._delete_selected_blocks()
             event.accept()
-        elif event.key() == Qt.Key.Key_D and event.modifiers() == Qt.KeyboardModifier.ControlModifier:
+        elif (
+            event.key() == Qt.Key.Key_D
+            and event.modifiers() == Qt.KeyboardModifier.ControlModifier
+        ):
             focus_widget = QApplication.focusWidget()
-            if focus_widget and isinstance(focus_widget, (QTextEdit, QLineEdit)):
+            if focus_widget and isinstance(focus_widget, QTextEdit | QLineEdit):
                 event.ignore()
                 return
             self._delete_selected_blocks()
             event.accept()
-        elif event.key() == Qt.Key.Key_V and event.modifiers() == Qt.KeyboardModifier.ControlModifier:
+        elif (
+            event.key() == Qt.Key.Key_V
+            and event.modifiers() == Qt.KeyboardModifier.ControlModifier
+        ):
             focus_widget = QApplication.focusWidget()
-            if focus_widget and isinstance(focus_widget, (QTextEdit, QLineEdit, FormattedTextEdit, MarkdownTextEdit)):
+            if focus_widget and isinstance(
+                focus_widget,
+                QTextEdit | QLineEdit | FormattedTextEdit | MarkdownTextEdit,
+            ):
                 event.ignore()
                 return
             clipboard = QApplication.clipboard()
@@ -3208,23 +3701,29 @@ class PageEditor(QWidget):
             self.block_repo.create(block)
             self.load_page(self.current_page_id)
             QTimer.singleShot(0, lambda: self._embed_image_in_last_block(img))
-        except Exception as e:
+        except Exception:
             traceback.print_exc()
 
     def _embed_image_in_last_block(self, img):
         if not self._block_widgets:
             return
         last_block = self._block_widgets[-1]
-        if hasattr(last_block, '_body') and isinstance(last_block._body, MarkdownBlock):
+        if hasattr(last_block, "_body") and isinstance(last_block._body, MarkdownBlock):
             edit = last_block._body.editor
             last_block._body._switch_to_edit()
             cursor = edit.textCursor()
             cursor.movePosition(QTextCursor.MoveOperation.End)
             doc = edit.document()
             img_name = f"img_{uuid.uuid4().hex}.png"
-            doc.addResource(QTextDocument.ResourceType.ImageResource, QUrl(img_name), img)
+            doc.addResource(
+                QTextDocument.ResourceType.ImageResource, QUrl(img_name), img
+            )
             img_fmt = QTextImageFormat()
-            max_w = min(img.width(), edit.viewport().width() - 40) if edit.viewport().width() > 60 else img.width()
+            max_w = (
+                min(img.width(), edit.viewport().width() - 40)
+                if edit.viewport().width() > 60
+                else img.width()
+            )
             if img.width() > max_w:
                 ratio = max_w / img.width()
                 img_fmt.setWidth(int(max_w))
@@ -3243,18 +3742,25 @@ class PageEditor(QWidget):
 
     def _on_canvas_clicked(self, x, y):
         self._canvas_click_pos = (x, y)
+        for bw in self._block_widgets:
+            if (
+                hasattr(bw, "_body")
+                and hasattr(bw._body, "editing")
+                and bw._body.editing
+            ):
+                bw._body._switch_to_preview()
 
     def _on_add_list(self):
         """Handle +List button click to add embedded task list."""
         # Capture active references immediately before they change
         active_text_body = self._active_text_body
         active_table_cell = self._active_table_cell
-        
+
         def _do_add():
             try:
                 # Try to find table cell or block from focus widget
                 focus_widget = QApplication.focusWidget()
-                
+
                 # Check if focus is in a text editing context
                 is_in_text_edit = False
                 if focus_widget:
@@ -3267,11 +3773,12 @@ class PageEditor(QWidget):
                             except Exception as e:
                                 print(f"Error adding task list to table cell: {e}")
                                 import traceback
+
                                 traceback.print_exc()
                             return
                     except Exception:
                         pass
-                    
+
                     # Check if focus is in a markdown block
                     try:
                         block_w = self._find_block_widget(focus_widget)
@@ -3281,18 +3788,23 @@ class PageEditor(QWidget):
                                 try:
                                     body.add_task_list()
                                 except Exception as e:
-                                    print(f"Error adding task list to markdown block: {e}")
+                                    print(
+                                        f"Error adding task list to markdown block: {e}"
+                                    )
                                     import traceback
+
                                     traceback.print_exc()
                                 return
                     except Exception:
                         pass
-                    
+
                     # Check if focus is in any text edit widget
-                    is_in_text_edit = isinstance(focus_widget, (QTextEdit, FormattedTextEdit, MarkdownTextEdit))
-                
-                # If focus is not in a text edit, check if we have valid fallback references
-                # This handles the case where user clicked in a text box/cell and then clicked +List button
+                    is_in_text_edit = isinstance(
+                        focus_widget, QTextEdit | FormattedTextEdit | MarkdownTextEdit
+                    )
+
+                # If focus is not in a text edit, check fallback references
+                # Handles user clicking text box/cell then +List button
                 if not is_in_text_edit:
                     # Try table cell first
                     if active_table_cell:
@@ -3302,12 +3814,16 @@ class PageEditor(QWidget):
                                     active_table_cell.add_task_list()
                                     return
                                 except Exception as e:
-                                    print(f"Error adding task list to active table cell: {e}")
+                                    print(
+                                        f"Error adding task list to active table cell: "
+                                        f"{e}"
+                                    )
                                     import traceback
+
                                     traceback.print_exc()
                         except Exception:
                             self._active_table_cell = None
-                    
+
                     # Try text body
                     if active_text_body:
                         try:
@@ -3316,8 +3832,12 @@ class PageEditor(QWidget):
                                     active_text_body.add_task_list()
                                     return
                                 except Exception as e:
-                                    print(f"Error adding task list to active text body: {e}")
+                                    print(
+                                        f"Error adding task list to active text body: "
+                                        f"{e}"
+                                    )
                                     import traceback
+
                                     traceback.print_exc()
                         except Exception:
                             self._active_text_body = None
@@ -3329,21 +3849,22 @@ class PageEditor(QWidget):
                             return
                         except Exception:
                             self._active_text_body = None
-                    
+
                     if active_table_cell and active_table_cell.isVisible():
                         try:
                             active_table_cell.add_task_list()
                             return
                         except Exception:
                             self._active_table_cell = None
-                
+
                 # If all else fails, create a new standalone list block
                 self._add_block("checkbox")
             except Exception as e:
                 print(f"Error in _on_add_list: {e}")
                 import traceback
+
                 traceback.print_exc()
-        
+
         QTimer.singleShot(0, _do_add)
 
     def _add_block(self, block_type: str):
@@ -3384,62 +3905,82 @@ class PageEditor(QWidget):
             return
 
         from PyQt6.QtGui import QIcon
+
         dialog = QDialog(self)
         dialog.setWindowTitle("Insert Template")
-        
+
         # Title with logo
         title_layout = QHBoxLayout()
-        logo_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "assets", "icons", "logo_icon.svg")
+        logo_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+            "assets",
+            "icons",
+            "logo_icon.svg",
+        )
         if os.path.exists(logo_path):
             logo_label = QLabel()
             logo_label.setPixmap(QIcon(logo_path).pixmap(28, 28))
             title_layout.addWidget(logo_label)
         title_label = QLabel("Insert Template")
-        title_label.setStyleSheet("font-size: 16px; font-weight: 600; color: #2E2B2B; font-family: 'Playfair Display', serif;")
+        title_label.setStyleSheet(
+            "font-size: 16px; font-weight: 600; color: #2E2B2B;"
+            " font-family: 'Playfair Display', serif;"
+        )
         title_layout.addWidget(title_label)
         title_layout.addStretch()
-        
+
         layout = QVBoxLayout(dialog)
         layout.addLayout(title_layout)
         list_widget = QListWidget()
         for t in templates:
             list_widget.addItem(f"{t.name} ({t.category})")
         layout.addWidget(list_widget)
-        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
         buttons.accepted.connect(dialog.accept)
         buttons.rejected.connect(dialog.reject)
         layout.addWidget(buttons)
 
-        if dialog.exec() == QDialog.DialogCode.Accepted and list_widget.currentRow() >= 0:
+        if (
+            dialog.exec() == QDialog.DialogCode.Accepted
+            and list_widget.currentRow() >= 0
+        ):
             template = templates[list_widget.currentRow()]
             blocks_data = json.loads(template.content_json)
             for bd in blocks_data:
                 block = ContentBlock(
                     page_id=self.current_page_id,
                     block_type=bd.get("block_type", "text"),
-                    content_markdown=bd.get("content_markdown", "")
+                    content_markdown=bd.get("content_markdown", ""),
                 )
                 self.block_repo.create(block)
             self.load_page(self.current_page_id)
 
     def save_current(self):
         for w in self._block_widgets:
-            if hasattr(w, 'save'):
+            if hasattr(w, "save"):
                 w.save()
-        
+
         # If this is a template page, update the template in the database
         if self.current_page_id:
             try:
+                from src.repositories.block_repo import BlockRepo
                 from src.repositories.page_repo import PageRepo
                 from src.repositories.template_repo import TemplateRepo
-                from src.repositories.block_repo import BlockRepo
-                
+
                 page = PageRepo().get_by_id(self.current_page_id)
                 if page and page.page_type == "template_page":
                     # Get all blocks for this page
                     blocks = BlockRepo().get_by_page(self.current_page_id)
-                    data = [{"block_type": b.block_type, "content_markdown": b.content_markdown} for b in blocks]
-                    
+                    data = [
+                        {
+                            "block_type": b.block_type,
+                            "content_markdown": b.content_markdown,
+                        }
+                        for b in blocks
+                    ]
+
                     # Find and update the corresponding template
                     templates = TemplateRepo().get_all()
                     for template in templates:

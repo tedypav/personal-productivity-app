@@ -7,7 +7,8 @@ class TaskRepo:
     def get_by_block(block_id: int) -> list[Task]:
         conn = get_connection()
         rows = conn.execute(
-            "SELECT * FROM tasks WHERE content_block_id=? ORDER BY sort_order", (block_id,)
+            "SELECT * FROM tasks WHERE content_block_id=? ORDER BY sort_order",
+            (block_id,),
         ).fetchall()
         conn.close()
         return [Task(**dict(r)) for r in rows]
@@ -16,12 +17,25 @@ class TaskRepo:
     def create(task: Task) -> int:
         conn = get_connection()
         max_order = conn.execute(
-            "SELECT COALESCE(MAX(sort_order), -1) + 1 FROM tasks WHERE content_block_id=?",
-            (task.content_block_id,)
+            "SELECT COALESCE(MAX(sort_order), -1) + 1"
+            " FROM tasks WHERE content_block_id=?",
+            (task.content_block_id,),
         ).fetchone()[0]
         cursor = conn.execute(
-            "INSERT INTO tasks (content_block_id, text, is_checked, recurrence_type, due_date, parent_task_id, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (task.content_block_id, task.text, int(task.is_checked), task.recurrence_type, task.due_date, task.parent_task_id, max_order)
+            "INSERT INTO tasks"
+            " (content_block_id, text, is_checked,"
+            " recurrence_type, due_date,"
+            " parent_task_id, sort_order)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (
+                task.content_block_id,
+                task.text,
+                int(task.is_checked),
+                task.recurrence_type,
+                task.due_date,
+                task.parent_task_id,
+                max_order,
+            ),
         )
         conn.commit()
         task_id = cursor.lastrowid
@@ -32,8 +46,17 @@ class TaskRepo:
     def update(task: Task):
         conn = get_connection()
         conn.execute(
-            "UPDATE tasks SET text=?, is_checked=?, recurrence_type=?, due_date=?, sort_order=? WHERE id=?",
-            (task.text, int(task.is_checked), task.recurrence_type, task.due_date, task.sort_order, task.id)
+            "UPDATE tasks SET text=?, is_checked=?,"
+            " recurrence_type=?, due_date=?,"
+            " sort_order=? WHERE id=?",
+            (
+                task.text,
+                int(task.is_checked),
+                task.recurrence_type,
+                task.due_date,
+                task.sort_order,
+                task.id,
+            ),
         )
         conn.commit()
         conn.close()

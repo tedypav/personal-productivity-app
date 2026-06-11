@@ -6,8 +6,8 @@ UNDO_DURATION = timedelta(minutes=15)
 
 
 def capture_page_tree(page_id: int) -> dict | None:
-    from src.repositories.page_repo import PageRepo
     from src.repositories.block_repo import BlockRepo
+    from src.repositories.page_repo import PageRepo
     from src.repositories.task_repo import TaskRepo
 
     page = PageRepo().get_by_id(page_id)
@@ -17,7 +17,8 @@ def capture_page_tree(page_id: int) -> dict | None:
     blocks = BlockRepo().get_by_page(page_id)
     tasks = []
     for b in blocks:
-        tasks.extend(TaskRepo().get_by_block(b.id))
+        if b.id is not None:
+            tasks.extend(TaskRepo().get_by_block(b.id))
 
     return {
         "page": _page_dict(page),
@@ -28,47 +29,63 @@ def capture_page_tree(page_id: int) -> dict | None:
 
 
 def _capture_children(parent_id: int) -> list:
-    from src.repositories.page_repo import PageRepo
     from src.repositories.block_repo import BlockRepo
+    from src.repositories.page_repo import PageRepo
     from src.repositories.task_repo import TaskRepo
 
     result = []
     for child in PageRepo().get_children(parent_id):
+        if child.id is None:
+            continue
         blocks = BlockRepo().get_by_page(child.id)
         tasks = []
         for b in blocks:
-            tasks.extend(TaskRepo().get_by_block(b.id))
-        result.append({
-            "page": _page_dict(child),
-            "blocks": [_block_dict(b) for b in blocks],
-            "tasks": [_task_dict(t) for t in tasks],
-            "children": _capture_children(child.id),
-        })
+            if b.id is not None:
+                tasks.extend(TaskRepo().get_by_block(b.id))
+        if child.id is not None:
+            result.append(
+                {
+                    "page": _page_dict(child),
+                    "blocks": [_block_dict(b) for b in blocks],
+                    "tasks": [_task_dict(t) for t in tasks],
+                    "children": _capture_children(child.id),
+                }
+            )
     return result
 
 
 def _page_dict(page):
     return {
-        "id": page.id, "title": page.title, "parent_id": page.parent_id,
-        "sort_order": page.sort_order, "page_type": page.page_type,
-        "created_at": page.created_at, "updated_at": page.updated_at,
+        "id": page.id,
+        "title": page.title,
+        "parent_id": page.parent_id,
+        "sort_order": page.sort_order,
+        "page_type": page.page_type,
+        "created_at": page.created_at,
+        "updated_at": page.updated_at,
     }
 
 
 def _block_dict(block):
     return {
-        "id": block.id, "page_id": block.page_id,
-        "block_type": block.block_type, "content_markdown": block.content_markdown,
+        "id": block.id,
+        "page_id": block.page_id,
+        "block_type": block.block_type,
+        "content_markdown": block.content_markdown,
         "sort_order": block.sort_order,
     }
 
 
 def _task_dict(task):
     return {
-        "id": task.id, "content_block_id": task.content_block_id,
-        "text": task.text, "is_checked": task.is_checked,
-        "recurrence_type": task.recurrence_type, "due_date": task.due_date,
-        "parent_task_id": task.parent_task_id, "sort_order": task.sort_order,
+        "id": task.id,
+        "content_block_id": task.content_block_id,
+        "text": task.text,
+        "is_checked": task.is_checked,
+        "recurrence_type": task.recurrence_type,
+        "due_date": task.due_date,
+        "parent_task_id": task.parent_task_id,
+        "sort_order": task.sort_order,
     }
 
 
@@ -117,23 +134,49 @@ class UndoManager:
     def _restore_page(self, conn, action):
         p = action["page"]
         conn.execute(
-            """INSERT INTO pages (id, title, parent_id, sort_order, page_type, created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, COALESCE(?, datetime('now')), COALESCE(?, datetime('now')))""",
-            (p["id"], p["title"], p.get("parent_id"), p.get("sort_order", 0),
-             p.get("page_type", "page"), p.get("created_at"), p.get("updated_at"))
+            """INSERT INTO pages (id, title, parent_id, sort_order,
+            page_type, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?,
+            COALESCE(?, datetime('now')), COALESCE(?, datetime('now')))""",
+            (
+                p["id"],
+                p["title"],
+                p.get("parent_id"),
+                p.get("sort_order", 0),
+                p.get("page_type", "page"),
+                p.get("created_at"),
+                p.get("updated_at"),
+            ),
         )
         for b in action["blocks"]:
             conn.execute(
-                "INSERT INTO content_blocks (id, page_id, block_type, content_markdown, sort_order) VALUES (?, ?, ?, ?, ?)",
-                (b["id"], b["page_id"], b.get("block_type", "text"),
-                 b.get("content_markdown", ""), b.get("sort_order", 0))
+                "INSERT INTO content_blocks (id, page_id, block_type,"
+                " content_markdown, sort_order)"
+                " VALUES (?, ?, ?, ?, ?)",
+                (
+                    b["id"],
+                    b["page_id"],
+                    b.get("block_type", "text"),
+                    b.get("content_markdown", ""),
+                    b.get("sort_order", 0),
+                ),
             )
         for t in action["tasks"]:
             conn.execute(
-                "INSERT INTO tasks (id, content_block_id, text, is_checked, recurrence_type, due_date, parent_task_id, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                (t["id"], t["content_block_id"], t.get("text", ""),
-                 int(t.get("is_checked", False)), t.get("recurrence_type", "none"),
-                 t.get("due_date"), t.get("parent_task_id"), t.get("sort_order", 0))
+                "INSERT INTO tasks (id, content_block_id, text,"
+                " is_checked, recurrence_type, due_date,"
+                " parent_task_id, sort_order)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    t["id"],
+                    t["content_block_id"],
+                    t.get("text", ""),
+                    int(t.get("is_checked", False)),
+                    t.get("recurrence_type", "none"),
+                    t.get("due_date"),
+                    t.get("parent_task_id"),
+                    t.get("sort_order", 0),
+                ),
             )
         for child in action.get("children", []):
             self._restore_page(conn, child)
@@ -141,25 +184,52 @@ class UndoManager:
     def _restore_block(self, conn, action):
         b = action["block"]
         conn.execute(
-            "INSERT INTO content_blocks (id, page_id, block_type, content_markdown, sort_order) VALUES (?, ?, ?, ?, ?)",
-            (b["id"], b["page_id"], b.get("block_type", "text"),
-             b.get("content_markdown", ""), b.get("sort_order", 0))
+            "INSERT INTO content_blocks (id, page_id, block_type,"
+            " content_markdown, sort_order)"
+            " VALUES (?, ?, ?, ?, ?)",
+            (
+                b["id"],
+                b["page_id"],
+                b.get("block_type", "text"),
+                b.get("content_markdown", ""),
+                b.get("sort_order", 0),
+            ),
         )
         for t in action["tasks"]:
             conn.execute(
-                "INSERT INTO tasks (id, content_block_id, text, is_checked, recurrence_type, due_date, parent_task_id, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                (t["id"], t["content_block_id"], t.get("text", ""),
-                 int(t.get("is_checked", False)), t.get("recurrence_type", "none"),
-                 t.get("due_date"), t.get("parent_task_id"), t.get("sort_order", 0))
+                "INSERT INTO tasks (id, content_block_id, text,"
+                " is_checked, recurrence_type, due_date,"
+                " parent_task_id, sort_order)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    t["id"],
+                    t["content_block_id"],
+                    t.get("text", ""),
+                    int(t.get("is_checked", False)),
+                    t.get("recurrence_type", "none"),
+                    t.get("due_date"),
+                    t.get("parent_task_id"),
+                    t.get("sort_order", 0),
+                ),
             )
 
     def _restore_task(self, conn, action):
         t = action["task"]
         conn.execute(
-            "INSERT INTO tasks (id, content_block_id, text, is_checked, recurrence_type, due_date, parent_task_id, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            (t["id"], t["content_block_id"], t.get("text", ""),
-             int(t.get("is_checked", False)), t.get("recurrence_type", "none"),
-             t.get("due_date"), t.get("parent_task_id"), t.get("sort_order", 0))
+            "INSERT INTO tasks (id, content_block_id, text,"
+            " is_checked, recurrence_type, due_date,"
+            " parent_task_id, sort_order)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                t["id"],
+                t["content_block_id"],
+                t.get("text", ""),
+                int(t.get("is_checked", False)),
+                t.get("recurrence_type", "none"),
+                t.get("due_date"),
+                t.get("parent_task_id"),
+                t.get("sort_order", 0),
+            ),
         )
 
 

@@ -1,13 +1,12 @@
 from dataclasses import dataclass
-from typing import Optional
 
 
 @dataclass
 class Page:
-    id: Optional[int] = None
+    id: int | None = None
     title: str = "Untitled"
-    parent_id: Optional[int] = None
+    parent_id: int | None = None
     sort_order: int = 0
     page_type: str = "page"
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
+    created_at: str | None = None
+    updated_at: str | None = None
