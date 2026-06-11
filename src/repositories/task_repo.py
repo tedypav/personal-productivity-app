@@ -14,6 +14,21 @@ class TaskRepo:
         return [Task(**dict(r)) for r in rows]
 
     @staticmethod
+    def get_by_blocks(block_ids: list[int]) -> list[Task]:
+        if not block_ids:
+            return []
+        conn = get_connection()
+        placeholders = ",".join("?" * len(block_ids))
+        rows = conn.execute(
+            f"SELECT * FROM tasks"
+            f" WHERE content_block_id IN ({placeholders})"
+            " ORDER BY sort_order",
+            block_ids,
+        ).fetchall()
+        conn.close()
+        return [Task(**dict(r)) for r in rows]
+
+    @staticmethod
     def create(task: Task) -> int:
         conn = get_connection()
         max_order = conn.execute(

@@ -15,10 +15,8 @@ def capture_page_tree(page_id: int) -> dict | None:
         return None
 
     blocks = BlockRepo().get_by_page(page_id)
-    tasks = []
-    for b in blocks:
-        if b.id is not None:
-            tasks.extend(TaskRepo().get_by_block(b.id))
+    block_ids = [b.id for b in blocks if b.id is not None]
+    tasks = TaskRepo().get_by_blocks(block_ids)
 
     return {
         "page": _page_dict(page),
@@ -38,10 +36,8 @@ def _capture_children(parent_id: int) -> list:
         if child.id is None:
             continue
         blocks = BlockRepo().get_by_page(child.id)
-        tasks = []
-        for b in blocks:
-            if b.id is not None:
-                tasks.extend(TaskRepo().get_by_block(b.id))
+        block_ids = [b.id for b in blocks if b.id is not None]
+        tasks = TaskRepo().get_by_blocks(block_ids)
         if child.id is not None:
             result.append(
                 {

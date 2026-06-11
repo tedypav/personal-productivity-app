@@ -502,6 +502,10 @@ class MarkdownBlock(QWidget):
         self._embedded_lists = []
         self._embedded_id_counter = -1
         self._active_list = None
+        self._preview_timer = QTimer()
+        self._preview_timer.setSingleShot(True)
+        self._preview_timer.setInterval(150)
+        self._preview_timer.timeout.connect(self._do_update_preview)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -540,7 +544,7 @@ class MarkdownBlock(QWidget):
         self._embedded_layout.setSpacing(4)
         layout.addWidget(self._embedded_container)
 
-        self._update_preview()
+        self._do_update_preview()
         self.setStyleSheet("""
             QTextBrowser { background: transparent; border: none; }
             QTextEdit { border: 1px solid #F0E6E8; border-radius: 10px; }
@@ -744,7 +748,7 @@ class MarkdownBlock(QWidget):
             return
         self.editing = False
         self._text_stack.setCurrentWidget(self.preview)
-        self._update_preview()
+        self._do_update_preview()
         self.editing_changed.emit(False)
 
     def _apply_pending_font(self):
@@ -766,16 +770,16 @@ class MarkdownBlock(QWidget):
             fmt.setFontPointSize(size)
             self.editor.setCurrentCharFormat(fmt)
             self._pending_font_size = size
-        self._update_preview()
+        self._do_update_preview()
 
     def _on_text_changed(self):
         try:
             self.changed.emit()
-            self._update_preview()
+            self._preview_timer.start()
         except Exception as e:
             print(f"Error in text changed: {e}")
 
-    def _update_preview(self):
+    def _do_update_preview(self):
         try:
             if not self.editor:
                 return
@@ -2959,6 +2963,7 @@ class PageEditor(QWidget):
         self._active_table_cell = None
         self._tracked_edit: QTextEdit | None = None
         self._syncing_buttons = False  # Prevent re-entrant calls
+        self._template_dirty = False
         self.setStyleSheet("background: #2a1a35;")
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
 
@@ -3968,9 +3973,9 @@ class PageEditor(QWidget):
         for w in self._block_widgets:
             if hasattr(w, "save") and hasattr(w, "_dirty") and w._dirty:
                 w.save()
+                self._template_dirty = True
 
-        # If this is a template page, update the template in the database
-        if self.current_page_id:
+        if self._template_dirty and self.current_page_id:
             try:
                 from src.repositories.block_repo import BlockRepo
                 from src.repositories.page_repo import PageRepo
@@ -3978,7 +3983,6 @@ class PageEditor(QWidget):
 
                 page = PageRepo().get_by_id(self.current_page_id)
                 if page and page.page_type == "template_page":
-                    # Get all blocks for this page
                     blocks = BlockRepo().get_by_page(self.current_page_id)
                     data = [
                         {
@@ -3988,7 +3992,6 @@ class PageEditor(QWidget):
                         for b in blocks
                     ]
 
-                    # Find and update the corresponding template
                     templates = TemplateRepo().get_all()
                     for template in templates:
                         if template.name == page.title:
@@ -3997,3 +4000,4 @@ class PageEditor(QWidget):
                             break
             except Exception as e:
                 print(f"Error syncing template: {e}")
+            self._template_dirty = False

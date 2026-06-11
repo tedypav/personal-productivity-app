@@ -1079,8 +1079,12 @@ class Sidebar(QWidget):
         template_repo = TemplateRepo()
         templates = template_repo.get_all()
 
+        children_map = {}
+        for p in pages:
+            children_map.setdefault(p.parent_id, []).append(p)
+
         def add_children(parent_item, parent_id):
-            children = [p for p in pages if p.parent_id == parent_id]
+            children = children_map.get(parent_id, [])
             for page in sorted(children, key=lambda x: x.title.lower()):
                 item = QTreeWidgetItem(parent_item)
                 if page.page_type == "folder":
