@@ -932,12 +932,10 @@ class MarkdownBlock(QWidget):
         self.changed.emit()
 
     def _remove_embedded_list(self, container):
-        for i, el in enumerate(self._embedded_lists):
-            if el["container"] is container:
-                self._embedded_lists.pop(i)
-                break
         for i, entry in enumerate(self._blocks):
             if entry["type"] == "tasks" and entry["widget"] is container:
+                container.setParent(None)
+                container.deleteLater()
                 self._blocks.pop(i)
                 break
         if self._active_list is not None:

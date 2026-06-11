@@ -192,3 +192,58 @@ class TestEmbeddedResize:
         container = task_blocks[0]["widget"]
         assert hasattr(container, "_resize_handle")
         assert isinstance(container._resize_handle, _EmbeddedResizeHandle)
+
+
+class TestReorderPersistence:
+    def test_reorder_preserves_task_data(self, text_block_with_embedded):
+        from src.ui.editor import MarkdownBlock
+
+        body = text_block_with_embedded._body
+        assert isinstance(body, MarkdownBlock)
+        body.add_task_list()
+        body.add_task_list()
+        task_blocks = _get_task_blocks(body)
+        repo0 = task_blocks[0]["repo"]
+        repo1 = task_blocks[1]["repo"]
+        tasks0_before = [t.text for t in repo0.get_by_block(task_blocks[0]["id"])]
+        tasks1_before = [t.text for t in repo1.get_by_block(task_blocks[1]["id"])]
+        c1 = task_blocks[1]["widget"]
+        body._move_embedded_list_up(c1)
+        task_blocks = _get_task_blocks(body)
+        tasks0_after = [
+            t.text for t in task_blocks[0]["repo"].get_by_block(task_blocks[0]["id"])
+        ]
+        tasks1_after = [
+            t.text for t in task_blocks[1]["repo"].get_by_block(task_blocks[1]["id"])
+        ]
+        assert tasks0_after == tasks1_before
+        assert tasks1_after == tasks0_before
+
+    def test_resize_handle_has_minimum(self, text_block_with_embedded):
+        from src.ui.editor import MarkdownBlock
+
+        body = text_block_with_embedded._body
+        assert isinstance(body, MarkdownBlock)
+        body.add_task_list()
+        task_blocks = _get_task_blocks(body)
+        c = task_blocks[0]["widget"]
+        assert c._min_height == 60
+        assert c._resize_handle is not None
+
+    def test_multiple_task_lists_independent(self, text_block_with_embedded):
+        from src.ui.editor import MarkdownBlock
+
+        body = text_block_with_embedded._body
+        assert isinstance(body, MarkdownBlock)
+        body.add_task_list()
+        body.add_task_list()
+        task_blocks = _get_task_blocks(body)
+        assert len(task_blocks) == 2
+        repo0 = task_blocks[0]["repo"]
+        repo1 = task_blocks[1]["repo"]
+        tasks0 = repo0.get_by_block(task_blocks[0]["id"])
+        tasks1 = repo1.get_by_block(task_blocks[1]["id"])
+        assert len(tasks0) == 1
+        assert len(tasks1) == 1
+        assert tasks0[0].text == "New task"
+        assert tasks1[0].text == "New task"
