@@ -54,21 +54,21 @@ class TestSidebarExtended:
         from src.ui.sidebar import Sidebar
 
         s = Sidebar()
-        s._ensure_templates_folder()
+        s._ensure_special_folders()
         s.close()
 
     def test_sidebar_ensure_archive_folder(self, app_instance, db_init):
         from src.ui.sidebar import Sidebar
 
         s = Sidebar()
-        s._ensure_archive_folder()
+        s._ensure_special_folders()
         s.close()
 
     def test_sidebar_ensure_fun_imports_folder(self, app_instance, db_init):
         from src.ui.sidebar import Sidebar
 
         s = Sidebar()
-        s._ensure_fun_imports_folder()
+        s._ensure_special_folders()
         s.close()
 
 

@@ -127,6 +127,7 @@ class TestInitDb:
         ).lastrowid
         conn.commit()
         init_db()
+        conn = get_connection()
         row = conn.execute(
             "SELECT header_font_size, content_font_size FROM content_blocks WHERE id=?",
             (bid,),
