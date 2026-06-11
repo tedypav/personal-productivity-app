@@ -2078,8 +2078,9 @@ class ContentBlockWidget(QFrame):
 
         def _on_header_focus_out(ev, orig=_orig_header_focus_out, me=self):
             orig(ev)
-            if me._inline_toolbar is not None and not me._body.editing:
-                me._inline_toolbar.setVisible(False)
+            tb = getattr(me, "_inline_toolbar", None)
+            if tb is not None and not me._body.editing:
+                tb.setVisible(False)
 
         self._header_edit.focusOutEvent = _on_header_focus_out
         _orig_header_key = self._header_edit.keyPressEvent
@@ -2241,6 +2242,7 @@ class ContentBlockWidget(QFrame):
         layout.addWidget(self._header_resize_handle)
 
         self._body = None
+        self._inline_toolbar = None
 
         if self.block.block_type == "text":
             content_size = (
