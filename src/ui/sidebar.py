@@ -940,9 +940,7 @@ class Sidebar(QWidget):
         self.btn_archive.clicked.connect(self._archive_selected)
 
         self._setup_shortcuts()
-        self._ensure_templates_folder()
-        self._ensure_archive_folder()
-        self._ensure_fun_imports_folder()
+        self._ensure_special_folders()
         self._editor_ref = None
         self._load_pages()
 
@@ -1006,38 +1004,14 @@ class Sidebar(QWidget):
         rename_action2.triggered.connect(self._rename_selected)
         self.template_tree.addAction(rename_action2)
 
-    def _ensure_templates_folder(self):
-        """Create the default Templates folder if it doesn't exist."""
+    def _ensure_special_folders(self):
         from src.models.page import Page
 
         pages = self.repo.get_all()
-        templates_folder = [
-            p for p in pages if p.title == "Templates" and p.page_type == "folder"
-        ]
-        if not templates_folder:
-            self.repo.create(Page(title="Templates", page_type="folder"))
-
-    def _ensure_archive_folder(self):
-        """Create the Archive folder if it doesn't exist."""
-        from src.models.page import Page
-
-        pages = self.repo.get_all()
-        archive_folder = [
-            p for p in pages if p.title == "Archive" and p.page_type == "folder"
-        ]
-        if not archive_folder:
-            self.repo.create(Page(title="Archive", page_type="folder"))
-
-    def _ensure_fun_imports_folder(self):
-        """Create the Fun Imports folder if it doesn't exist."""
-        from src.models.page import Page
-
-        pages = self.repo.get_all()
-        fun_folder = [
-            p for p in pages if p.title == "Fun Imports" and p.page_type == "folder"
-        ]
-        if not fun_folder:
-            self.repo.create(Page(title="Fun Imports", page_type="folder"))
+        existing = {p.title for p in pages if p.page_type == "folder"}
+        for title in ("Templates", "Archive", "Fun Imports"):
+            if title not in existing:
+                self.repo.create(Page(title=title, page_type="folder"))
 
     def _save_template_clicked(self):
         """Save the current page as a template."""

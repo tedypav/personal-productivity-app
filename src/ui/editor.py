@@ -1601,99 +1601,95 @@ class TaskWidget(QWidget):
                     if sub_item.widget():
                         sub_item.widget().deleteLater()
 
+    def _append_task_row(self, task):
+        layout = self.layout()
+        container = QWidget()
+        v_layout = QVBoxLayout(container)
+        v_layout.setContentsMargins(0, 0, 0, 0)
+        v_layout.setSpacing(0)
+
+        h_layout = QHBoxLayout()
+        h_layout.setContentsMargins(0, 0, 0, 0)
+        h_layout.setSpacing(0)
+
+        cb = QCheckBox()
+        cb.setChecked(bool(task.is_checked))
+        cb.stateChanged.connect(lambda state, t=task: self._toggle_task(t, state))
+        h_layout.addWidget(cb)
+
+        edit = FormattedTextEdit()
+        edit.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        edit.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        edit.setFrameShape(QFrame.Shape.NoFrame)
+        edit.setAcceptRichText(True)
+        edit.setMinimumHeight(26)
+        edit.blockSignals(True)
+        task_text = task.text or ""
+        if task_text.strip().startswith("<") and ">" in task_text.strip():
+            edit.setHtml(task_text)
+        else:
+            edit.setPlainText(task_text)
+        edit.blockSignals(False)
+        edit.textChanged.connect(
+            lambda t=task, e=edit, c=container: (
+                self._update_text(t, _get_edit_html_body(e)),
+                self._auto_grow_edit(e, c),
+            )
+        )
+
+        edit_container = QWidget()
+        edit_inner = QHBoxLayout(edit_container)
+        edit_inner.setContentsMargins(0, 0, 0, 0)
+        edit_inner.setSpacing(0)
+        edit_inner.addWidget(edit)
+        split_handle = _TaskRowSplitHandle(edit)
+        edit_inner.addWidget(split_handle)
+        edit_inner.addStretch(1)
+
+        h_layout.addWidget(edit_container, 1)
+
+        rec_combo = QComboBox()
+        rec_combo.addItems(["none", "daily", "weekly", "monthly"])
+        rec_combo.setCurrentText(task.recurrence_type)
+
+        def make_rec_handler(t):
+            return lambda val: self._set_recurrence(t, val)
+
+        rec_combo.currentTextChanged.connect(make_rec_handler(task))
+
+        del_btn = QPushButton("X")
+        del_btn.setFixedWidth(30)
+
+        def make_del_handler(t):
+            return lambda: self._delete_task(t)
+
+        del_btn.clicked.connect(make_del_handler(task))
+
+        sidebar = QWidget()
+        side_inner = QHBoxLayout(sidebar)
+        side_inner.setContentsMargins(0, 0, 0, 0)
+        side_inner.setSpacing(0)
+        side_inner.addWidget(QLabel("Recur:"))
+        side_inner.addWidget(rec_combo)
+        side_inner.addWidget(del_btn)
+
+        h_layout.addWidget(sidebar)
+
+        v_layout.addLayout(h_layout)
+
+        height_handle = _TaskRowResizeHandle(container)
+        v_layout.addWidget(height_handle)
+
+        container.setFixedHeight(30)
+        QTimer.singleShot(0, lambda c=container, e=edit: self._auto_grow_edit(e, c))
+
+        layout.addWidget(container)
+
     def _load(self):
         self._clear()
-        layout = self.layout()
-
         tasks = self.task_repo.get_by_block(self.block_id)
-
         for task in tasks:
-            container = QWidget()
-            v_layout = QVBoxLayout(container)
-            v_layout.setContentsMargins(0, 0, 0, 0)
-            v_layout.setSpacing(0)
-
-            # Top row
-            h_layout = QHBoxLayout()
-            h_layout.setContentsMargins(0, 0, 0, 0)
-            h_layout.setSpacing(0)
-
-            cb = QCheckBox()
-            cb.setChecked(bool(task.is_checked))
-            cb.stateChanged.connect(lambda state, t=task: self._toggle_task(t, state))
-            h_layout.addWidget(cb)
-
-            edit = FormattedTextEdit()
-            edit.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-            edit.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-            edit.setFrameShape(QFrame.Shape.NoFrame)
-            edit.setAcceptRichText(True)
-            edit.setMinimumHeight(26)
-            edit.blockSignals(True)
-            task_text = task.text or ""
-            if task_text.strip().startswith("<") and ">" in task_text.strip():
-                edit.setHtml(task_text)
-            else:
-                edit.setPlainText(task_text)
-            edit.blockSignals(False)
-            edit.textChanged.connect(
-                lambda t=task, e=edit, c=container: (
-                    self._update_text(t, _get_edit_html_body(e)),
-                    self._auto_grow_edit(e, c),
-                )
-            )
-
-            # edit_container stretches; inside: edit at left,
-            # split handle, stretch pushes them left
-            edit_container = QWidget()
-            edit_inner = QHBoxLayout(edit_container)
-            edit_inner.setContentsMargins(0, 0, 0, 0)
-            edit_inner.setSpacing(0)
-            edit_inner.addWidget(edit)
-            split_handle = _TaskRowSplitHandle(edit)
-            edit_inner.addWidget(split_handle)
-            edit_inner.addStretch(1)
-
-            h_layout.addWidget(edit_container, 1)
-
-            rec_combo = QComboBox()
-            rec_combo.addItems(["none", "daily", "weekly", "monthly"])
-            rec_combo.setCurrentText(task.recurrence_type)
-
-            def make_rec_handler(t):
-                return lambda val: self._set_recurrence(t, val)
-
-            rec_combo.currentTextChanged.connect(make_rec_handler(task))
-
-            del_btn = QPushButton("X")
-            del_btn.setFixedWidth(30)
-
-            def make_del_handler(t):
-                return lambda: self._delete_task(t)
-
-            del_btn.clicked.connect(make_del_handler(task))
-
-            # Sidebar stays at right edge of the outer row
-            sidebar = QWidget()
-            side_inner = QHBoxLayout(sidebar)
-            side_inner.setContentsMargins(0, 0, 0, 0)
-            side_inner.setSpacing(0)
-            side_inner.addWidget(QLabel("Recur:"))
-            side_inner.addWidget(rec_combo)
-            side_inner.addWidget(del_btn)
-
-            h_layout.addWidget(sidebar)
-
-            v_layout.addLayout(h_layout)
-
-            height_handle = _TaskRowResizeHandle(container)
-            v_layout.addWidget(height_handle)
-
-            # Start at single-line height; auto-grow after layout resolves
-            container.setFixedHeight(30)
-            QTimer.singleShot(0, lambda c=container, e=edit: self._auto_grow_edit(e, c))
-
-            layout.addWidget(container)
+            self._append_task_row(task)
 
     def _auto_grow_edit(self, edit, container):
         doc_h = edit.document().size().height()
@@ -1724,7 +1720,7 @@ class TaskWidget(QWidget):
             due_date=new_due,
         )
         self.task_repo.create(new_task)
-        self._load()
+        self._append_task_row(new_task)
 
     def _update_text(self, task, text):
         task.text = text
@@ -1750,7 +1746,7 @@ class TaskWidget(QWidget):
     def _add_task(self):
         task = Task(content_block_id=self.block_id, text="New task")
         self.task_repo.create(task)
-        self._load()
+        self._append_task_row(task)
         self.task_changed.emit()
 
 
@@ -2076,7 +2072,7 @@ class ContentBlockWidget(QFrame):
 
         def _on_header_focus_out(ev, orig=_orig_header_focus_out, me=self):
             orig(ev)
-            if hasattr(me, "_inline_toolbar") and not me._body.editing:
+            if me._inline_toolbar is not None and not me._body.editing:
                 me._inline_toolbar.setVisible(False)
 
         self._header_edit.focusOutEvent = _on_header_focus_out
@@ -2254,8 +2250,8 @@ class ContentBlockWidget(QFrame):
             self._body.changed.connect(self._on_content_changed)
             self._body.embedded_changed.connect(self._fit_to_content)
             self._body.embedded_changed.connect(self._sync_add_task_btn)
-            self._build_inline_toolbar(layout)
-            self._inline_toolbar.setVisible(False)
+            self._toolbar_parent_layout = layout
+            self._inline_toolbar = None
             self._body.editing_changed.connect(self._on_editing_changed)
             self.header_focused.connect(self._on_header_focus_changed)
             layout.addWidget(self._body)
@@ -2373,7 +2369,13 @@ class ContentBlockWidget(QFrame):
             self._fit_to_content()
 
     def _on_editing_changed(self, editing):
-        if hasattr(self, "_inline_toolbar"):
+        if (
+            self._inline_toolbar is None
+            and editing
+            and hasattr(self, "_toolbar_parent_layout")
+        ):
+            self._build_inline_toolbar()
+        if self._inline_toolbar is not None:
             self._inline_toolbar.setVisible(editing)
         if hasattr(self, "_dots_btn"):
             self._dots_btn.setVisible(editing)
@@ -2391,7 +2393,9 @@ class ContentBlockWidget(QFrame):
 
     def _on_header_focus_changed(self, block_w):
         if block_w is self:
-            if hasattr(self, "_inline_toolbar"):
+            if self._inline_toolbar is None and hasattr(self, "_toolbar_parent_layout"):
+                self._build_inline_toolbar()
+            if self._inline_toolbar is not None:
                 self._inline_toolbar.setVisible(True)
             if hasattr(self, "_dots_btn"):
                 self._dots_btn.setVisible(True)
@@ -2557,8 +2561,11 @@ class ContentBlockWidget(QFrame):
 
         menu.exec(self._dots_btn.mapToGlobal(self._dots_btn.rect().bottomLeft()))
 
-    def _build_inline_toolbar(self, parent_layout):
-        """Build inline formatting toolbar for text blocks."""
+    def _build_inline_toolbar(self, parent_layout=None):
+        if self._inline_toolbar is not None:
+            return
+        if parent_layout is None:
+            parent_layout = self._toolbar_parent_layout
         self._inline_toolbar = QWidget()
         self._inline_toolbar.setStyleSheet("background: transparent;")
         tb_layout = QHBoxLayout(self._inline_toolbar)
