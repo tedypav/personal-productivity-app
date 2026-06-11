@@ -627,52 +627,6 @@ class _BlockTextEdit(QTextEdit):
         super().keyPressEvent(event)
 
 
-class _BlockSeparator(QWidget):
-    """Separator between blocks that shows an insert button on hover."""
-
-    insert_requested = pyqtSignal(object)  # emits self
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setFixedHeight(8)
-        self.setMouseTracking(True)
-        self._hovering = False
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
-
-    def enterEvent(self, event):
-        self._hovering = True
-        self.setFixedHeight(20)
-        self.update()
-
-    def leaveEvent(self, event):
-        self._hovering = False
-        self.setFixedHeight(8)
-        self.update()
-
-    def mousePressEvent(self, event):
-        if event.button() == Qt.MouseButton.LeftButton:
-            self.insert_requested.emit(self)
-
-    def paintEvent(self, event):
-        p = QPainter(self)
-        r = self.rect()
-        if self._hovering:
-            p.setPen(QColor("#CFA6D6"))
-            p.setBrush(QColor("#F3E8F6"))
-            cx, cy = r.center().x(), r.center().y()
-            p.drawEllipse(cx - 8, cy - 8, 16, 16)
-            p.setPen(QColor("#CFA6D6"))
-            font = p.font()
-            font.setPointSize(12)
-            font.setBold(True)
-            p.setFont(font)
-            p.drawText(r, Qt.AlignmentFlag.AlignCenter, "+")
-        else:
-            p.setPen(QColor("#e5e7eb"))
-            y = r.height() // 2
-            p.drawLine(r.left() + 20, y, r.right() - 20, y)
-
-
 class MarkdownBlock(QWidget):
     changed = pyqtSignal()
     embedded_changed = pyqtSignal()
@@ -881,21 +835,8 @@ class MarkdownBlock(QWidget):
                         sub_item.widget().setParent(None)
 
         for entry in self._blocks:
-            sep = _BlockSeparator(self)
-            sep.insert_requested.connect(self._on_separator_insert)
-            self._blocks_layout.addWidget(sep)
             self._blocks_layout.addWidget(entry["widget"])
-
-        final_sep = _BlockSeparator(self)
-        final_sep.insert_requested.connect(self._on_separator_insert)
-        self._blocks_layout.addWidget(final_sep)
         self._blocks_layout.addStretch()
-
-    def _refresh_separator_states(self):
-        for i in range(self._blocks_layout.count()):
-            item = self._blocks_layout.itemAt(i)
-            if item and item.widget() and isinstance(item.widget(), _BlockSeparator):
-                pass
 
     def add_task_list(self):
         try:
@@ -1024,54 +965,6 @@ class MarkdownBlock(QWidget):
                         self._rebuild_blocks_layout()
                         self.changed.emit()
                 return
-
-    def _on_separator_insert(self, sep):
-        idx = None
-        count = 0
-        for i in range(self._blocks_layout.count()):
-            item = self._blocks_layout.itemAt(i)
-            if item and item.widget() and isinstance(item.widget(), _BlockSeparator):
-                if item.widget() is sep:
-                    idx = count
-                    break
-                count += 1
-
-        menu = QMenu(self)
-        menu.setStyleSheet("""
-            QMenu { background: #ffffff; border: 1px solid #e5e7eb;
-                border-radius: 8px; padding: 4px; }
-            QMenu::item { padding: 6px 24px; border-radius: 4px;
-                font-size: 12px; color: #374151; }
-            QMenu::item:selected { background: #F3E8F6; }
-        """)
-        text_action = menu.addAction("Text")
-        task_action = menu.addAction("Task List")
-        action = menu.exec(sep.mapToGlobal(sep.rect().bottomLeft()))
-        if action is None:
-            return
-
-        if idx is None:
-            idx = len(self._blocks)
-
-        if action is text_action:
-            te = _BlockTextEdit("", self)
-            te.changed.connect(self._on_text_changed)
-            te.split_requested.connect(self._on_split_requested)
-            te.merge_back_requested.connect(self._on_merge_back_requested)
-            te.focused.connect(lambda: QTimer.singleShot(0, self._apply_pending_font))
-            if self.content_font_size:
-                font = te.document().defaultFont()
-                font.setPointSize(self.content_font_size)
-                te.document().setDefaultFont(font)
-            self._blocks.insert(idx, {"type": "text", "widget": te})
-        elif action is task_action:
-            self._add_task_block()
-            block_entry = self._blocks.pop(-1)
-            self._blocks.insert(idx, block_entry)
-
-        self._rebuild_blocks_layout()
-        self.embedded_changed.emit()
-        self.changed.emit()
 
     def to_serialized_content(self):
         try:

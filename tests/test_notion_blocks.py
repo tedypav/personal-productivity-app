@@ -118,34 +118,6 @@ class TestBlockTextEdit:
         assert te.minimumHeight() > 0
 
 
-class TestBlockSeparator:
-    def test_separator_hover_state(self, text_block):
-        from src.ui.editor import MarkdownBlock, _BlockSeparator
-
-        body = text_block._body
-        assert isinstance(body, MarkdownBlock)
-        seps = body._blocks_container.findChildren(_BlockSeparator)
-        assert len(seps) > 0
-        sep = seps[0]
-        assert sep._hovering is False
-        sep._hovering = True
-        sep.update()
-        assert sep._hovering is True
-
-    def test_separator_click_emits_signal(self, text_block):
-        from src.ui.editor import MarkdownBlock, _BlockSeparator
-
-        body = text_block._body
-        assert isinstance(body, MarkdownBlock)
-        seps = body._blocks_container.findChildren(_BlockSeparator)
-        assert len(seps) > 0
-        sep = seps[0]
-        received = []
-        sep.insert_requested.connect(lambda s: received.append(s))
-        sep.insert_requested.emit(sep)
-        assert len(received) == 1
-
-
 class TestMarkdownBlockSerialization:
     def test_roundtrip_text_only(self, text_block):
         from src.ui.editor import MarkdownBlock
