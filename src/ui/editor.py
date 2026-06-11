@@ -1866,10 +1866,10 @@ class ResizeHandle(QWidget):
         self._hovered = True
         self.update()
         try:
-            if hasattr(self.block_widget, "save"):
-                self.block_widget.save()
+            if hasattr(self.block_widget, "mark_dirty"):
+                self.block_widget.mark_dirty()
         except Exception as e:
-            print(f"Error saving after resize: {e}")
+            print(f"Error marking dirty after resize: {e}")
 
 
 class ResizeHandleHeader(QWidget):
@@ -1930,7 +1930,7 @@ class ResizeHandleHeader(QWidget):
         while block_w and not isinstance(block_w, ContentBlockWidget):
             block_w = block_w.parent()
         if block_w:
-            block_w.save()
+            block_w.mark_dirty()
 
 
 class ContentBlockWidget(QFrame):
@@ -1959,6 +1959,7 @@ class ContentBlockWidget(QFrame):
         self._align_target_kind = None
         self._manual_resize = False
         self._active_task_cell = None
+        self._dirty = True
 
         self._build_ui()
 
@@ -1967,6 +1968,9 @@ class ContentBlockWidget(QFrame):
         self.setProperty("selected", "true" if selected else "false")
         self.style().unpolish(self)
         self.style().polish(self)
+
+    def mark_dirty(self):
+        self._dirty = True
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
@@ -2004,7 +2008,7 @@ class ContentBlockWidget(QFrame):
     def mouseReleaseEvent(self, event):
         if self._right_resizing:
             self._right_resizing = False
-            self.save()
+            self.mark_dirty()
             return
         super().mouseReleaseEvent(event)
 
@@ -2086,6 +2090,8 @@ class ContentBlockWidget(QFrame):
             "QTextEdit { border: none; background: transparent; color: #2E2B2B; }"
             "QTextEdit:focus { border: none; background: #f3f4f6; color: #2E2B2B; }"
         )
+        self._header_edit.textChanged.connect(self.mark_dirty)
+        self.changed.connect(self.mark_dirty)
 
         self._apply_v_alignment_layout()
 
@@ -2529,7 +2535,7 @@ class ContentBlockWidget(QFrame):
                 h_align_map.get(self._header_align_h, Qt.AlignmentFlag.AlignLeft)
             )
             self._apply_alignment_button_states()
-            self.save()
+            self.mark_dirty()
 
         def on_v_align(action):
             if action == v_top:
@@ -2540,7 +2546,7 @@ class ContentBlockWidget(QFrame):
                 self._header_align_v = "bottom"
             self._apply_v_alignment_layout()
             self._apply_alignment_button_states()
-            self.save()
+            self.mark_dirty()
 
         h_group.triggered.connect(on_h_align)
         v_group.triggered.connect(on_v_align)
@@ -2729,7 +2735,7 @@ class ContentBlockWidget(QFrame):
             fmt.setFontPointSize(size)
             edit.setCurrentCharFormat(fmt)
         self.block.content_font_size = size
-        self.save()
+        self.mark_dirty()
 
     def _apply_pending_header_font(self):
         if self._pending_header_font_size:
@@ -2834,7 +2840,7 @@ class ContentBlockWidget(QFrame):
             self._align_target_edit.setAlignment(align_val)
         if self._align_target_kind == "header":
             self._header_align_h = align_str
-            self.save()
+            self.mark_dirty()
 
     def _on_v_align_changed(self, btn):
         if btn == self._v_top_btn:
@@ -2844,7 +2850,7 @@ class ContentBlockWidget(QFrame):
         elif btn == self._v_bottom_btn:
             self._header_align_v = "bottom"
         self._apply_v_alignment_layout()
-        self.save()
+        self.mark_dirty()
 
     def save(self):
         try:
@@ -2874,6 +2880,7 @@ class ContentBlockWidget(QFrame):
             elif self.block.block_type == "text" and self._body:
                 self.block.content_markdown = self._body.to_serialized_content()
             BlockRepo().update(self.block)
+            self._dirty = False
             self.saved.emit()
         except Exception as e:
             print(f"Error saving block: {e}")
@@ -3542,7 +3549,7 @@ class PageEditor(QWidget):
                 if self._drag_data and self._drag_data[0] is w:
                     w.block.pos_x = w.x()
                     w.block.pos_y = w.y()
-                    w.save()
+                    w.mark_dirty()
                     self._drag_data = None
                     ev.accept()
                 else:
@@ -3733,7 +3740,7 @@ class PageEditor(QWidget):
                 img_fmt.setHeight(img.height())
             img_fmt.setName(img_name)
             cursor.insertImage(img_fmt)
-            last_block.save()
+            last_block.mark_dirty()
             QTimer.singleShot(0, self._scroll_to_newest_block)
 
     def _scroll_to_newest_block(self):
@@ -3959,7 +3966,7 @@ class PageEditor(QWidget):
 
     def save_current(self):
         for w in self._block_widgets:
-            if hasattr(w, "save"):
+            if hasattr(w, "save") and hasattr(w, "_dirty") and w._dirty:
                 w.save()
 
         # If this is a template page, update the template in the database

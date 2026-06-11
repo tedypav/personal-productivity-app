@@ -3,13 +3,33 @@ import sqlite3
 
 DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "app.db")
 
+_connection = None
+
 
 def get_connection():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("PRAGMA foreign_keys=ON")
-    return conn
+    global _connection
+    if _connection is not None:
+        try:
+            _connection.execute("SELECT 1")
+            return _connection
+        except sqlite3.ProgrammingError:
+            _connection = None
+    _connection = sqlite3.connect(DB_PATH, check_same_thread=False)
+    _connection.row_factory = sqlite3.Row
+    _connection.execute("PRAGMA journal_mode=WAL")
+    _connection.execute("PRAGMA foreign_keys=ON")
+    return _connection
+
+
+def close_connection():
+    global _connection
+    if _connection is not None:
+        _connection.close()
+        _connection = None
+
+
+def reset_connection():
+    close_connection()
 
 
 def init_db():
@@ -57,6 +77,14 @@ def init_db():
             content_json TEXT NOT NULL DEFAULT '[]',
             created_at TEXT NOT NULL DEFAULT (datetime('now'))
         );
+    """)
+
+    cursor.executescript("""
+        CREATE INDEX IF NOT EXISTS idx_blocks_page ON content_blocks(page_id);
+        CREATE INDEX IF NOT EXISTS idx_tasks_block ON tasks(content_block_id);
+        CREATE INDEX IF NOT EXISTS idx_pages_parent ON pages(parent_id);
+        CREATE INDEX IF NOT EXISTS idx_pages_sort ON pages(sort_order);
+        CREATE INDEX IF NOT EXISTS idx_tasks_sort ON tasks(sort_order);
     """)
 
     try:
