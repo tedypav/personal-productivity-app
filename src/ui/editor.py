@@ -3997,9 +3997,6 @@ class PageEditor(QWidget):
             w.move(block.pos_x, block.pos_y)
             w.show()
             self._block_widgets.append(w)
-            # List blocks get an initial task so checkboxes are visible
-            if block_type in ("list", "checkbox") and hasattr(w, "_body"):
-                w._body._add_task()
             self._update_canvas_size()
             QTimer.singleShot(10, lambda: self.scroll.ensureWidgetVisible(w, 50, 50))
         except Exception as e:
