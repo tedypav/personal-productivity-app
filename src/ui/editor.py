@@ -176,16 +176,17 @@ class PageEditor(QWidget):
         toolbar.addWidget(self.page_title)
         toolbar.addStretch()
 
-        self._back_btn = QPushButton("Back to folder")
+        self._back_btn = QPushButton("← Back to folder")
         self._back_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._back_btn.setStyleSheet(
             "QPushButton {"
-            " font-size: 12px; color: #7c3aed; background: transparent;"
-            " border: none; padding: 4px 8px;"
-            " font-family: 'Inter', sans-serif;"
+            " font-size: 12px; color: #CFA6D6; background: transparent;"
+            " border: 1px solid #F0E6E8; border-radius: 14px;"
+            " padding: 4px 14px; font-family: 'Inter', sans-serif;"
             "}"
             "QPushButton:hover {"
-            " color: #5b21b6; text-decoration: underline;"
+            " background: #FFF0F3; border-color: #CFA6D6;"
+            " color: #9b59b6;"
             "}"
         )
         self._back_btn.clicked.connect(self._on_back_clicked)
@@ -273,14 +274,14 @@ class PageEditor(QWidget):
             btn.setStyleSheet(
                 "QPushButton {"
                 " text-align: left; font-size: 15px;"
-                " color: #7c3aed; background: transparent;"
-                " border: none; padding: 10px 16px;"
+                " color: #CFA6D6; background: transparent;"
+                " border: 1px solid transparent; padding: 10px 16px;"
                 " border-radius: 8px;"
                 " font-family: 'Inter', sans-serif;"
                 "}"
                 "QPushButton:hover {"
-                " background: #F3E8F6;"
-                " color: #5b21b6;"
+                " background: #FFF0F3; border-color: #F7D1DC;"
+                " color: #9b59b6;"
                 "}"
             )
             btn.clicked.connect(

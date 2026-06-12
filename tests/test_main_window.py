@@ -266,4 +266,4 @@ class TestBackToFolderButton:
         folder_id = PageRepo().create(Page(title="MyFolder", page_type="folder"))
         child_id = PageRepo().create(Page(title="Child", parent_id=folder_id))
         main_window.editor.load_page(child_id)
-        assert main_window.editor._back_btn.text() == "Back to folder"
+        assert "Back to folder" in main_window.editor._back_btn.text()
