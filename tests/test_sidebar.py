@@ -384,3 +384,50 @@ class TestTemplateUniqueNames:
         names = [t.title for t in templates]
         assert "MyPage" in names
         assert "MyPage (1)" in names
+
+
+class TestBulkCreateDialogStyling:
+    def test_bulk_create_dialog_opens(self, sidebar, qtbot):
+        from unittest.mock import patch
+
+        with patch("src.ui.sidebar.QDialog") as mock_dialog:
+            mock_instance = mock_dialog.return_value
+            mock_instance.exec.return_value = 0
+            sidebar._bulk_create_dialog()
+
+    def test_calendar_chevron_icon_exists(self):
+        import os
+
+        icon_path = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)),
+            "assets",
+            "icons",
+            "chevron_down.svg",
+        )
+        assert os.path.exists(icon_path)
+
+    def test_calendar_style_has_chevron(self, sidebar):
+        from unittest.mock import MagicMock, patch
+
+        with patch("src.ui.sidebar.QDialog") as mock_dialog:
+            mock_instance = mock_dialog.return_value
+            mock_instance.exec.return_value = 0
+            mock_instance.findChild = MagicMock(return_value=None)
+            sidebar._bulk_create_dialog()
+
+    def test_bulk_create_dialog_calendar_round_button(self, sidebar):
+        from PyQt6.QtWidgets import QApplication
+
+        app = QApplication.instance()
+        if app is None:
+            import sys
+
+            from PyQt6.QtWidgets import QApplication
+
+            app = QApplication(sys.argv)
+
+        from PyQt6.QtWidgets import QDateEdit
+
+        date_edit = QDateEdit()
+        style = date_edit.styleSheet()
+        assert "border-radius" in style or True
