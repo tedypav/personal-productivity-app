@@ -1681,7 +1681,7 @@ class Sidebar(QWidget):
         QMessageBox.information(
             self,
             "Template",
-            f"Page '{page.title}' copied to Templates.",
+            f"Page {page.title} saved as a template.",
         )
 
     def _move_to_folder(self, page_id, page_type):
