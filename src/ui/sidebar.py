@@ -1239,10 +1239,9 @@ class Sidebar(QWidget):
                 background: #FFE4EC;
             }
             QDateEdit::down-arrow {
-                image: none;
-                border-left: 4px solid transparent;
-                border-right: 4px solid transparent;
-                border-top: 5px solid #CFA6D6;
+                image: url(assets/icons/chevron_down.svg);
+                width: 12px;
+                height: 12px;
             }
             QCalendarWidget {
                 background: #FFFFFF;
