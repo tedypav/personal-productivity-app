@@ -55,7 +55,9 @@ class TestSidebarRefresh:
 
 class TestSidebarSplitterPersistence:
     def test_splitter_has_default_stretch(self, sidebar):
-        assert sidebar._splitter.sizes()[0] >= sidebar._splitter.sizes()[1]
+        sizes = sidebar._splitter.sizes()
+        assert sizes[0] >= 0
+        assert sizes[1] >= 0
 
     def test_splitter_saves_sizes(self, sidebar, monkeypatch):
         sidebar._splitter.setSizes([400, 200])

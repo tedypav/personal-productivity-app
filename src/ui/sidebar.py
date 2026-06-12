@@ -891,8 +891,12 @@ class Sidebar(QWidget):
         self.template_tree.setIndentation(16)
         self.template_tree.setAnimated(True)
         self.template_tree.setIconSize(QSize(20, 20))
+        self.template_tree.setSelectionMode(QTreeWidget.SelectionMode.ExtendedSelection)
         self.template_tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.template_tree.itemClicked.connect(self._on_template_item_clicked)
+        self.template_tree.customContextMenuRequested.connect(
+            lambda pos: self._show_context_menu(pos, self.template_tree)
+        )
         self.template_tree.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
         )
@@ -1868,9 +1872,7 @@ class Sidebar(QWidget):
         self.pages_changed.emit()
 
     def delete_selected(self):
-        items = self.tree.selectedItems()
-        if not items:
-            items = self.template_tree.selectedItems()
+        items = self.tree.selectedItems() + self.template_tree.selectedItems()
         if len(items) > 1:
             self._bulk_delete(items)
         elif len(items) == 1:
@@ -1885,9 +1887,7 @@ class Sidebar(QWidget):
             self.pages_changed.emit()
 
     def _delete_selected(self):
-        items = self.tree.selectedItems()
-        if not items:
-            items = self.template_tree.selectedItems()
+        items = self.tree.selectedItems() + self.template_tree.selectedItems()
         if not items:
             return
         if len(items) > 1:
