@@ -88,6 +88,7 @@ class ChecklistWidget(QWidget):
         self.checklist_id = checklist_id
         self.page_id = page_id
         self.setObjectName("checklist")
+        self.setAutoFillBackground(True)
         self.setStyleSheet(
             "#checklist {"
             " background: #FFFFFF; border: 1px solid #F7D1DC;"
@@ -136,7 +137,7 @@ class ChecklistWidget(QWidget):
             " font-family: 'Inter', sans-serif; }"
             " QPushButton:hover { color: #9b59b6; }"
         )
-        add_btn.clicked.connect(self._add_item)
+        add_btn.clicked.connect(lambda: self._add_item())
         self._layout.addWidget(add_btn)
 
         self.adjustSize()
