@@ -187,30 +187,55 @@ class TestSidebarLowerTree:
 
 
 class TestSidebarSpecialFolderClicks:
-    def test_fun_imports_does_not_emit_page_selected(self, sidebar, qtbot):
-        PageRepo().create(Page(title="Fun Imports", page_type="folder"))
+    def test_fun_imports_does_not_emit_page_selected(self, sidebar):
         sidebar.refresh()
 
         received = []
         sidebar.page_selected.connect(lambda pid: received.append(pid))
 
         item = sidebar.template_tree.topLevelItem(0)
-        sidebar.template_tree.setCurrentItem(item)
+        while item and item.text(0) != "Fun Imports":
+            item = sidebar.template_tree.itemBelow(item)
+        assert item is not None
         sidebar.template_tree.itemClicked.emit(item, 0)
 
         assert len(received) == 0
 
-    def test_archive_does_not_emit_page_selected(self, sidebar):
-        PageRepo().create(Page(title="Archive", page_type="folder"))
+    def test_archive_emits_page_selected(self, sidebar):
         sidebar.refresh()
 
         received = []
         sidebar.page_selected.connect(lambda pid: received.append(pid))
 
         item = sidebar.template_tree.topLevelItem(0)
+        while item and item.text(0) != "Archive":
+            item = sidebar.template_tree.itemBelow(item)
+        assert item is not None
         sidebar.template_tree.itemClicked.emit(item, 0)
 
-        assert len(received) == 0
+        assert len(received) == 1
+
+    def test_page_in_archive_emits_page_selected(self, sidebar):
+        archive = [
+            p
+            for p in PageRepo().get_all()
+            if p.title == "Archive" and p.page_type == "folder"
+        ][0]
+        PageRepo().create(Page(title="ArchivedPage", parent_id=archive.id))
+        sidebar.refresh()
+
+        received = []
+        sidebar.page_selected.connect(lambda pid: received.append(pid))
+
+        archive_item = sidebar.template_tree.topLevelItem(0)
+        while archive_item and archive_item.text(0) != "Archive":
+            archive_item = sidebar.template_tree.itemBelow(archive_item)
+        assert archive_item is not None
+        archive_item.setExpanded(True)
+        child_item = archive_item.child(0)
+        sidebar.template_tree.itemClicked.emit(child_item, 0)
+
+        assert len(received) == 1
 
 
 class TestSetAsTemplate:

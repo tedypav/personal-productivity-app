@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 @pytest.fixture(autouse=True)
 def mock_qmessagebox():
-    """Mock QMessageBox to prevent dialogs from blocking tests."""
+    """Mock QMessageBox and dialogs to prevent blocking tests."""
     mock_instance = MagicMock()
     mock_instance.exec.return_value = 0
     mock_instance.clickedButton.return_value = MagicMock()
@@ -20,6 +20,7 @@ def mock_qmessagebox():
         patch("PyQt6.QtWidgets.QMessageBox", mock_instance),
         patch("src.ui.sidebar.QMessageBox", mock_instance),
         patch("src.ui.main_window.QMessageBox", mock_instance),
+        patch("src.ui.sidebar.FunImportsDialog", mock_instance),
     ):
         yield
 

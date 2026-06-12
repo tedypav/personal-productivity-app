@@ -1123,9 +1123,12 @@ class Sidebar(QWidget):
             self.page_selected.emit(page_id)
 
     def _on_template_item_clicked(self, item, column):
+        page_id = item.data(0, Qt.ItemDataRole.UserRole)
         page_title = item.text(0)
         if page_title == "Fun Imports":
             self._open_fun_imports()
+        elif page_id:
+            self.page_selected.emit(page_id)
 
     def _open_fun_imports(self):
         dialog = FunImportsDialog(self, target_edit=None)
