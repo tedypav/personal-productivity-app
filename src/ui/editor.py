@@ -210,9 +210,9 @@ class ChecklistWidget(QWidget):
         if event.type() == QEvent.Type.MouseMove:
             edge = self._detect_edge(pos)
             if edge and not self._resizing and not self._dragging:
-                self.setCursor(self._edge_cursor(edge))
+                obj.setCursor(self._edge_cursor(edge))
             elif not edge and not self._resizing and not self._dragging:
-                self.setCursor(Qt.CursorShape.ArrowCursor)
+                obj.setCursor(Qt.CursorShape.ArrowCursor)
         return super().eventFilter(obj, event)
 
     def _refresh_size(self):
@@ -416,6 +416,8 @@ class ChecklistWidget(QWidget):
                 new_x = max(0, min(new_x, parent.width() - new_w))
                 new_y = max(0, min(new_y, parent.height() - new_h))
             self._user_width = new_w
+            self.setMinimumWidth(0)
+            self.setMaximumWidth(16777215)
             self.setGeometry(new_x, new_y, new_w, new_h)
             event.accept()
             return
