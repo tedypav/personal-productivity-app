@@ -1235,10 +1235,15 @@ class Sidebar(QWidget):
             }
             QDateEdit::down-arrow {
                 image: none;
-                border-left: 5px solid transparent;
-                border-right: 5px solid transparent;
-                border-top: 7px solid #CFA6D6;
+                border-left: 4px solid transparent;
+                border-right: 4px solid transparent;
+                border-top: 6px solid #F7AEC4;
                 margin-right: 8px;
+                width: 0;
+                height: 0;
+            }
+            QDateEdit::down-arrow:hover {
+                border-top-color: #CFA6D6;
             }
             QCalendarWidget {
                 background: #FFFFFF;
