@@ -87,6 +87,8 @@ class ChecklistWidget(QWidget):
         super().__init__(parent)
         self.checklist_id = checklist_id
         self.page_id = page_id
+        self._dragging = False
+        self._drag_start = None
         self.setObjectName("checklist")
         self.setAutoFillBackground(True)
         self.setStyleSheet(
@@ -99,30 +101,36 @@ class ChecklistWidget(QWidget):
         self._layout.setContentsMargins(0, 0, 0, 0)
         self._layout.setSpacing(0)
 
-        header = QHBoxLayout()
-        header.setContentsMargins(12, 8, 12, 4)
-        header.setSpacing(6)
+        header = QWidget()
+        header.setFixedHeight(32)
+        header.setCursor(Qt.CursorShape.OpenHandCursor)
+        header.setStyleSheet("background: transparent;")
+        header_layout = QHBoxLayout(header)
+        header_layout.setContentsMargins(12, 4, 12, 4)
+        header_layout.setSpacing(6)
 
-        title = QLabel("Checklist")
+        title = QLabel("⠿ Checklist")
         title.setStyleSheet(
             "font-family: 'Inter', sans-serif; font-size: 11px;"
             " color: #9CA3AF; font-weight: 500;"
         )
-        header.addWidget(title)
-        header.addStretch()
+        header_layout.addWidget(title)
+        header_layout.addStretch()
 
         delete_btn = QPushButton("×")
-        delete_btn.setFixedSize(20, 20)
+        delete_btn.setFixedSize(22, 22)
         delete_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         delete_btn.setStyleSheet(
-            "QPushButton { border: none; font-size: 14px; color: #9CA3AF;"
-            " border-radius: 10px; background: transparent; }"
+            "QPushButton { border: none; font-size: 16px; color: #CFA6D6;"
+            " border-radius: 11px; background: transparent;"
+            " min-width: 22px; min-height: 22px; }"
             " QPushButton:hover { color: #EF4444; background: #FEE2E2; }"
         )
         delete_btn.clicked.connect(self._delete_checklist)
-        header.addWidget(delete_btn)
+        header_layout.addWidget(delete_btn)
 
-        self._layout.addLayout(header)
+        self._header = header
+        self._layout.addWidget(header)
 
         self._checkboxes_layout = QVBoxLayout()
         self._checkboxes_layout.setContentsMargins(0, 0, 0, 0)
@@ -170,6 +178,38 @@ class ChecklistWidget(QWidget):
                 PageObjectRepo().delete(widget.obj_id)
         self.object_delete_requested.emit(self.checklist_id)
         self.deleteLater()
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            pos = event.position().toPoint()
+            if pos.y() <= self._header.height():
+                self._dragging = True
+                self._drag_start = event.globalPosition().toPoint() - self.pos()
+                self._header.setCursor(Qt.CursorShape.ClosedHandCursor)
+                event.accept()
+                return
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event):
+        if self._dragging and self._drag_start is not None:
+            new_pos = event.globalPosition().toPoint() - self._drag_start
+            parent = self.parent()
+            if parent:
+                new_x = max(0, min(new_pos.x(), parent.width() - self.width()))
+                new_y = max(0, min(new_pos.y(), parent.height() - self.height()))
+                self.move(new_x, new_y)
+            event.accept()
+            return
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        if self._dragging:
+            self._dragging = False
+            self._drag_start = None
+            self._header.setCursor(Qt.CursorShape.OpenHandCursor)
+            event.accept()
+            return
+        super().mouseReleaseEvent(event)
 
     def load_objects(self, objects):
         from src.ui.objects.checkbox_widget import CheckboxWidget
