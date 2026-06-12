@@ -249,29 +249,38 @@ class PageEditor(QWidget):
         toc_container.setStyleSheet("background: transparent;")
         toc_layout = QVBoxLayout(toc_container)
         toc_layout.setContentsMargins(40, 40, 40, 40)
-        toc_layout.setSpacing(4)
+        toc_layout.setSpacing(6)
 
-        folder_label = QLabel("Pages in this folder:")
+        folder_label = QLabel("Pages in this folder")
+        folder_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         folder_label.setStyleSheet(
             "font-family: 'Playfair Display', serif;"
-            " font-size: 16px; font-weight: 600;"
-            " color: #2E2B2B; background: transparent;"
-            " margin-bottom: 8px;"
+            " font-size: 24px; font-weight: 600;"
+            " color: #CFA6D6; background: transparent;"
+            " padding: 8px 0 16px 0;"
         )
         toc_layout.addWidget(folder_label)
 
+        separator = QWidget()
+        separator.setFixedHeight(1)
+        separator.setStyleSheet("background: #F0E6E8;")
+        toc_layout.addWidget(separator)
+        toc_layout.addSpacing(8)
+
         for child in children:
-            btn = QPushButton(child.title)
+            btn = QPushButton(f"  {child.title}")
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
             btn.setStyleSheet(
                 "QPushButton {"
-                " text-align: left; font-size: 14px;"
+                " text-align: left; font-size: 15px;"
                 " color: #7c3aed; background: transparent;"
-                " border: none; padding: 6px 0;"
+                " border: none; padding: 10px 16px;"
+                " border-radius: 8px;"
                 " font-family: 'Inter', sans-serif;"
                 "}"
                 "QPushButton:hover {"
-                " color: #5b21b6; text-decoration: underline;"
+                " background: #F3E8F6;"
+                " color: #5b21b6;"
                 "}"
             )
             btn.clicked.connect(
@@ -281,7 +290,11 @@ class PageEditor(QWidget):
 
         toc_layout.addStretch()
         toc_container.adjustSize()
-        toc_container.move(40, 60)
+
+        canvas_width = self.content.width()
+        toc_width = toc_container.sizeHint().width()
+        x = (canvas_width - toc_width) // 2
+        toc_container.move(x, 60)
         toc_container.show()
         self._toc_widget = toc_container
 
