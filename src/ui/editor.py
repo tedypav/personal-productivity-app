@@ -90,6 +90,14 @@ class ChecklistWidget(QWidget):
         self.page_id = page_id
         self._dragging = False
         self._drag_start = None
+        self._resizing = False
+        self._resize_edge = None
+        self._resize_start = None
+        self._resize_origin = None
+        self._user_width = None
+        self._loaded_pos = None
+        self._MIN_W = 200
+        self._BORDER = 8
         self.setObjectName("checklist")
         self.setStyleSheet(
             "#checklist {"
@@ -174,7 +182,54 @@ class ChecklistWidget(QWidget):
         spacing = self._checkboxes_layout.spacing()
         n = self._checkboxes_layout.count()
         items_h = n * item_h + max(0, n - 1) * spacing
-        self.resize(self.width(), header_h + items_h + add_btn_h)
+        h = header_h + items_h + add_btn_h
+        if self._user_width:
+            w = max(self._MIN_W, self._user_width)
+            self.setFixedWidth(w)
+        self.resize(self.width(), h)
+
+    def _save_meta(self):
+        from src.repositories.page_object_repo import PageObjectRepo
+
+        repo = PageObjectRepo()
+        meta = repo.get_meta(self.page_id, self.checklist_id)
+        content = json.dumps(
+            {
+                "x": self.x(),
+                "y": self.y(),
+                "width": self.width(),
+            }
+        )
+        if meta:
+            meta.content = content
+            repo.update(meta)
+        else:
+            from src.models.page_object import PageObject
+
+            obj = PageObject(
+                page_id=self.page_id,
+                object_type="checklist_meta",
+                content=content,
+                sort_order=self.checklist_id * 100 + 50,
+            )
+            repo.create(obj)
+
+    def _load_meta(self):
+        from src.repositories.page_object_repo import PageObjectRepo
+
+        meta = PageObjectRepo().get_meta(self.page_id, self.checklist_id)
+        if meta:
+            data = json.loads(meta.content)
+            self._user_width = data.get("width")
+            x = data.get("x")
+            y = data.get("y")
+            if x is not None and y is not None:
+                self._loaded_pos = (x, y)
+                self.move(x, y)
+            else:
+                self._loaded_pos = None
+        else:
+            self._loaded_pos = None
 
     def _add_item(self, text="", checked=False):
         from src.ui.objects.checkbox_widget import CheckboxWidget
@@ -193,9 +248,26 @@ class ChecklistWidget(QWidget):
         )
         widget.changed.connect(self.object_changed)
         widget.delete_requested.connect(self.item_delete_requested)
+        widget.enter_pressed.connect(self._on_enter_pressed)
         self._checkboxes_layout.addWidget(widget)
         self._refresh_size()
-        return obj
+        return widget
+
+    def _on_enter_pressed(self, obj_id):
+        for i in range(self._checkboxes_layout.count()):
+            w = self._checkboxes_layout.itemAt(i).widget()
+            if w and hasattr(w, "obj_id") and w.obj_id == obj_id:
+                text = w._text_edit.text()
+                if text.strip():
+                    new_widget = self._add_item()
+                    new_widget.focus_text()
+                else:
+                    next_i = i + 1
+                    if next_i < self._checkboxes_layout.count():
+                        next_w = self._checkboxes_layout.itemAt(next_i).widget()
+                        if next_w and hasattr(next_w, "focus_text"):
+                            next_w.focus_text()
+                break
 
     def _delete_checklist(self):
         for i in range(self._checkboxes_layout.count()):
@@ -205,6 +277,48 @@ class ChecklistWidget(QWidget):
         self.object_delete_requested.emit(self.checklist_id)
         self.deleteLater()
 
+    def _detect_edge(self, pos):
+        b = self._BORDER
+        w, h = self.width(), self.height()
+        header_h = self._header.height()
+        below_header = pos.y() > header_h
+        left = below_header and pos.x() < b
+        right = below_header and pos.x() > w - b
+        top = below_header and pos.y() < header_h + b
+        bottom = pos.y() > h - b
+        if left and top:
+            return "top-left"
+        if right and top:
+            return "top-right"
+        if left and bottom:
+            return "bottom-left"
+        if right and bottom:
+            return "bottom-right"
+        if left:
+            return "left"
+        if right:
+            return "right"
+        if top:
+            return "top"
+        if bottom:
+            return "bottom"
+        return None
+
+    def _edge_cursor(self, edge):
+        from PyQt6.QtCore import Qt
+
+        cursors = {
+            "left": Qt.CursorShape.SizeHorCursor,
+            "right": Qt.CursorShape.SizeHorCursor,
+            "top": Qt.CursorShape.SizeVerCursor,
+            "bottom": Qt.CursorShape.SizeVerCursor,
+            "top-left": Qt.CursorShape.SizeFDiagCursor,
+            "bottom-right": Qt.CursorShape.SizeFDiagCursor,
+            "top-right": Qt.CursorShape.SizeBDiagCursor,
+            "bottom-left": Qt.CursorShape.SizeBDiagCursor,
+        }
+        return cursors.get(edge, Qt.CursorShape.ArrowCursor)
+
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
             pos = event.position().toPoint()
@@ -212,6 +326,19 @@ class ChecklistWidget(QWidget):
                 self._dragging = True
                 self._drag_start = event.globalPosition().toPoint() - self.pos()
                 self._header.setCursor(Qt.CursorShape.ClosedHandCursor)
+                event.accept()
+                return
+            edge = self._detect_edge(pos)
+            if edge:
+                self._resizing = True
+                self._resize_edge = edge
+                self._resize_start = event.globalPosition().toPoint()
+                self._resize_origin = (
+                    self.x(),
+                    self.y(),
+                    self.width(),
+                    self.height(),
+                )
                 event.accept()
                 return
         super().mousePressEvent(event)
@@ -226,6 +353,37 @@ class ChecklistWidget(QWidget):
                 self.move(new_x, new_y)
             event.accept()
             return
+        if self._resizing and self._resize_start is not None:
+            curr = event.globalPosition().toPoint()
+            dx = curr.x() - self._resize_start.x()
+            dy = curr.y() - self._resize_start.y()
+            ox, oy, ow, oh = self._resize_origin
+            edge = self._resize_edge
+            new_x, new_y, new_w, new_h = ox, oy, ow, oh
+            if "right" in edge:
+                new_w = max(self._MIN_W, ow + dx)
+            if "bottom" in edge:
+                new_h = max(self._MIN_HEADER_H(), oh + dy)
+            if "left" in edge:
+                new_w = max(self._MIN_W, ow - dx)
+                new_x = ox + ow - new_w
+            if "top" in edge:
+                new_h = max(self._MIN_HEADER_H(), oh - dy)
+                new_y = oy + oh - new_h
+            parent = self.parent()
+            if parent:
+                new_x = max(0, min(new_x, parent.width() - new_w))
+                new_y = max(0, min(new_y, parent.height() - new_h))
+            self._user_width = new_w
+            self.setGeometry(new_x, new_y, new_w, new_h)
+            event.accept()
+            return
+        pos = event.position().toPoint()
+        edge = self._detect_edge(pos)
+        if edge:
+            self.setCursor(self._edge_cursor(edge))
+        else:
+            self.setCursor(Qt.CursorShape.ArrowCursor)
         super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event):
@@ -233,9 +391,22 @@ class ChecklistWidget(QWidget):
             self._dragging = False
             self._drag_start = None
             self._header.setCursor(Qt.CursorShape.OpenHandCursor)
+            self._save_meta()
+            event.accept()
+            return
+        if self._resizing:
+            self._resizing = False
+            self._resize_edge = None
+            self._resize_start = None
+            self._resize_origin = None
+            self.setCursor(Qt.CursorShape.ArrowCursor)
+            self._save_meta()
             event.accept()
             return
         super().mouseReleaseEvent(event)
+
+    def _MIN_HEADER_H(self):
+        return 36 + 42 + 32
 
     def load_objects(self, objects):
         from src.ui.objects.checkbox_widget import CheckboxWidget
@@ -515,6 +686,8 @@ class PageEditor(QWidget):
     def _group_objects_into_checklists(self):
         checklists = {}
         for obj in self._objects:
+            if obj.object_type == "checklist_meta":
+                continue
             cid = obj.sort_order // 100
             if cid not in checklists:
                 checklists[cid] = []
@@ -537,10 +710,14 @@ class PageEditor(QWidget):
         canvas_w = self.content.width()
         container_w = min(400, canvas_w - 80)
         widget.setFixedWidth(container_w)
+        widget._load_meta()
+        if not widget._user_width:
+            widget._user_width = container_w
         widget._refresh_size()
-        x = (canvas_w - container_w) // 2
-        y = 60 + len(self._checklists) * 200
-        widget.move(x, y)
+        if not widget._loaded_pos:
+            x = (canvas_w - container_w) // 2
+            y = 60 + len(self._checklists) * 200
+            widget.move(x, y)
         widget.show()
         return widget
 
@@ -558,7 +735,8 @@ class PageEditor(QWidget):
             widget.move(max(20, x - container_w // 2), max(60, y - 30))
             self._canvas_click_pos = None
 
-        obj = widget._add_item()
+        item_widget = widget._add_item()
+        obj = PageObjectRepo().get_by_id(item_widget.obj_id)
         self._objects.append(obj)
         self._page_empty_hint.hide()
         self._position_floating_button()

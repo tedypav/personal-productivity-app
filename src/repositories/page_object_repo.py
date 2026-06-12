@@ -47,8 +47,7 @@ class PageObjectRepo:
     def update(obj: PageObject):
         conn = get_connection()
         conn.execute(
-            "UPDATE page_objects SET content=?, is_checked=?,"
-            " sort_order=? WHERE id=?",
+            "UPDATE page_objects SET content=?, is_checked=?, sort_order=? WHERE id=?",
             (obj.content, int(obj.is_checked), obj.sort_order, obj.id),
         )
         conn.commit()
@@ -64,3 +63,14 @@ class PageObjectRepo:
         conn = get_connection()
         conn.execute("DELETE FROM page_objects WHERE page_id=?", (page_id,))
         conn.commit()
+
+    @staticmethod
+    def get_meta(page_id: int, checklist_id: int) -> PageObject | None:
+        conn = get_connection()
+        sort_order = checklist_id * 100 + 50
+        row = conn.execute(
+            "SELECT * FROM page_objects WHERE page_id=?"
+            " AND object_type='checklist_meta' AND sort_order=?",
+            (page_id, sort_order),
+        ).fetchone()
+        return PageObject(**dict(row)) if row else None

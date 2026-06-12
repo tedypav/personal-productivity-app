@@ -591,3 +591,255 @@ class TestItemDeleteSignal:
         item.delete_requested.emit(item.obj_id)
 
         assert received == [item.obj_id]
+
+
+class TestEnterKey:
+    def test_enter_signal_exists(self, main_window):
+        from src.ui.objects.checkbox_widget import CheckboxWidget
+
+        assert hasattr(CheckboxWidget, "enter_pressed")
+
+    def test_enter_pressed_emits_signal(self, main_window):
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+        main_window.editor._add_checklist()
+
+        checklist = list(main_window.editor._checklists.values())[0]
+        item = checklist._checkboxes_layout.itemAt(0).widget()
+
+        received = []
+        item.enter_pressed.connect(lambda oid: received.append(oid))
+        item._text_edit.returnPressed.emit()
+
+        assert received == [item.obj_id]
+
+    def test_enter_creates_new_task(self, main_window):
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+        main_window.editor._add_checklist()
+
+        checklist = list(main_window.editor._checklists.values())[0]
+        item = checklist._checkboxes_layout.itemAt(0).widget()
+        item._text_edit.setText("Buy milk")
+        item._text_edit.returnPressed.emit()
+
+        assert checklist._checkboxes_layout.count() == 2
+
+    def test_focus_text_sets_focus(self, main_window):
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+        main_window.editor._add_checklist()
+
+        checklist = list(main_window.editor._checklists.values())[0]
+        item = checklist._checkboxes_layout.itemAt(0).widget()
+        item.focus_text()
+
+        assert item._text_edit.hasFocus()
+
+
+class TestResize:
+    def test_resize_state_initialized(self, main_window):
+        from src.ui.editor import ChecklistWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        checklist = ChecklistWidget(0, page_id=pid, parent=main_window.editor.content)
+        assert checklist._resizing is False
+        assert checklist._resize_edge is None
+        assert checklist._user_width is None
+
+    def test_detect_edge_right(self, main_window):
+        from src.ui.editor import ChecklistWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        checklist = ChecklistWidget(0, page_id=pid, parent=main_window.editor.content)
+        checklist.setFixedWidth(400)
+        checklist._add_item()
+        checklist._refresh_size()
+        from PyQt6.QtCore import QPoint
+
+        mid_y = checklist.height() // 2
+        pos = QPoint(398, mid_y)
+        assert checklist._detect_edge(pos) == "right"
+
+    def test_detect_edge_left(self, main_window):
+        from src.ui.editor import ChecklistWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        checklist = ChecklistWidget(0, page_id=pid, parent=main_window.editor.content)
+        checklist.setFixedWidth(400)
+        checklist._add_item()
+        checklist._refresh_size()
+        from PyQt6.QtCore import QPoint
+
+        mid_y = checklist.height() // 2
+        pos = QPoint(3, mid_y)
+        assert checklist._detect_edge(pos) == "left"
+
+    def test_detect_edge_bottom(self, main_window):
+        from src.ui.editor import ChecklistWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        checklist = ChecklistWidget(0, page_id=pid, parent=main_window.editor.content)
+        checklist.setFixedWidth(400)
+        checklist._add_item()
+        checklist._refresh_size()
+        from PyQt6.QtCore import QPoint
+
+        mid_x = checklist.width() // 2
+        pos = QPoint(mid_x, checklist.height() - 3)
+        assert checklist._detect_edge(pos) == "bottom"
+
+    def test_detect_edge_bottom_right(self, main_window):
+        from src.ui.editor import ChecklistWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        checklist = ChecklistWidget(0, page_id=pid, parent=main_window.editor.content)
+        checklist.setFixedWidth(400)
+        checklist._add_item()
+        checklist._refresh_size()
+        from PyQt6.QtCore import QPoint
+
+        pos = QPoint(398, checklist.height() - 3)
+        assert checklist._detect_edge(pos) == "bottom-right"
+
+    def test_detect_edge_none_in_center(self, main_window):
+        from src.ui.editor import ChecklistWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        checklist = ChecklistWidget(0, page_id=pid, parent=main_window.editor.content)
+        checklist.setFixedWidth(400)
+        checklist._add_item()
+        checklist._refresh_size()
+        from PyQt6.QtCore import QPoint
+
+        mid_x = checklist.width() // 2
+        mid_y = checklist.height() // 2
+        pos = QPoint(mid_x, mid_y)
+        assert checklist._detect_edge(pos) is None
+
+    def test_detect_edge_none_in_header(self, main_window):
+        from src.ui.editor import ChecklistWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        checklist = ChecklistWidget(0, page_id=pid, parent=main_window.editor.content)
+        checklist.setFixedWidth(400)
+        checklist._add_item()
+        checklist._refresh_size()
+        from PyQt6.QtCore import QPoint
+
+        pos = QPoint(200, 18)
+        assert checklist._detect_edge(pos) is None
+
+    def test_resize_min_width(self, main_window):
+        from src.ui.editor import ChecklistWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        checklist = ChecklistWidget(0, page_id=pid, parent=main_window.editor.content)
+        checklist._user_width = 100
+        checklist._refresh_size()
+        assert checklist.width() >= checklist._MIN_W
+
+    def test_refresh_size_respects_user_width(self, main_window):
+        from src.ui.editor import ChecklistWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        checklist = ChecklistWidget(0, page_id=pid, parent=main_window.editor.content)
+        checklist._user_width = 300
+        checklist._refresh_size()
+        assert checklist.width() == 300
+
+    def test_save_meta_creates_db_entry(self, main_window):
+        from src.repositories.page_object_repo import PageObjectRepo
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+        main_window.editor._add_checklist()
+
+        checklist = list(main_window.editor._checklists.values())[0]
+        checklist._save_meta()
+
+        meta = PageObjectRepo().get_meta(pid, checklist.checklist_id)
+        assert meta is not None
+        assert meta.object_type == "checklist_meta"
+
+    def test_save_meta_persists_position(self, main_window):
+        import json
+
+        from src.repositories.page_object_repo import PageObjectRepo
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+        main_window.editor._add_checklist()
+
+        checklist = list(main_window.editor._checklists.values())[0]
+        checklist.move(100, 200)
+        checklist._save_meta()
+
+        meta = PageObjectRepo().get_meta(pid, checklist.checklist_id)
+        data = json.loads(meta.content)
+        assert data["x"] == 100
+        assert data["y"] == 200
+
+    def test_load_meta_restores_position(self, main_window):
+        import json
+
+        from src.models.page_object import PageObject
+        from src.repositories.page_object_repo import PageObjectRepo
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        meta = PageObject(
+            page_id=pid,
+            object_type="checklist_meta",
+            content=json.dumps({"x": 150, "y": 250, "width": 350}),
+            sort_order=50,
+        )
+        PageObjectRepo().create(meta)
+
+        main_window.editor._add_checklist()
+        checklist = list(main_window.editor._checklists.values())[0]
+
+        assert checklist._user_width == 350
+        assert checklist.x() == 150
+        assert checklist.y() == 250
+
+    def test_meta_excluded_from_objects(self, main_window):
+        import json
+
+        from src.models.page_object import PageObject
+        from src.repositories.page_object_repo import PageObjectRepo
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        meta = PageObject(
+            page_id=pid,
+            object_type="checklist_meta",
+            content=json.dumps({"x": 0, "y": 0, "width": 300}),
+            sort_order=50,
+        )
+        PageObjectRepo().create(meta)
+
+        main_window.editor._add_checklist()
+
+        objects = main_window.editor._objects
+        assert all(o.object_type != "checklist_meta" for o in objects)

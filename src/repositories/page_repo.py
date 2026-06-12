@@ -86,8 +86,7 @@ class PageRepo:
         if parent_id is None:
             if exclude_id:
                 row = conn.execute(
-                    "SELECT 1 FROM pages WHERE parent_id IS NULL"
-                    " AND title=? AND id!=?",
+                    "SELECT 1 FROM pages WHERE parent_id IS NULL AND title=? AND id!=?",
                     (name, exclude_id),
                 ).fetchone()
             else:
@@ -98,7 +97,7 @@ class PageRepo:
         else:
             if exclude_id:
                 row = conn.execute(
-                    "SELECT 1 FROM pages WHERE parent_id=?" " AND title=? AND id!=?",
+                    "SELECT 1 FROM pages WHERE parent_id=? AND title=? AND id!=?",
                     (parent_id, name, exclude_id),
                 ).fetchone()
             else:

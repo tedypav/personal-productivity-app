@@ -13,6 +13,7 @@ class CheckboxWidget(QWidget):
 
     changed = pyqtSignal(int, bool, str)
     delete_requested = pyqtSignal(int)
+    enter_pressed = pyqtSignal(int)
 
     def __init__(self, obj_id: int, text: str = "", checked: bool = False, parent=None):
         super().__init__(parent)
@@ -50,6 +51,9 @@ class CheckboxWidget(QWidget):
             " font-family: 'Inter', sans-serif; padding: 2px 0; }"
         )
         self._text_edit.textChanged.connect(self._on_text_changed)
+        self._text_edit.returnPressed.connect(
+            lambda: self.enter_pressed.emit(self.obj_id)
+        )
         layout.addWidget(self._text_edit, 1)
 
         self._delete_btn = QToolButton()
@@ -101,3 +105,6 @@ class CheckboxWidget(QWidget):
     def set_data(self, data: dict):
         self._text_edit.setText(data.get("text", ""))
         self._checkbox.setChecked(data.get("checked", False))
+
+    def focus_text(self):
+        self._text_edit.setFocus()
