@@ -133,7 +133,7 @@ class ChecklistWidget(QWidget):
         delete_btn.setFixedSize(22, 22)
         delete_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         delete_btn.setStyleSheet(
-            "QPushButton { border: none; font-size: 15px; color: #CFA6D6;"
+            "QPushButton { border: none; font-size: 15px; color: #9CA3AF;"
             " border-radius: 11px; background: transparent;"
             " }"
             " QPushButton:hover { color: #EF4444; background: #FEE2E2; }"
