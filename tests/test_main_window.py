@@ -437,3 +437,157 @@ class TestCheckboxFeature:
         checklist = ChecklistWidget(0, page_id=pid, parent=main_window.editor.content)
         assert hasattr(checklist, "_dragging")
         assert checklist._dragging is False
+
+
+class TestChecklistSizing:
+    def test_refresh_size_empty(self, main_window):
+        from src.ui.editor import ChecklistWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        checklist = ChecklistWidget(0, page_id=pid, parent=main_window.editor.content)
+        checklist.setFixedWidth(400)
+        checklist._refresh_size()
+        expected_h = 36 + 32
+        assert checklist.height() == expected_h
+
+    def test_refresh_size_one_item(self, main_window):
+        from src.ui.editor import ChecklistWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        checklist = ChecklistWidget(0, page_id=pid, parent=main_window.editor.content)
+        checklist.setFixedWidth(400)
+        checklist._add_item()
+        checklist._refresh_size()
+        expected_h = 36 + 42 + 32
+        assert checklist.height() == expected_h
+
+    def test_refresh_size_multiple_items(self, main_window):
+        from src.ui.editor import ChecklistWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        checklist = ChecklistWidget(0, page_id=pid, parent=main_window.editor.content)
+        checklist.setFixedWidth(400)
+        checklist._add_item()
+        checklist._add_item()
+        checklist._add_item()
+        checklist._refresh_size()
+        spacing = checklist._checkboxes_layout.spacing()
+        expected_h = 36 + 3 * 42 + 2 * spacing + 32
+        assert checklist.height() == expected_h
+
+    def test_refresh_size_after_delete(self, main_window):
+        from src.ui.editor import ChecklistWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        checklist = ChecklistWidget(0, page_id=pid, parent=main_window.editor.content)
+        checklist.setFixedWidth(400)
+        checklist._add_item()
+        checklist._add_item()
+        h_before = checklist.height()
+
+        item = checklist._checkboxes_layout.itemAt(0).widget()
+        checklist._checkboxes_layout.removeWidget(item)
+        item.deleteLater()
+        checklist._refresh_size()
+
+        spacing = checklist._checkboxes_layout.spacing()
+        n = checklist._checkboxes_layout.count()
+        expected_h = 36 + n * 42 + max(0, n - 1) * spacing + 32
+        assert checklist.height() == expected_h
+        assert checklist.height() < h_before
+
+
+class TestItemDelete:
+    def test_item_delete_removes_from_db(self, main_window):
+        from src.repositories.page_object_repo import PageObjectRepo
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+        main_window.editor._add_checklist()
+
+        checklist = list(main_window.editor._checklists.values())[0]
+        item = checklist._checkboxes_layout.itemAt(0).widget()
+        obj_id = item.obj_id
+
+        main_window.editor._on_item_delete(obj_id)
+
+        assert PageObjectRepo().get_by_id(obj_id) is None
+
+    def test_item_delete_removes_widget(self, main_window):
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+        main_window.editor._add_checklist()
+
+        checklist = list(main_window.editor._checklists.values())[0]
+        item = checklist._checkboxes_layout.itemAt(0).widget()
+        obj_id = item.obj_id
+
+        main_window.editor._on_item_delete(obj_id)
+
+        for i in range(checklist._checkboxes_layout.count()):
+            w = checklist._checkboxes_layout.itemAt(i).widget()
+            if w and hasattr(w, "obj_id"):
+                assert w.obj_id != obj_id
+
+    def test_item_delete_removes_empty_checklist(self, main_window):
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+        main_window.editor._add_checklist()
+
+        checklist = list(main_window.editor._checklists.values())[0]
+        item = checklist._checkboxes_layout.itemAt(0).widget()
+        obj_id = item.obj_id
+
+        main_window.editor._on_item_delete(obj_id)
+
+        assert len(main_window.editor._checklists) == 0
+
+    def test_item_delete_updates_objects_list(self, main_window):
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+        main_window.editor._add_checklist()
+
+        checklist = list(main_window.editor._checklists.values())[0]
+        item = checklist._checkboxes_layout.itemAt(0).widget()
+        obj_id = item.obj_id
+
+        main_window.editor._on_item_delete(obj_id)
+
+        assert all(o.id != obj_id for o in main_window.editor._objects)
+
+    def test_item_delete_shows_empty_hint(self, main_window):
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+        main_window.editor._add_checklist()
+
+        checklist = list(main_window.editor._checklists.values())[0]
+        item = checklist._checkboxes_layout.itemAt(0).widget()
+        obj_id = item.obj_id
+
+        main_window.editor._on_item_delete(obj_id)
+
+        assert main_window.editor._page_empty_hint.isVisible()
+
+
+class TestItemDeleteSignal:
+    def test_item_delete_signal_connected(self, main_window):
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+        main_window.editor._add_checklist()
+
+        checklist = list(main_window.editor._checklists.values())[0]
+        item = checklist._checkboxes_layout.itemAt(0).widget()
+
+        received = []
+        checklist.item_delete_requested.connect(lambda oid: received.append(oid))
+        item.delete_requested.emit(item.obj_id)
+
+        assert received == [item.obj_id]

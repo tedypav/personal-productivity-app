@@ -82,6 +82,7 @@ class ChecklistWidget(QWidget):
 
     object_changed = pyqtSignal(int, bool, str)
     object_delete_requested = pyqtSignal(int)
+    item_delete_requested = pyqtSignal(int)
 
     def __init__(self, checklist_id, page_id=None, parent=None):
         super().__init__(parent)
@@ -151,7 +152,7 @@ class ChecklistWidget(QWidget):
 
         self._checkboxes_layout = QVBoxLayout()
         self._checkboxes_layout.setContentsMargins(0, 0, 0, 0)
-        self._checkboxes_layout.setSpacing(0)
+        self._checkboxes_layout.setSpacing(6)
         self._layout.addLayout(self._checkboxes_layout)
 
         add_btn = QPushButton("+ Add item")
@@ -166,7 +167,14 @@ class ChecklistWidget(QWidget):
         add_btn.clicked.connect(lambda: self._add_item())
         self._layout.addWidget(add_btn)
 
-        self.adjustSize()
+    def _refresh_size(self):
+        header_h = 36
+        add_btn_h = 32
+        item_h = 42
+        spacing = self._checkboxes_layout.spacing()
+        n = self._checkboxes_layout.count()
+        items_h = n * item_h + max(0, n - 1) * spacing
+        self.resize(self.width(), header_h + items_h + add_btn_h)
 
     def _add_item(self, text="", checked=False):
         from src.ui.objects.checkbox_widget import CheckboxWidget
@@ -184,9 +192,9 @@ class ChecklistWidget(QWidget):
             checked=checked,
         )
         widget.changed.connect(self.object_changed)
-        widget.delete_requested.connect(self.object_delete_requested)
+        widget.delete_requested.connect(self.item_delete_requested)
         self._checkboxes_layout.addWidget(widget)
-        self.adjustSize()
+        self._refresh_size()
         return obj
 
     def _delete_checklist(self):
@@ -243,9 +251,9 @@ class ChecklistWidget(QWidget):
                 checked=bool(obj.is_checked),
             )
             widget.changed.connect(self.object_changed)
-            widget.delete_requested.connect(self.object_delete_requested)
+            widget.delete_requested.connect(self.item_delete_requested)
             self._checkboxes_layout.addWidget(widget)
-        self.adjustSize()
+        self._refresh_size()
 
 
 class PageEditor(QWidget):
@@ -521,6 +529,7 @@ class PageEditor(QWidget):
         )
         widget.object_changed.connect(self._on_object_changed)
         widget.object_delete_requested.connect(self._on_checklist_delete)
+        widget.item_delete_requested.connect(self._on_item_delete)
         if objects:
             widget.load_objects(objects)
         self._checklists[checklist_id] = widget
@@ -528,6 +537,7 @@ class PageEditor(QWidget):
         canvas_w = self.content.width()
         container_w = min(400, canvas_w - 80)
         widget.setFixedWidth(container_w)
+        widget._refresh_size()
         x = (canvas_w - container_w) // 2
         y = 60 + len(self._checklists) * 200
         widget.move(x, y)
@@ -567,6 +577,24 @@ class PageEditor(QWidget):
         self._objects = [
             o for o in self._objects if o.sort_order // 100 != checklist_id
         ]
+        if not self._objects:
+            self._page_empty_hint.show()
+            self._center_empty_hint()
+
+    def _on_item_delete(self, obj_id):
+        PageObjectRepo().delete(obj_id)
+        self._objects = [o for o in self._objects if o.id != obj_id]
+        for cid, checklist in list(self._checklists.items()):
+            for i in range(checklist._checkboxes_layout.count()):
+                w = checklist._checkboxes_layout.itemAt(i).widget()
+                if w and hasattr(w, "obj_id") and w.obj_id == obj_id:
+                    checklist._checkboxes_layout.removeWidget(w)
+                    w.deleteLater()
+                    break
+            checklist._refresh_size()
+            if checklist._checkboxes_layout.count() == 0:
+                del self._checklists[cid]
+                checklist.deleteLater()
         if not self._objects:
             self._page_empty_hint.show()
             self._center_empty_hint()

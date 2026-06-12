@@ -24,7 +24,7 @@ class CheckboxWidget(QWidget):
 
     def _setup_ui(self):
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(8, 4, 8, 4)
+        layout.setContentsMargins(8, 8, 8, 8)
         layout.setSpacing(8)
 
         self._checkbox = QCheckBox()
@@ -54,10 +54,10 @@ class CheckboxWidget(QWidget):
 
         self._delete_btn = QToolButton()
         self._delete_btn.setText("×")
-        self._delete_btn.setFixedSize(20, 20)
+        self._delete_btn.setFixedSize(26, 26)
         self._delete_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._delete_btn.setStyleSheet(
-            "QToolButton { border: none; font-size: 12px;"
+            "QToolButton { border: none; font-size: 16px;"
             " color: #9CA3AF; background: transparent; }"
             " QToolButton:hover { color: #EF4444; }"
         )
