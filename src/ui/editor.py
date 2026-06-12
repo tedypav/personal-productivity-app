@@ -257,7 +257,7 @@ class PageEditor(QWidget):
         folder_label.setStyleSheet(
             "font-family: 'Playfair Display', serif;"
             " font-size: 24px; font-weight: 600;"
-            " color: #CFA6D6; background: transparent;"
+            " color: #9b59b6; background: transparent;"
             " padding: 8px 0 16px 0;"
         )
         toc_layout.addWidget(folder_label)
