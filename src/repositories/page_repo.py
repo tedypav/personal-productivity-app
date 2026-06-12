@@ -77,3 +77,33 @@ class PageRepo:
             (new_sort_order, new_parent_id, page_id),
         )
         conn.commit()
+
+    @staticmethod
+    def has_sibling_with_name(
+        parent_id: int | None, name: str, exclude_id: int | None = None
+    ) -> bool:
+        conn = get_connection()
+        if parent_id is None:
+            if exclude_id:
+                row = conn.execute(
+                    "SELECT 1 FROM pages WHERE parent_id IS NULL"
+                    " AND title=? AND id!=?",
+                    (name, exclude_id),
+                ).fetchone()
+            else:
+                row = conn.execute(
+                    "SELECT 1 FROM pages WHERE parent_id IS NULL AND title=?",
+                    (name,),
+                ).fetchone()
+        else:
+            if exclude_id:
+                row = conn.execute(
+                    "SELECT 1 FROM pages WHERE parent_id=?" " AND title=? AND id!=?",
+                    (parent_id, name, exclude_id),
+                ).fetchone()
+            else:
+                row = conn.execute(
+                    "SELECT 1 FROM pages WHERE parent_id=? AND title=?",
+                    (parent_id, name),
+                ).fetchone()
+        return row is not None

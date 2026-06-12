@@ -1127,6 +1127,15 @@ class Sidebar(QWidget):
         dialog = FunImportsDialog(self, target_edit=None)
         dialog.exec()
 
+    def _get_unique_name(self, base_name, parent_id, exclude_id=None):
+        """Get a unique name by appending (N) if needed."""
+        name = base_name
+        counter = 1
+        while self.repo.has_sibling_with_name(parent_id, name, exclude_id):
+            name = f"{base_name} ({counter})"
+            counter += 1
+        return name
+
     def _create_page(self):
         title, ok = QInputDialog.getText(self, "New Page", "Page title:")
         if ok and title.strip():
@@ -1134,11 +1143,13 @@ class Sidebar(QWidget):
             if selected:
                 for item in selected:
                     parent_id = item.data(0, Qt.ItemDataRole.UserRole)
+                    unique_name = self._get_unique_name(title.strip(), parent_id)
                     self.repo.create(
-                        Page(title=title.strip(), parent_id=parent_id, page_type="page")
+                        Page(title=unique_name, parent_id=parent_id, page_type="page")
                     )
             else:
-                self.repo.create(Page(title=title.strip(), page_type="page"))
+                unique_name = self._get_unique_name(title.strip(), None)
+                self.repo.create(Page(title=unique_name, page_type="page"))
             self._load_pages()
             self.pages_changed.emit()
 
@@ -1150,19 +1161,21 @@ class Sidebar(QWidget):
                 for item in selected:
                     parent_id = item.data(0, Qt.ItemDataRole.UserRole)
                     page_type = item.data(0, Qt.ItemDataRole.UserRole + 1)
-                    # Only allow nesting under folders, not pages
                     if page_type == "folder":
+                        unique_name = self._get_unique_name(title.strip(), parent_id)
                         self.repo.create(
                             Page(
-                                title=title.strip(),
+                                title=unique_name,
                                 parent_id=parent_id,
                                 page_type="folder",
                             )
                         )
                     else:
-                        self.repo.create(Page(title=title.strip(), page_type="folder"))
+                        unique_name = self._get_unique_name(title.strip(), None)
+                        self.repo.create(Page(title=unique_name, page_type="folder"))
             else:
-                self.repo.create(Page(title=title.strip(), page_type="folder"))
+                unique_name = self._get_unique_name(title.strip(), None)
+                self.repo.create(Page(title=unique_name, page_type="folder"))
             self._load_pages()
             self.pages_changed.emit()
 
@@ -1544,7 +1557,14 @@ class Sidebar(QWidget):
             if ok and title.strip():
                 page = self.repo.get_by_id(page_id)
                 if page:
-                    page.title = title.strip()
+                    new_name = title.strip()
+                    if self.repo.has_sibling_with_name(
+                        page.parent_id, new_name, exclude_id=page_id
+                    ):
+                        new_name = self._get_unique_name(
+                            new_name, page.parent_id, exclude_id=page_id
+                        )
+                    page.title = new_name
                     self.repo.update(page)
                     self._load_pages()
                     self.pages_changed.emit()
@@ -1607,22 +1627,46 @@ class Sidebar(QWidget):
 
     def _archive_item(self, page_id, page_type):
         """Archive a page or folder."""
-        pages = self.repo.get_all()
-        archive_folder = [
-            p for p in pages if p.title == "Archive" and p.page_type == "folder"
-        ]
-        archive_id = (
-            archive_folder[0].id
-            if archive_folder
-            else self.repo.create(Page(title="Archive", page_type="folder"))
-        )
-
         if page_type == "folder":
             page = self.repo.get_by_id(page_id)
             if page:
-                page.parent_id = archive_id
-                self.repo.update(page)
+                pages = self.repo.get_all()
+                archive_folder = [
+                    p for p in pages if p.title == "Archive" and p.page_type == "folder"
+                ]
+                archive_id = (
+                    archive_folder[0].id
+                    if archive_folder
+                    else self.repo.create(Page(title="Archive", page_type="folder"))
+                )
+                existing = [
+                    p
+                    for p in pages
+                    if p.title == page.title
+                    and p.parent_id == archive_id
+                    and p.page_type == "folder"
+                    and p.id != page_id
+                ]
+                if existing:
+                    target_id = existing[0].id
+                    children = self.repo.get_children(page_id)
+                    for child in children:
+                        child.parent_id = target_id
+                        self.repo.update(child)
+                    self.repo.delete(page_id)
+                else:
+                    page.parent_id = archive_id
+                    self.repo.update(page)
         else:
+            pages = self.repo.get_all()
+            archive_folder = [
+                p for p in pages if p.title == "Archive" and p.page_type == "folder"
+            ]
+            archive_id = (
+                archive_folder[0].id
+                if archive_folder
+                else self.repo.create(Page(title="Archive", page_type="folder"))
+            )
             page = self.repo.get_by_id(page_id)
             if page:
                 if page.parent_id:
@@ -1645,9 +1689,19 @@ class Sidebar(QWidget):
                                     page_type="folder",
                                 )
                             )
+                        unique_name = self._get_unique_name(
+                            page.title,
+                            target_folder_id,
+                            exclude_id=page_id,
+                        )
+                        page.title = unique_name
                         page.parent_id = target_folder_id
                         self.repo.update(page)
                 else:
+                    unique_name = self._get_unique_name(
+                        page.title, archive_id, exclude_id=page_id
+                    )
+                    page.title = unique_name
                     page.parent_id = archive_id
                     self.repo.update(page)
 
@@ -1670,8 +1724,9 @@ class Sidebar(QWidget):
             else self.repo.create(Page(title="Templates", page_type="folder"))
         )
 
+        template_name = self._get_unique_name(page.title, templates_id)
         new_page = Page(
-            title=page.title,
+            title=template_name,
             parent_id=templates_id,
             page_type="template_page",
         )
@@ -1681,7 +1736,7 @@ class Sidebar(QWidget):
         QMessageBox.information(
             self,
             "Template",
-            f"Page {page.title} saved as a template.",
+            f"Page {template_name} saved as a template.",
         )
 
     def _move_to_folder(self, page_id, page_type):

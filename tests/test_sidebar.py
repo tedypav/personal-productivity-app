@@ -275,3 +275,85 @@ class TestSetAsTemplate:
         assert item is not None
         icon = item.icon(0)
         assert not icon.isNull()
+
+
+class TestUniqueNames:
+    def test_unique_name_adds_suffix(self, sidebar):
+        name = sidebar._get_unique_name("Test", None)
+        assert name == "Test"
+
+    def test_unique_name_conflict(self, sidebar):
+        PageRepo().create(Page(title="Test", page_type="page"))
+        name = sidebar._get_unique_name("Test", None)
+        assert name == "Test (1)"
+
+    def test_unique_name_multiple_conflicts(self, sidebar):
+        PageRepo().create(Page(title="Test", page_type="page"))
+        PageRepo().create(Page(title="Test (1)", page_type="page"))
+        name = sidebar._get_unique_name("Test", None)
+        assert name == "Test (2)"
+
+    def test_unique_name_in_folder(self, sidebar):
+        folder_id = PageRepo().create(Page(title="Folder", page_type="folder"))
+        PageRepo().create(Page(title="Test", parent_id=folder_id, page_type="page"))
+        name = sidebar._get_unique_name("Test", folder_id)
+        assert name == "Test (1)"
+
+    def test_unique_name_different_folder(self, sidebar):
+        f1 = PageRepo().create(Page(title="F1", page_type="folder"))
+        f2 = PageRepo().create(Page(title="F2", page_type="folder"))
+        PageRepo().create(Page(title="Test", parent_id=f1, page_type="page"))
+        name = sidebar._get_unique_name("Test", f2)
+        assert name == "Test"
+
+    def test_unique_name_excludes_self(self, sidebar):
+        pid = PageRepo().create(Page(title="Test", page_type="page"))
+        name = sidebar._get_unique_name("Test", None, exclude_id=pid)
+        assert name == "Test"
+
+
+class TestArchiveMerge:
+    def test_archive_merges_same_name_folders(self, sidebar):
+        archive = [
+            p
+            for p in PageRepo().get_all()
+            if p.title == "Archive" and p.page_type == "folder"
+        ][0]
+        folder_a_id = PageRepo().create(Page(title="MyFolder", page_type="folder"))
+        PageRepo().create(Page(title="ChildA", parent_id=folder_a_id, page_type="page"))
+        folder_b_id = PageRepo().create(Page(title="MyFolder", page_type="folder"))
+        PageRepo().create(Page(title="ChildB", parent_id=folder_b_id, page_type="page"))
+        sidebar._archive_item(folder_a_id, "folder")
+        sidebar._archive_item(folder_b_id, "folder")
+        folder_b = PageRepo().get_by_id(folder_b_id)
+        assert folder_b is None
+        folder_a = PageRepo().get_by_id(folder_a_id)
+        assert folder_a is not None
+        assert folder_a.parent_id == archive.id
+        children = PageRepo().get_children(folder_a_id)
+        names = [c.title for c in children]
+        assert "ChildA" in names
+        assert "ChildB" in names
+
+    def test_archive_unique_folder_name(self, sidebar):
+        archive = [
+            p
+            for p in PageRepo().get_all()
+            if p.title == "Archive" and p.page_type == "folder"
+        ][0]
+        folder_id = PageRepo().create(Page(title="UniqueFolder", page_type="folder"))
+        sidebar._archive_item(folder_id, "folder")
+        folder = PageRepo().get_by_id(folder_id)
+        assert folder is not None
+        assert folder.parent_id == archive.id
+
+
+class TestTemplateUniqueNames:
+    def test_template_name_unique(self, sidebar):
+        pid = PageRepo().create(Page(title="MyPage", page_type="page"))
+        sidebar._set_as_template(pid)
+        sidebar._set_as_template(pid)
+        templates = [p for p in PageRepo().get_all() if p.page_type == "template_page"]
+        names = [t.title for t in templates]
+        assert "MyPage" in names
+        assert "MyPage (1)" in names
