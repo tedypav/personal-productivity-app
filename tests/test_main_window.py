@@ -270,41 +270,13 @@ class TestBackToFolderButton:
 
 
 class TestTemplateButton:
-    def test_template_button_hidden_initially(self, main_window):
-        assert not main_window.editor._template_btn.isVisible()
-
-    def test_template_button_shown_for_page(self, main_window):
-        pid = PageRepo().create(Page(title="TestPage"))
-        main_window.editor.load_page(pid)
-        assert main_window.editor._template_btn.isVisible()
-
-    def test_template_button_hidden_for_folder(self, main_window):
-        fid = PageRepo().create(Page(title="Folder", page_type="folder"))
-        main_window.editor.load_page(fid)
-        assert not main_window.editor._template_btn.isVisible()
-
-    def test_template_button_hidden_for_template_page(self, main_window):
-        pid = PageRepo().create(Page(title="Tpl", page_type="template_page"))
-        main_window.editor.load_page(pid)
-        assert not main_window.editor._template_btn.isVisible()
-
-    def test_template_button_hidden_on_clear(self, main_window):
-        pid = PageRepo().create(Page(title="TestPage"))
-        main_window.editor.load_page(pid)
-        main_window.editor.clear_editor()
-        assert not main_window.editor._template_btn.isVisible()
-
-    def test_template_button_emits_signal(self, main_window):
-        pid = PageRepo().create(Page(title="TestPage"))
-        main_window.editor.load_page(pid)
-        received = []
-        main_window.editor.set_as_template_requested.connect(
-            lambda p: received.append(p)
-        )
-        main_window.editor._template_btn.click()
-        assert received == [pid]
+    def test_template_button_exists(self, main_window):
+        assert main_window.sidebar.btn_template is not None
 
     def test_template_button_text(self, main_window):
+        assert "Template" in main_window.sidebar.btn_template.text()
+
+    def test_template_button_with_page_loaded(self, main_window):
         pid = PageRepo().create(Page(title="TestPage"))
         main_window.editor.load_page(pid)
-        assert "Template" in main_window.editor._template_btn.text()
+        assert main_window.sidebar._editor_ref.current_page_id == pid

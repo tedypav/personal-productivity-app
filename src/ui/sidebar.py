@@ -855,8 +855,14 @@ class Sidebar(QWidget):
         self.btn_archive.setIcon(archive_icon)
         self.btn_archive.setFixedWidth(110)
 
+        template_icon = QIcon(_get_icon_path("page_template"))
+        self.btn_template = QPushButton("Template")
+        self.btn_template.setIcon(template_icon)
+        self.btn_template.setFixedWidth(110)
+
         btn_layout2.addWidget(self.btn_bulk_named)
         btn_layout2.addWidget(self.btn_archive)
+        btn_layout2.addWidget(self.btn_template)
         btn_layout2.addStretch()
         layout.addLayout(btn_layout2)
 
@@ -920,6 +926,7 @@ class Sidebar(QWidget):
         self.btn_new_page.clicked.connect(self._bulk_creation_requested)
         self.btn_bulk_named.clicked.connect(self._bulk_named_dialog)
         self.btn_archive.clicked.connect(self._archive_selected)
+        self.btn_template.clicked.connect(self._template_clicked)
 
         self._setup_shortcuts()
         self._ensure_special_folders()
@@ -977,9 +984,25 @@ class Sidebar(QWidget):
             page_id = item.data(0, Qt.ItemDataRole.UserRole)
             page_type = item.data(0, Qt.ItemDataRole.UserRole + 1) or "page"
             page = self.repo.get_by_id(page_id)
-            if page and page.title in ("Archive", "Templates"):
+            if page and page.title in ("Archive", "Templates", "Fun Imports"):
                 continue
             self._archive_item(page_id, page_type)
+
+    def _template_clicked(self):
+        """Set the currently loaded page as a template."""
+        if self._editor_ref and self._editor_ref.current_page_id:
+            page_id = self._editor_ref.current_page_id
+            page = self.repo.get_by_id(page_id)
+            if page and page.page_type == "page":
+                self._set_as_template(page_id)
+            else:
+                QMessageBox.information(
+                    self, "Template", "Select a page to save as template."
+                )
+        else:
+            QMessageBox.information(
+                self, "Template", "Select a page to save as template."
+            )
 
     def _load_pages(self):
         expanded_ids = self._collect_expanded(self.tree)
