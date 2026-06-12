@@ -110,7 +110,7 @@ class ChecklistWidget(QWidget):
         header.setCursor(Qt.CursorShape.OpenHandCursor)
         header.setStyleSheet(
             "#checklist_header {"
-            " background-color: #FFE4EC;"
+            " background-color: #FFF0F3;"
             " border-top-left-radius: 12px;"
             " border-top-right-radius: 12px;"
             " border-bottom: 1px solid #F7D1DC;"
