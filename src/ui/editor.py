@@ -117,6 +117,17 @@ class PageEditor(QWidget):
         self.welcome_label.adjustSize()
         self.welcome_label.show()
 
+        self._page_empty_hint = QLabel("Click + buttons to add your first object")
+        self._page_empty_hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._page_empty_hint.setStyleSheet(
+            "font-family: 'Inter', sans-serif;"
+            " font-size: 14px; color: #9CA3AF;"
+            " font-style: italic;"
+            " background: transparent;"
+        )
+        self._page_empty_hint.setParent(self.content)
+        self._page_empty_hint.hide()
+
         main_layout.addWidget(self.scroll, 1)
 
     def _center_welcome_label(self):
@@ -136,6 +147,7 @@ class PageEditor(QWidget):
                 self.content.setFixedWidth(vp.width())
                 self.content.resize(vp.width(), vp.height())
             self._center_welcome_label()
+            self._center_empty_hint()
         return super().eventFilter(obj, event)
 
     def _on_scroll(self, value):
@@ -165,6 +177,14 @@ class PageEditor(QWidget):
     def _on_canvas_clicked(self, x, y):
         pass
 
+    def _center_empty_hint(self):
+        if self._page_empty_hint.isVisible():
+            canvas_width = self.content.width()
+            hint_width = self._page_empty_hint.width()
+            x = (canvas_width - hint_width) // 2
+            y = 120
+            self._page_empty_hint.move(x, y)
+
     def load_page(self, page_id: int):
         from src.repositories.page_repo import PageRepo
 
@@ -175,11 +195,16 @@ class PageEditor(QWidget):
         if self._empty_hint:
             self._empty_hint.hide()
         self.welcome_label.hide()
+        self.content.setPhotoBackground(False)
+        self._page_empty_hint.show()
+        self._center_empty_hint()
 
     def clear_editor(self):
         self.current_page_id = None
         self.page_title.setText("Select a page")
         self.welcome_label.show()
+        self._page_empty_hint.hide()
+        self.content.setPhotoBackground(True)
         self._center_welcome_label()
 
     def save_current(self):

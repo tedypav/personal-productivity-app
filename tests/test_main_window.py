@@ -110,3 +110,44 @@ class TestMainWindowPageLoading:
         main_window.editor.load_page(pid)
         main_window.editor.clear_editor()
         assert main_window.editor.welcome_label.isVisible()
+
+
+class TestPageEmptyHint:
+    def test_empty_hint_hidden_initially(self, main_window):
+        assert not main_window.editor._page_empty_hint.isVisible()
+
+    def test_empty_hint_shown_on_page_load(self, main_window):
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+        assert main_window.editor._page_empty_hint.isVisible()
+
+    def test_empty_hint_hidden_on_clear(self, main_window):
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+        main_window.editor.clear_editor()
+        assert not main_window.editor._page_empty_hint.isVisible()
+
+    def test_empty_hint_text(self, main_window):
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+        assert "first object" in main_window.editor._page_empty_hint.text()
+
+    def test_empty_hint_is_italic(self, main_window):
+        style = main_window.editor._page_empty_hint.styleSheet()
+        assert "italic" in style
+
+
+class TestCanvasBackground:
+    def test_canvas_has_photo_bg_initially(self, main_window):
+        assert main_window.editor.content._show_photo_bg is True
+
+    def test_canvas_solid_bg_on_page_load(self, main_window):
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+        assert main_window.editor.content._show_photo_bg is False
+
+    def test_canvas_photo_bg_on_clear(self, main_window):
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+        main_window.editor.clear_editor()
+        assert main_window.editor.content._show_photo_bg is True
