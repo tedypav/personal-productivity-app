@@ -78,6 +78,7 @@ class PageEditor(QWidget):
         self.current_page_id = None
         self._empty_hint = None
         self._toc_widget = None
+        self._parent_folder_id = None
         self.setStyleSheet("background: #2a1a35;")
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
 
@@ -161,7 +162,7 @@ class PageEditor(QWidget):
         toolbar_widget.setStyleSheet(
             "background: #FFF8F5; border-bottom: 1px solid #F0E6E8;"
         )
-        from PyQt6.QtWidgets import QHBoxLayout
+        from PyQt6.QtWidgets import QHBoxLayout, QPushButton
 
         toolbar = QHBoxLayout(toolbar_widget)
         toolbar.setContentsMargins(12, 6, 12, 6)
@@ -175,10 +176,30 @@ class PageEditor(QWidget):
         toolbar.addWidget(self.page_title)
         toolbar.addStretch()
 
+        self._back_btn = QPushButton("Back to folder")
+        self._back_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._back_btn.setStyleSheet(
+            "QPushButton {"
+            " font-size: 12px; color: #7c3aed; background: transparent;"
+            " border: none; padding: 4px 8px;"
+            " font-family: 'Inter', sans-serif;"
+            "}"
+            "QPushButton:hover {"
+            " color: #5b21b6; text-decoration: underline;"
+            "}"
+        )
+        self._back_btn.clicked.connect(self._on_back_clicked)
+        self._back_btn.hide()
+        toolbar.addWidget(self._back_btn)
+
         parent_layout.addWidget(toolbar_widget)
 
     def _on_canvas_clicked(self, x, y):
         pass
+
+    def _on_back_clicked(self):
+        if self._parent_folder_id is not None:
+            self.navigate_to_page.emit(self._parent_folder_id)
 
     def _center_empty_hint(self):
         if self._page_empty_hint.isVisible():
@@ -196,6 +217,15 @@ class PageEditor(QWidget):
         page = PageRepo().get_by_id(page_id)
         if page:
             self.page_title.setText(page.title)
+            if page.parent_id is not None:
+                self._parent_folder_id = page.parent_id
+                self._back_btn.show()
+            else:
+                self._parent_folder_id = None
+                self._back_btn.hide()
+        else:
+            self._parent_folder_id = None
+            self._back_btn.hide()
         if self._empty_hint:
             self._empty_hint.hide()
         self.welcome_label.hide()
@@ -266,6 +296,8 @@ class PageEditor(QWidget):
         self.welcome_label.show()
         self._page_empty_hint.hide()
         self._clear_toc()
+        self._back_btn.hide()
+        self._parent_folder_id = None
         self.content.setPhotoBackground(True)
         self._center_welcome_label()
 

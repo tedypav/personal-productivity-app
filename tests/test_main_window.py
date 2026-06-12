@@ -224,3 +224,46 @@ class TestFolderTableOfContents:
             __import__("PyQt6.QtWidgets", fromlist=["QPushButton"]).QPushButton
         )
         assert len(buttons) == 3
+
+
+class TestBackToFolderButton:
+    def test_back_button_hidden_initially(self, main_window):
+        assert not main_window.editor._back_btn.isVisible()
+
+    def test_back_button_shown_for_child_page(self, main_window):
+        folder_id = PageRepo().create(Page(title="MyFolder", page_type="folder"))
+        child_id = PageRepo().create(Page(title="Child", parent_id=folder_id))
+        main_window.editor.load_page(child_id)
+        assert main_window.editor._back_btn.isVisible()
+
+    def test_back_button_hidden_for_root_page(self, main_window):
+        pid = PageRepo().create(Page(title="RootPage"))
+        main_window.editor.load_page(pid)
+        assert not main_window.editor._back_btn.isVisible()
+
+    def test_back_button_hidden_for_folder(self, main_window):
+        folder_id = PageRepo().create(Page(title="MyFolder", page_type="folder"))
+        main_window.editor.load_page(folder_id)
+        assert not main_window.editor._back_btn.isVisible()
+
+    def test_back_button_hidden_on_clear(self, main_window):
+        folder_id = PageRepo().create(Page(title="MyFolder", page_type="folder"))
+        child_id = PageRepo().create(Page(title="Child", parent_id=folder_id))
+        main_window.editor.load_page(child_id)
+        main_window.editor.clear_editor()
+        assert not main_window.editor._back_btn.isVisible()
+
+    def test_back_button_emits_signal(self, main_window):
+        folder_id = PageRepo().create(Page(title="MyFolder", page_type="folder"))
+        child_id = PageRepo().create(Page(title="Child", parent_id=folder_id))
+        main_window.editor.load_page(child_id)
+        received = []
+        main_window.editor.navigate_to_page.connect(lambda pid: received.append(pid))
+        main_window.editor._back_btn.click()
+        assert received == [folder_id]
+
+    def test_back_button_text(self, main_window):
+        folder_id = PageRepo().create(Page(title="MyFolder", page_type="folder"))
+        child_id = PageRepo().create(Page(title="Child", parent_id=folder_id))
+        main_window.editor.load_page(child_id)
+        assert main_window.editor._back_btn.text() == "Back to folder"
