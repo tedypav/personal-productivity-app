@@ -90,10 +90,10 @@ class ChecklistWidget(QWidget):
         self._dragging = False
         self._drag_start = None
         self.setObjectName("checklist")
-        self.setAutoFillBackground(True)
         self.setStyleSheet(
             "#checklist {"
-            " background: #FFFFFF; border: 1px solid #F7D1DC;"
+            " background-color: #FFFFFF;"
+            " border: 1px solid #F7D1DC;"
             " border-radius: 12px;"
             "}"
         )
@@ -102,28 +102,33 @@ class ChecklistWidget(QWidget):
         self._layout.setSpacing(0)
 
         header = QWidget()
-        header.setFixedHeight(32)
+        header.setFixedHeight(36)
         header.setCursor(Qt.CursorShape.OpenHandCursor)
-        header.setStyleSheet("background: transparent;")
+        header.setStyleSheet(
+            "background-color: #FFF5F7;"
+            " border-top-left-radius: 12px;"
+            " border-top-right-radius: 12px;"
+        )
         header_layout = QHBoxLayout(header)
-        header_layout.setContentsMargins(12, 4, 12, 4)
+        header_layout.setContentsMargins(12, 4, 16, 4)
         header_layout.setSpacing(6)
 
         title = QLabel("⠿ Checklist")
         title.setStyleSheet(
             "font-family: 'Inter', sans-serif; font-size: 11px;"
             " color: #9CA3AF; font-weight: 500;"
+            " background: transparent;"
         )
         header_layout.addWidget(title)
         header_layout.addStretch()
 
         delete_btn = QPushButton("×")
-        delete_btn.setFixedSize(22, 22)
+        delete_btn.setFixedSize(24, 24)
         delete_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         delete_btn.setStyleSheet(
             "QPushButton { border: none; font-size: 16px; color: #CFA6D6;"
-            " border-radius: 11px; background: transparent;"
-            " min-width: 22px; min-height: 22px; }"
+            " border-radius: 12px; background: transparent;"
+            " min-width: 24px; min-height: 24px; }"
             " QPushButton:hover { color: #EF4444; background: #FEE2E2; }"
         )
         delete_btn.clicked.connect(self._delete_checklist)
