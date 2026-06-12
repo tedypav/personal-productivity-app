@@ -961,7 +961,7 @@ class Sidebar(QWidget):
 
         pages = self.repo.get_all()
         existing = {p.title for p in pages if p.page_type == "folder"}
-        for title in ("Archive", "Fun Imports"):
+        for title in ("Archive", "Fun Imports", "Templates"):
             if title not in existing:
                 self.repo.create(Page(title=title, page_type="folder"))
 
@@ -993,6 +993,7 @@ class Sidebar(QWidget):
         page_icon = QIcon(_get_icon_path("page"))
         archive_icon = QIcon(_get_icon_path("folder_archive"))
         fun_icon = QIcon(_get_icon_path("folder_fun"))
+        template_icon = QIcon(_get_icon_path("folder_template"))
 
         children_map = {}
         for p in pages:
@@ -1001,6 +1002,7 @@ class Sidebar(QWidget):
         folder_icons = {
             "Archive": archive_icon,
             "Fun Imports": fun_icon,
+            "Templates": template_icon,
         }
 
         def _page_icon(page):

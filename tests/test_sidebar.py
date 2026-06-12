@@ -92,6 +92,7 @@ class TestSidebarLowerTree:
         ]
         assert "Archive" in titles
         assert "Fun Imports" in titles
+        assert "Templates" in titles
 
     def test_fun_imports_appears_in_lower_tree(self, sidebar):
         PageRepo().create(Page(title="Fun Imports", page_type="folder"))
