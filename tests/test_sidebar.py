@@ -1,4 +1,5 @@
 import pytest
+from PyQt6.QtCore import Qt
 
 from src.models.page import Page
 from src.repositories.page_repo import PageRepo
@@ -208,3 +209,69 @@ class TestSidebarSpecialFolderClicks:
         sidebar.template_tree.itemClicked.emit(item, 0)
 
         assert len(received) == 0
+
+
+class TestSetAsTemplate:
+    def test_set_as_template_creates_copy(self, sidebar):
+        pid = PageRepo().create(Page(title="MyPage", page_type="page"))
+        sidebar._set_as_template(pid)
+        templates = [
+            p
+            for p in PageRepo().get_all()
+            if p.title == "MyPage" and p.page_type == "template_page"
+        ]
+        assert len(templates) == 1
+
+    def test_set_as_template_in_templates_folder(self, sidebar):
+        pid = PageRepo().create(Page(title="MyPage", page_type="page"))
+        sidebar._set_as_template(pid)
+        templates = [
+            p
+            for p in PageRepo().get_all()
+            if p.title == "MyPage" and p.page_type == "template_page"
+        ]
+        assert len(templates) == 1
+        child = templates[0]
+        folders = [
+            p
+            for p in PageRepo().get_all()
+            if p.title == "Templates" and p.page_type == "folder"
+        ]
+        assert len(folders) == 1
+        assert child.parent_id == folders[0].id
+
+    def test_set_as_template_preserves_title(self, sidebar):
+        pid = PageRepo().create(Page(title="SpecialPage", page_type="page"))
+        sidebar._set_as_template(pid)
+        templates = [p for p in PageRepo().get_all() if p.page_type == "template_page"]
+        assert templates[0].title == "SpecialPage"
+
+    def test_set_as_template_creates_templates_folder(self, sidebar):
+        pid = PageRepo().create(Page(title="MyPage", page_type="page"))
+        sidebar._set_as_template(pid)
+        folders = [
+            p
+            for p in PageRepo().get_all()
+            if p.title == "Templates" and p.page_type == "folder"
+        ]
+        assert len(folders) == 1
+
+    def test_set_as_template_does_not_move_original(self, sidebar):
+        pid = PageRepo().create(Page(title="MyPage", page_type="page"))
+        sidebar._set_as_template(pid)
+        original = PageRepo().get_by_id(pid)
+        assert original.parent_id is None
+        assert original.page_type == "page"
+
+    def test_template_page_uses_blue_icon(self, sidebar):
+        pid = PageRepo().create(Page(title="Tpl", page_type="template_page"))
+        sidebar.refresh()
+        item = None
+        for i in range(sidebar.tree.topLevelItemCount()):
+            child = sidebar.tree.topLevelItem(i)
+            if child.data(0, Qt.ItemDataRole.UserRole) == pid:
+                item = child
+                break
+        assert item is not None
+        icon = item.icon(0)
+        assert not icon.isNull()

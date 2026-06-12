@@ -2,18 +2,18 @@
 <svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <linearGradient id="pageGrad" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#E8F4FC"/>
-      <stop offset="1" stop-color="#D6ECFA"/>
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#EBF5FB"/>
     </linearGradient>
   </defs>
   <!-- Page body -->
-  <rect x="4" y="2" width="16" height="20" rx="2" fill="url(#pageGrad)" stroke="#A8D4F0" stroke-width="0.8"/>
+  <rect x="4" y="2" width="16" height="20" rx="2" fill="url(#pageGrad)" stroke="#B8D4E8" stroke-width="0.8"/>
   <!-- Page fold -->
-  <path d="M 14 2 L 20 8 L 14 8 Z" fill="#C4E3F5"/>
+  <path d="M 14 2 L 20 8 L 14 8 Z" fill="#D6E8F5"/>
   <!-- Page lines -->
-  <line x1="7" y1="11" x2="17" y2="11" stroke="#A8D4F0" stroke-width="0.8" stroke-linecap="round"/>
-  <line x1="7" y1="14" x2="15" y2="14" stroke="#A8D4F0" stroke-width="0.8" stroke-linecap="round"/>
-  <line x1="7" y1="17" x2="13" y2="17" stroke="#A8D4F0" stroke-width="0.8" stroke-linecap="round"/>
+  <line x1="7" y1="11" x2="17" y2="11" stroke="#B8D4E8" stroke-width="0.8" stroke-linecap="round"/>
+  <line x1="7" y1="14" x2="15" y2="14" stroke="#B8D4E8" stroke-width="0.8" stroke-linecap="round"/>
+  <line x1="7" y1="17" x2="13" y2="17" stroke="#B8D4E8" stroke-width="0.8" stroke-linecap="round"/>
   <!-- Page accent dot -->
-  <circle cx="17" cy="17" r="1.5" fill="#7EB5D6" opacity="0.6"/>
+  <circle cx="17" cy="17" r="1.5" fill="#5B9AC4" opacity="0.6"/>
 </svg>

@@ -991,6 +991,7 @@ class Sidebar(QWidget):
 
         folder_icon = QIcon(_get_icon_path("folder"))
         page_icon = QIcon(_get_icon_path("page"))
+        template_page_icon = QIcon(_get_icon_path("page_template"))
         archive_icon = QIcon(_get_icon_path("folder_archive"))
         fun_icon = QIcon(_get_icon_path("folder_fun"))
         template_icon = QIcon(_get_icon_path("folder_template"))
@@ -1008,6 +1009,8 @@ class Sidebar(QWidget):
         def _page_icon(page):
             if page.page_type == "folder":
                 return folder_icons.get(page.title, folder_icon)
+            if page.page_type == "template_page":
+                return template_page_icon
             return page_icon
 
         def _make_item(parent, page):
@@ -1506,6 +1509,8 @@ class Sidebar(QWidget):
         if page_type == "folder":
             add_folder_action = menu.addAction("Add Child Folder")
         menu.addSeparator()
+        set_template_action = menu.addAction("Set as Template")
+        menu.addSeparator()
         archive_action = menu.addAction("Archive")
         menu.addSeparator()
         move_action = menu.addAction("Move to Folder...")
@@ -1574,12 +1579,15 @@ class Sidebar(QWidget):
 
         elif action == archive_action:
             page = self.repo.get_by_id(page_id)
-            if page and page.title in ("Archive", "Templates"):
+            if page and page.title in ("Archive", "Templates", "Fun Imports"):
                 QMessageBox.information(
                     self, "Archive", f"Cannot archive the {page.title} folder."
                 )
             else:
                 self._archive_item(page_id, page_type)
+
+        elif action == set_template_action:
+            self._set_as_template(page_id)
 
     def _archive_item(self, page_id, page_type):
         """Archive a page or folder."""
@@ -1629,6 +1637,36 @@ class Sidebar(QWidget):
 
         self._load_pages()
         self.pages_changed.emit()
+
+    def _set_as_template(self, page_id):
+        """Copy a page to the Templates folder as a template."""
+        page = self.repo.get_by_id(page_id)
+        if not page:
+            return
+
+        pages = self.repo.get_all()
+        templates_folder = [
+            p for p in pages if p.title == "Templates" and p.page_type == "folder"
+        ]
+        templates_id = (
+            templates_folder[0].id
+            if templates_folder
+            else self.repo.create(Page(title="Templates", page_type="folder"))
+        )
+
+        new_page = Page(
+            title=page.title,
+            parent_id=templates_id,
+            page_type="template_page",
+        )
+        self.repo.create(new_page)
+        self._load_pages()
+        self.pages_changed.emit()
+        QMessageBox.information(
+            self,
+            "Template",
+            f"Page '{page.title}' copied to Templates.",
+        )
 
     def _move_to_folder(self, page_id, page_type):
         """Show dialog to move page/folder to another folder or root."""
