@@ -1,14 +1,21 @@
+import json
 import os
 
 from PyQt6.QtCore import QEvent, Qt, pyqtSignal
 from PyQt6.QtGui import QColor, QPainter, QPixmap
 from PyQt6.QtWidgets import (
     QFrame,
+    QHBoxLayout,
     QLabel,
+    QMenu,
+    QPushButton,
     QScrollArea,
     QVBoxLayout,
     QWidget,
 )
+
+from src.models.page_object import PageObject
+from src.repositories.page_object_repo import PageObjectRepo
 
 
 class Canvas(QWidget):
@@ -79,6 +86,8 @@ class PageEditor(QWidget):
         self._empty_hint = None
         self._toc_widget = None
         self._parent_folder_id = None
+        self._objects = []
+        self._objects_container = None
         self.setStyleSheet("background: #2a1a35;")
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
 
@@ -132,7 +141,46 @@ class PageEditor(QWidget):
         self._page_empty_hint.setParent(self.content)
         self._page_empty_hint.hide()
 
+        self._build_floating_add_button()
+
         main_layout.addWidget(self.scroll, 1)
+
+    def _build_floating_add_button(self):
+        self._add_btn = QPushButton("+", self.content)
+        self._add_btn.setFixedSize(48, 48)
+        self._add_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._add_btn.setStyleSheet(
+            "QPushButton {"
+            " font-size: 24px; font-weight: 300;"
+            " color: #FFFFFF; background: #CFA6D6;"
+            " border: none; border-radius: 24px;"
+            "}"
+            "QPushButton:hover {"
+            " background: #B894C0;"
+            "}"
+        )
+        self._add_btn.clicked.connect(self._show_add_menu)
+        self._add_btn.hide()
+
+    def _show_add_menu(self):
+        menu = QMenu(self)
+        menu.setStyleSheet(
+            "QMenu {"
+            " background: #FFFFFF; border: 1px solid #F7D1DC;"
+            " border-radius: 8px; padding: 4px;"
+            " font-family: 'Inter', sans-serif; font-size: 13px;"
+            "}"
+            "QMenu::item {"
+            " padding: 8px 20px; border-radius: 6px;"
+            "}"
+            "QMenu::item:selected {"
+            " background: #FFF0F3; color: #2E2B2B;"
+            "}"
+        )
+        checkbox_action = menu.addAction("✓  Checkbox")
+        action = menu.exec(self._add_btn.mapToGlobal(self._add_btn.rect().bottomLeft()))
+        if action == checkbox_action:
+            self._add_checkbox()
 
     def _center_welcome_label(self):
         if hasattr(self, "welcome_label") and self.welcome_label.isVisible():
@@ -152,6 +200,7 @@ class PageEditor(QWidget):
                 self.content.resize(vp.width(), vp.height())
             self._center_welcome_label()
             self._center_empty_hint()
+            self._position_floating_button()
         return super().eventFilter(obj, event)
 
     def _on_scroll(self, value):
@@ -162,7 +211,6 @@ class PageEditor(QWidget):
         toolbar_widget.setStyleSheet(
             "background: #FFF8F5; border-bottom: 1px solid #F0E6E8;"
         )
-        from PyQt6.QtWidgets import QHBoxLayout, QPushButton
 
         toolbar = QHBoxLayout(toolbar_widget)
         toolbar.setContentsMargins(12, 6, 12, 6)
@@ -193,6 +241,23 @@ class PageEditor(QWidget):
         self._back_btn.hide()
         toolbar.addWidget(self._back_btn)
 
+        self._checkbox_btn = QPushButton("✓ + Checkbox")
+        self._checkbox_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._checkbox_btn.setStyleSheet(
+            "QPushButton {"
+            " font-size: 12px; color: #CFA6D6; background: transparent;"
+            " border: 1px solid #F0E6E8; border-radius: 14px;"
+            " padding: 4px 14px; font-family: 'Inter', sans-serif;"
+            "}"
+            "QPushButton:hover {"
+            " background: #FFF0F3; border-color: #CFA6D6;"
+            " color: #9b59b6;"
+            "}"
+        )
+        self._checkbox_btn.clicked.connect(self._add_checkbox)
+        self._checkbox_btn.hide()
+        toolbar.addWidget(self._checkbox_btn)
+
         parent_layout.addWidget(toolbar_widget)
 
     def _on_canvas_clicked(self, x, y):
@@ -210,11 +275,18 @@ class PageEditor(QWidget):
             y = 120
             self._page_empty_hint.move(x, y)
 
+    def _position_floating_button(self):
+        if hasattr(self, "_add_btn") and self._add_btn.isVisible():
+            canvas_w = self.content.width()
+            canvas_h = self.content.height()
+            self._add_btn.move(canvas_w - 70, canvas_h - 70)
+
     def load_page(self, page_id: int):
         from src.repositories.page_repo import PageRepo
 
         self.current_page_id = page_id
         self._clear_toc()
+        self._clear_objects()
         page = PageRepo().get_by_id(page_id)
         if page:
             self.page_title.setText(page.title)
@@ -239,9 +311,102 @@ class PageEditor(QWidget):
                 self._show_toc(children)
             else:
                 self._page_empty_hint.hide()
+            self._checkbox_btn.hide()
+            self._add_btn.hide()
         else:
+            self._load_objects()
+            self._checkbox_btn.show()
+            self._add_btn.show()
+            self._position_floating_button()
+            if not self._objects:
+                self._page_empty_hint.show()
+                self._center_empty_hint()
+            else:
+                self._page_empty_hint.hide()
+
+    def _load_objects(self):
+        if not self.current_page_id:
+            return
+        self._objects = PageObjectRepo().get_by_page(self.current_page_id)
+        if not self._objects:
+            return
+        self._create_objects_container()
+        for obj in self._objects:
+            if obj.object_type == "checkbox":
+                self._add_checkbox_widget(obj)
+
+    def _create_objects_container(self):
+        if self._objects_container:
+            self._objects_container.deleteLater()
+        self._objects_container = QWidget(self.content)
+        self._objects_container.setStyleSheet(
+            "background: #FFFFFF; border: 1px solid #F7D1DC;" " border-radius: 12px;"
+        )
+        self._objects_layout = QVBoxLayout(self._objects_container)
+        self._objects_layout.setContentsMargins(0, 0, 0, 0)
+        self._objects_layout.setSpacing(0)
+        self._objects_container.adjustSize()
+        canvas_w = self.content.width()
+        container_w = min(500, canvas_w - 80)
+        self._objects_container.setFixedWidth(container_w)
+        x = (canvas_w - container_w) // 2
+        self._objects_container.move(x, 60)
+        self._objects_container.show()
+
+    def _add_checkbox_widget(self, obj):
+        from src.ui.objects.checkbox_widget import CheckboxWidget
+
+        if not self._objects_container:
+            self._create_objects_container()
+        widget = CheckboxWidget(
+            obj_id=obj.id,
+            text=json.loads(obj.content).get("text", ""),
+            checked=bool(obj.is_checked),
+        )
+        widget.changed.connect(self._on_object_changed)
+        widget.delete_requested.connect(self._on_object_delete)
+        self._objects_layout.addWidget(widget)
+        self._objects_container.adjustSize()
+
+    def _add_checkbox(self):
+        if not self.current_page_id:
+            return
+        obj = PageObject(
+            page_id=self.current_page_id,
+            object_type="checkbox",
+            content=json.dumps({"text": "", "checked": False}),
+        )
+        obj.id = PageObjectRepo().create(obj)
+        self._objects.append(obj)
+        self._add_checkbox_widget(obj)
+        self._page_empty_hint.hide()
+        self._position_floating_button()
+
+    def _on_object_changed(self, obj_id, checked, text):
+        for obj in self._objects:
+            if obj.id == obj_id:
+                obj.is_checked = checked
+                obj.content = json.dumps({"text": text, "checked": checked})
+                PageObjectRepo().update(obj)
+                break
+
+    def _on_object_delete(self, obj_id):
+        PageObjectRepo().delete(obj_id)
+        self._objects = [o for o in self._objects if o.id != obj_id]
+        for i in range(self._objects_layout.count()):
+            widget = self._objects_layout.itemAt(i).widget()
+            if widget and hasattr(widget, "obj_id") and widget.obj_id == obj_id:
+                widget.deleteLater()
+                break
+        if not self._objects:
             self._page_empty_hint.show()
             self._center_empty_hint()
+
+    def _clear_objects(self):
+        self._objects = []
+        if self._objects_container:
+            self._objects_container.deleteLater()
+            self._objects_container = None
 
     def _show_toc(self, children):
         from PyQt6.QtWidgets import QPushButton
@@ -310,7 +475,10 @@ class PageEditor(QWidget):
         self.welcome_label.show()
         self._page_empty_hint.hide()
         self._clear_toc()
+        self._clear_objects()
         self._back_btn.hide()
+        self._checkbox_btn.hide()
+        self._add_btn.hide()
         self._parent_folder_id = None
         self.content.setPhotoBackground(True)
         self._center_welcome_label()

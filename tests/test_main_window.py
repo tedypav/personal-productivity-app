@@ -281,3 +281,64 @@ class TestTemplateButton:
         pid = PageRepo().create(Page(title="TestPage"))
         main_window.editor.load_page(pid)
         assert main_window.sidebar._editor_ref.current_page_id == pid
+
+
+class TestCheckboxFeature:
+    def test_checkbox_btn_hidden_initially(self, main_window):
+        assert not main_window.editor._checkbox_btn.isVisible()
+
+    def test_checkbox_btn_shown_on_page_load(self, main_window):
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+        assert main_window.editor._checkbox_btn.isVisible()
+
+    def test_checkbox_btn_hidden_for_folder(self, main_window):
+        fid = PageRepo().create(Page(title="Folder", page_type="folder"))
+        main_window.editor.load_page(fid)
+        assert not main_window.editor._checkbox_btn.isVisible()
+
+    def test_add_checkbox_creates_widget(self, main_window):
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+        main_window.editor._add_checkbox()
+        assert len(main_window.editor._objects) == 1
+        assert main_window.editor._objects_container is not None
+
+    def test_add_checkbox_hides_empty_hint(self, main_window):
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+        assert main_window.editor._page_empty_hint.isVisible()
+        main_window.editor._add_checkbox()
+        assert not main_window.editor._page_empty_hint.isVisible()
+
+    def test_checkbox_persists_in_db(self, main_window):
+        from src.repositories.page_object_repo import PageObjectRepo
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+        main_window.editor._add_checkbox()
+        objects = PageObjectRepo().get_by_page(pid)
+        assert len(objects) == 1
+        assert objects[0].object_type == "checkbox"
+
+    def test_checkbox_loads_on_page_reload(self, main_window):
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+        main_window.editor._add_checkbox()
+        main_window.editor.clear_editor()
+        main_window.editor.load_page(pid)
+        assert len(main_window.editor._objects) == 1
+
+    def test_checkbox_state_persists(self, main_window):
+        from src.repositories.page_object_repo import PageObjectRepo
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+        main_window.editor._add_checkbox()
+        widget = main_window.editor._objects_layout.itemAt(0).widget()
+        widget._checkbox.setChecked(True)
+        objects = PageObjectRepo().get_by_page(pid)
+        assert objects[0].is_checked
+
+    def test_floating_add_button_exists(self, main_window):
+        assert main_window.editor._add_btn is not None

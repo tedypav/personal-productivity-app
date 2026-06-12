@@ -59,6 +59,23 @@ def init_db():
         CREATE INDEX IF NOT EXISTS idx_pages_sort ON pages(sort_order);
     """)
 
+    cursor.executescript("""
+        CREATE TABLE IF NOT EXISTS page_objects (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            page_id INTEGER NOT NULL
+                REFERENCES pages(id) ON DELETE CASCADE,
+            object_type TEXT NOT NULL,
+            content TEXT NOT NULL DEFAULT '{}',
+            is_checked INTEGER NOT NULL DEFAULT 0,
+            sort_order INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+    """)
+
+    cursor.executescript("""
+        CREATE INDEX IF NOT EXISTS idx_objects_page ON page_objects(page_id);
+    """)
+
     _add_column(conn, "pages", "page_type TEXT NOT NULL DEFAULT 'page'")
 
     conn.commit()

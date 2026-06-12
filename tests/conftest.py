@@ -57,7 +57,8 @@ def patch_db(temp_db_path, monkeypatch):
 
     conn = sqlite3.connect(temp_db_path, timeout=5)
     conn.execute("PRAGMA foreign_keys=ON")
-    conn.execute("DELETE FROM pages")
+    for table in ("page_objects", "pages"):
+        conn.execute(f"DELETE FROM {table}")
     conn.commit()
     conn.close()
 
