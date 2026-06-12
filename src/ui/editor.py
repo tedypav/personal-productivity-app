@@ -130,13 +130,17 @@ class ChecklistWidget(QWidget):
         header_layout.addStretch()
 
         delete_btn = QPushButton("×")
-        delete_btn.setFixedSize(22, 22)
+        delete_btn.setFixedSize(24, 24)
         delete_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         delete_btn.setStyleSheet(
-            "QPushButton { border: none; font-size: 15px; color: #9CA3AF;"
-            " border-radius: 11px; background: transparent;"
+            "QPushButton {"
+            " border: none; font-size: 14px; font-weight: bold;"
+            " color: #9CA3AF; border-radius: 12px;"
+            " background: rgba(255, 255, 255, 0.5);"
             " }"
-            " QPushButton:hover { color: #EF4444; background: #FEE2E2; }"
+            " QPushButton:hover {"
+            " color: #EF4444; background: #FEE2E2;"
+            " }"
         )
         delete_btn.clicked.connect(self._delete_checklist)
         header_layout.addWidget(delete_btn)
