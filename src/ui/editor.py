@@ -197,7 +197,12 @@ class ChecklistWidget(QWidget):
             return super().eventFilter(obj, event)
         if isinstance(event, QKeyEvent):
             is_del = event.type() == QEvent.Type.KeyPress
-            if is_del and event.key() == Qt.Key.Key_Delete:
+            is_delete_key = event.key() == Qt.Key.Key_Delete
+            is_ctrl_d = (
+                event.key() == Qt.Key.Key_D
+                and event.modifiers() & Qt.KeyboardModifier.ControlModifier
+            )
+            if is_del and (is_delete_key or is_ctrl_d):
                 for i in range(self._checkboxes_layout.count()):
                     w = self._checkboxes_layout.itemAt(i).widget()
                     if w and hasattr(w, "obj_id"):
@@ -475,7 +480,12 @@ class ChecklistWidget(QWidget):
         super().mouseReleaseEvent(event)
 
     def keyPressEvent(self, event):
-        if event.key() == Qt.Key.Key_Delete:
+        is_delete_key = event.key() == Qt.Key.Key_Delete
+        is_ctrl_d = (
+            event.key() == Qt.Key.Key_D
+            and event.modifiers() & Qt.KeyboardModifier.ControlModifier
+        )
+        if is_delete_key or is_ctrl_d:
             from PyQt6.QtWidgets import QApplication
 
             focused = QApplication.focusWidget()
@@ -513,6 +523,7 @@ class ChecklistWidget(QWidget):
 
 class PageEditor(QWidget):
     navigate_to_page = pyqtSignal(int)
+    delete_page_requested = pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -927,6 +938,29 @@ class PageEditor(QWidget):
         if self._toc_widget:
             self._toc_widget.deleteLater()
             self._toc_widget = None
+
+    def keyPressEvent(self, event):
+        is_delete_key = event.key() == Qt.Key.Key_Delete
+        is_ctrl_d = (
+            event.key() == Qt.Key.Key_D
+            and event.modifiers() & Qt.KeyboardModifier.ControlModifier
+        )
+        if is_delete_key or is_ctrl_d:
+            from PyQt6.QtWidgets import QApplication
+
+            focused = QApplication.focusWidget()
+            in_checklist = False
+            for checklist in self._checklists.values():
+                if focused and (
+                    focused is checklist or checklist.isAncestorOf(focused)
+                ):
+                    in_checklist = True
+                    break
+            if not in_checklist and self.current_page_id:
+                self.delete_page_requested.emit()
+                event.accept()
+                return
+        super().keyPressEvent(event)
 
     def clear_editor(self):
         self.current_page_id = None

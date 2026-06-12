@@ -1049,7 +1049,7 @@ class TestDeleteKeyboard:
 
         assert received == [item.obj_id]
 
-    def test_delete_via_event_filter_on_text_edit(self, main_window):
+    def test_ctrl_d_emits_signal(self, main_window):
         from PyQt6.QtCore import QEvent, Qt
         from PyQt6.QtGui import QKeyEvent
 
@@ -1070,12 +1070,11 @@ class TestDeleteKeyboard:
 
         event = QKeyEvent(
             QEvent.Type.KeyPress,
-            Qt.Key.Key_Delete,
-            Qt.KeyboardModifier.NoModifier,
+            Qt.Key.Key_D,
+            Qt.KeyboardModifier.ControlModifier,
         )
-        result = checklist.eventFilter(item._text_edit, event)
+        checklist.eventFilter(item._text_edit, event)
 
-        assert result is True
         assert received == [item.obj_id]
 
     def test_delete_via_event_filter_on_checkbox(self, main_window):
@@ -1129,3 +1128,80 @@ class TestDeleteKeyboard:
         checklist.eventFilter(item._text_edit, event)
 
         assert PageObjectRepo().get_by_id(obj_id) is None
+
+    def test_ctrl_d_deletes_page_when_no_checklist_focused(self, main_window):
+        from PyQt6.QtCore import QEvent, Qt
+        from PyQt6.QtGui import QKeyEvent
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        received = []
+        main_window.editor.delete_page_requested.connect(lambda: received.append(True))
+
+        main_window.editor.setFocus()
+
+        event = QKeyEvent(
+            QEvent.Type.KeyPress,
+            Qt.Key.Key_D,
+            Qt.KeyboardModifier.ControlModifier,
+        )
+        main_window.editor.keyPressEvent(event)
+
+        assert received == [True]
+
+    def test_delete_key_deletes_page_when_no_checklist_focused(self, main_window):
+        from PyQt6.QtCore import QEvent, Qt
+        from PyQt6.QtGui import QKeyEvent
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        received = []
+        main_window.editor.delete_page_requested.connect(lambda: received.append(True))
+
+        main_window.editor.setFocus()
+
+        event = QKeyEvent(
+            QEvent.Type.KeyPress,
+            Qt.Key.Key_Delete,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        main_window.editor.keyPressEvent(event)
+
+        assert received == [True]
+
+    def test_no_page_delete_when_checklist_focused(self, main_window):
+        from PyQt6.QtCore import QEvent, Qt
+        from PyQt6.QtGui import QKeyEvent
+
+        from src.ui.editor import ChecklistWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        checklist = ChecklistWidget(0, page_id=pid, parent=main_window.editor.content)
+        checklist.setFixedWidth(400)
+        checklist._add_item()
+        checklist._refresh_size()
+
+        item = checklist._checkboxes_layout.itemAt(0).widget()
+        item._text_edit.setFocus()
+
+        page_deleted = []
+        main_window.editor.delete_page_requested.connect(
+            lambda: page_deleted.append(True)
+        )
+
+        item_deleted = []
+        checklist.item_delete_requested.connect(lambda oid: item_deleted.append(oid))
+
+        event = QKeyEvent(
+            QEvent.Type.KeyPress,
+            Qt.Key.Key_Delete,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        checklist.eventFilter(item._text_edit, event)
+
+        assert page_deleted == []
+        assert item_deleted == [item.obj_id]

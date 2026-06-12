@@ -67,6 +67,7 @@ class MainWindow(QMainWindow):
 
         self.sidebar.page_selected.connect(self.editor.load_page)
         self.editor.navigate_to_page.connect(self._navigate_to_page)
+        self.editor.delete_page_requested.connect(self._delete_page)
         self.sidebar.set_editor(self.editor)
 
         self._setup_menu()
@@ -122,7 +123,6 @@ class MainWindow(QMainWindow):
             edit_menu,
             "Delete Selected",
             self._bulk_delete_selected,
-            QKeySequence("Ctrl+D"),
         )
         self._make_action(
             edit_menu,
