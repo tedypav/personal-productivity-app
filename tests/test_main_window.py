@@ -843,3 +843,77 @@ class TestResize:
 
         objects = main_window.editor._objects
         assert all(o.object_type != "checklist_meta" for o in objects)
+
+
+class TestResizeFixes:
+    def test_resize_clears_fixed_width(self, main_window):
+        from src.ui.editor import ChecklistWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        checklist = ChecklistWidget(0, page_id=pid, parent=main_window.editor.content)
+        checklist.setFixedWidth(400)
+        checklist._add_item()
+        checklist._refresh_size()
+
+        checklist.setMinimumWidth(0)
+        checklist.setMaximumWidth(16777215)
+        checklist.setGeometry(100, 100, 500, checklist.height())
+
+        assert checklist.width() == 500
+
+    def test_event_filter_installed_on_children(self, main_window):
+        from src.ui.editor import ChecklistWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        checklist = ChecklistWidget(0, page_id=pid, parent=main_window.editor.content)
+        checklist.setFixedWidth(400)
+        checklist._add_item()
+        checklist._refresh_size()
+
+        child = checklist._checkboxes_layout.itemAt(0).widget()
+        assert child.hasMouseTracking()
+
+    def test_event_filter_installed_on_all_descendants(self, main_window):
+        from src.ui.editor import ChecklistWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        checklist = ChecklistWidget(0, page_id=pid, parent=main_window.editor.content)
+        checklist.setFixedWidth(400)
+        checklist._add_item()
+        checklist._refresh_size()
+
+        assert checklist.hasMouseTracking()
+        for child in checklist.findChildren(
+            type(checklist._checkboxes_layout.itemAt(0).widget())
+        ):
+            assert child.hasMouseTracking()
+
+    def test_resize_edge_detection_during_resize(self, main_window):
+        from src.ui.editor import ChecklistWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        checklist = ChecklistWidget(0, page_id=pid, parent=main_window.editor.content)
+        checklist.setFixedWidth(400)
+        checklist._add_item()
+        checklist._refresh_size()
+
+        checklist._resizing = True
+        checklist._resize_edge = "right"
+        checklist._resize_start = checklist.mapToGlobal(checklist.rect().topRight())
+        checklist._resize_origin = (
+            checklist.x(),
+            checklist.y(),
+            checklist.width(),
+            checklist.height(),
+        )
+
+        assert checklist._resize_edge == "right"
+        assert checklist._resizing is True
