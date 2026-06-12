@@ -1710,6 +1710,8 @@ class Sidebar(QWidget):
                     self.repo.update(page)
 
         self._load_pages()
+        if self._editor_ref and self._editor_ref.current_page_id == page_id:
+            self._editor_ref.clear_editor()
         self.pages_changed.emit()
 
     def _set_as_template(self, page_id):
