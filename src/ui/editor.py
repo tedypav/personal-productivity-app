@@ -128,15 +128,18 @@ class ChecklistWidget(QWidget):
         header_layout.addWidget(title)
         header_layout.addStretch()
 
-        delete_btn = QPushButton("×")
+        from PyQt6.QtWidgets import QToolButton
+
+        delete_btn = QToolButton()
+        delete_btn.setText("×")
         delete_btn.setFixedSize(28, 28)
         delete_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         delete_btn.setStyleSheet(
-            "QPushButton {"
+            "QToolButton {"
             " border: none; font-size: 14px;"
             " color: #4B5563; background: transparent;"
             " }"
-            " QPushButton:hover {"
+            " QToolButton:hover {"
             " color: #EF4444;"
             " }"
         )
