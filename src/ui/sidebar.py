@@ -1491,6 +1491,38 @@ class Sidebar(QWidget):
         count_spin = QSpinBox()
         count_spin.setRange(1, 999)
         count_spin.setValue(5)
+        count_spin.setStyleSheet("""
+            QSpinBox {
+                padding: 6px 12px;
+                border: 1px solid #F7D1DC;
+                border-radius: 10px;
+                background: #FFFFFF;
+                font-size: 13px;
+                color: #2E2B2B;
+                min-width: 120px;
+                font-family: 'Inter', 'Poppins', sans-serif;
+            }
+            QSpinBox::up-button, QSpinBox::down-button {
+                border: none;
+                width: 22px;
+                border-radius: 11px;
+                background: #FFF0F3;
+            }
+            QSpinBox::up-button:hover, QSpinBox::down-button:hover {
+                background: #FFE4EC;
+            }
+            QSpinBox::up-arrow {
+                image: url(assets/icons/chevron_down.svg);
+                width: 10px;
+                height: 10px;
+            }
+            QSpinBox::down-arrow {
+                image: url(assets/icons/chevron_down.svg);
+                width: 10px;
+                height: 10px;
+                transform: rotate(180deg);
+            }
+        """)
         layout.addWidget(count_spin)
 
         buttons = QDialogButtonBox(
