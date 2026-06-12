@@ -762,7 +762,6 @@ class Sidebar(QWidget):
         self.repo = PageRepo()
         self.settings = load_settings()
         self.setMinimumWidth(180)
-        self.setMaximumWidth(350)
         self._empty_hint = None
         self.setStyleSheet("""
             Sidebar {
@@ -828,15 +827,12 @@ class Sidebar(QWidget):
 
         self.btn_new_folder = QPushButton("New Folder")
         self.btn_new_folder.setIcon(folder_icon)
-        self.btn_new_folder.setFixedWidth(110)
 
         self.btn_new = QPushButton("New Page")
         self.btn_new.setIcon(page_icon)
-        self.btn_new.setFixedWidth(105)
 
         self.btn_new_page = QPushButton("Time Pages")
         self.btn_new_page.setIcon(page_icon)
-        self.btn_new_page.setFixedWidth(110)
 
         btn_layout.addWidget(self.btn_new_folder)
         btn_layout.addWidget(self.btn_new)
@@ -848,17 +844,14 @@ class Sidebar(QWidget):
         btn_layout2.setSpacing(3)
         self.btn_bulk_named = QPushButton("Name Pages")
         self.btn_bulk_named.setIcon(page_icon)
-        self.btn_bulk_named.setFixedWidth(110)
 
         archive_icon = QIcon(_get_icon_path("folder_archive"))
         self.btn_archive = QPushButton("Archive")
         self.btn_archive.setIcon(archive_icon)
-        self.btn_archive.setFixedWidth(110)
 
         template_icon = QIcon(_get_icon_path("page_template"))
         self.btn_template = QPushButton("Set as Template")
         self.btn_template.setIcon(template_icon)
-        self.btn_template.setFixedWidth(110)
 
         btn_layout2.addWidget(self.btn_bulk_named)
         btn_layout2.addWidget(self.btn_archive)
