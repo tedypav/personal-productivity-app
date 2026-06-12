@@ -174,6 +174,46 @@ class ChecklistWidget(QWidget):
         )
         add_btn.clicked.connect(lambda: self._add_item())
         self._layout.addWidget(add_btn)
+        self.setMouseTracking(True)
+        self._install_border_filter(self)
+
+    def _install_border_filter(self, widget):
+        widget.setMouseTracking(True)
+        for child in widget.findChildren(QWidget):
+            child.setMouseTracking(True)
+            child.installEventFilter(self)
+
+    def eventFilter(self, obj, event):
+        from PyQt6.QtCore import QEvent
+        from PyQt6.QtGui import QMouseEvent
+
+        if obj is self:
+            return super().eventFilter(obj, event)
+        if not isinstance(event, QMouseEvent):
+            return super().eventFilter(obj, event)
+        pos = obj.mapTo(self, event.position().toPoint())
+        if event.type() == QEvent.Type.MouseButtonPress:
+            if event.button() == Qt.MouseButton.LeftButton:
+                edge = self._detect_edge(pos)
+                if edge:
+                    self._resizing = True
+                    self._resize_edge = edge
+                    self._resize_start = event.globalPosition().toPoint()
+                    self._resize_origin = (
+                        self.x(),
+                        self.y(),
+                        self.width(),
+                        self.height(),
+                    )
+                    event.accept()
+                    return True
+        if event.type() == QEvent.Type.MouseMove:
+            edge = self._detect_edge(pos)
+            if edge and not self._resizing and not self._dragging:
+                self.setCursor(self._edge_cursor(edge))
+            elif not edge and not self._resizing and not self._dragging:
+                self.setCursor(Qt.CursorShape.ArrowCursor)
+        return super().eventFilter(obj, event)
 
     def _refresh_size(self):
         header_h = 36
@@ -250,6 +290,7 @@ class ChecklistWidget(QWidget):
         widget.delete_requested.connect(self.item_delete_requested)
         widget.enter_pressed.connect(self._on_enter_pressed)
         self._checkboxes_layout.addWidget(widget)
+        self._install_border_filter(widget)
         self._refresh_size()
         return widget
 
