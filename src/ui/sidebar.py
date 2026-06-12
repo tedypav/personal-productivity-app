@@ -791,7 +791,7 @@ class Sidebar(QWidget):
             }
             QPushButton {
                 padding: 6px 10px;
-                border: none;
+                border: 1px solid transparent;
                 border-radius: 18px;
                 background: qlineargradient(
                     x1:0, y1:0, x2:0, y2:1,
