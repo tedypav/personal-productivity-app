@@ -1,3 +1,5 @@
+import json
+
 import pytest
 
 from src.models.page import Page
@@ -349,3 +351,45 @@ class TestCheckboxFeature:
         main_window.editor._add_checklist()
         main_window.editor._add_checklist()
         assert len(main_window.editor._checklists) == 2
+
+    def test_add_item_to_checklist(self, main_window):
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+        main_window.editor._add_checklist()
+        checklist = list(main_window.editor._checklists.values())[0]
+        checklist._add_item()
+        assert checklist._checkboxes_layout.count() == 2
+
+    def test_add_item_text_is_string(self, main_window):
+        from src.repositories.page_object_repo import PageObjectRepo
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+        main_window.editor._add_checklist()
+        checklist = list(main_window.editor._checklists.values())[0]
+        checklist._add_item(text="Test task")
+        obj = PageObjectRepo().get_by_page(pid)[0]
+        content = json.loads(obj.content)
+        assert isinstance(content["text"], str)
+
+    def test_load_objects_handles_bool_text(self, main_window):
+        from src.models.page_object import PageObject
+        from src.repositories.page_object_repo import PageObjectRepo
+        from src.ui.editor import ChecklistWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        obj = PageObject(
+            page_id=pid,
+            object_type="checkbox",
+            content=json.dumps({"text": True, "checked": False}),
+        )
+        obj.id = PageObjectRepo().create(obj)
+
+        checklist = ChecklistWidget(0, page_id=pid, parent=main_window.editor.content)
+        checklist.load_objects([obj])
+
+        assert checklist._checkboxes_layout.count() == 1
+        item = checklist._checkboxes_layout.itemAt(0).widget()
+        assert item._text_edit.text() == "True"
