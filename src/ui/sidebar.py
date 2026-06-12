@@ -983,6 +983,7 @@ class Sidebar(QWidget):
 
     def _load_pages(self):
         expanded_ids = self._collect_expanded(self.tree)
+        template_expanded_ids = self._collect_expanded(self.template_tree)
         self.tree.clear()
         self.template_tree.clear()
         pages = self.repo.get_all()
@@ -1048,6 +1049,8 @@ class Sidebar(QWidget):
             self._restore_expanded(self.tree, expanded_ids)
         else:
             self.tree.expandAll()
+        if template_expanded_ids:
+            self._restore_expanded(self.template_tree, template_expanded_ids)
         has_pages = self.tree.topLevelItemCount() > 0
         has_templates = self.template_tree.topLevelItemCount() > 0
         if not has_pages and not has_templates:
