@@ -404,7 +404,7 @@ class TestCheckboxFeature:
         assert checklist._header is not None
 
     def test_checklist_header_has_title(self, main_window):
-        from PyQt6.QtWidgets import QLabel
+        from PyQt6.QtWidgets import QLineEdit
 
         from src.ui.editor import ChecklistWidget
 
@@ -412,9 +412,9 @@ class TestCheckboxFeature:
         main_window.editor.load_page(pid)
 
         checklist = ChecklistWidget(0, page_id=pid, parent=main_window.editor.content)
-        title_label = checklist._header.findChild(QLabel)
-        assert title_label is not None
-        assert "Checklist" in title_label.text()
+        title_edit = checklist._header.findChild(QLineEdit)
+        assert title_edit is not None
+        assert "Checklist" in title_edit.text()
 
     def test_checklist_delete_button_is_tool_button(self, main_window):
         from PyQt6.QtWidgets import QToolButton
@@ -917,3 +917,103 @@ class TestResizeFixes:
 
         assert checklist._resize_edge == "right"
         assert checklist._resizing is True
+
+
+class TestEditableTitle:
+    def test_title_is_qlineedit(self, main_window):
+        from PyQt6.QtWidgets import QLineEdit
+
+        from src.ui.editor import ChecklistWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        checklist = ChecklistWidget(0, page_id=pid, parent=main_window.editor.content)
+        assert isinstance(checklist._title_edit, QLineEdit)
+
+    def test_title_default_text(self, main_window):
+        from src.ui.editor import ChecklistWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        checklist = ChecklistWidget(0, page_id=pid, parent=main_window.editor.content)
+        assert checklist._title_edit.text() == "Checklist"
+
+    def test_title_is_editable(self, main_window):
+        from src.ui.editor import ChecklistWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        checklist = ChecklistWidget(0, page_id=pid, parent=main_window.editor.content)
+        checklist._title_edit.setText("My Tasks")
+        assert checklist._title_edit.text() == "My Tasks"
+
+    def test_title_persists_via_meta(self, main_window):
+        from src.repositories.page_object_repo import PageObjectRepo
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+        main_window.editor._add_checklist()
+
+        checklist = list(main_window.editor._checklists.values())[0]
+        checklist._title_edit.setText("Groceries")
+        checklist._on_title_changed()
+
+        meta = PageObjectRepo().get_meta(pid, checklist.checklist_id)
+        assert meta is not None
+        import json
+
+        data = json.loads(meta.content)
+        assert data["title"] == "Groceries"
+
+    def test_title_loads_from_meta(self, main_window):
+        import json
+
+        from src.models.page_object import PageObject
+        from src.repositories.page_object_repo import PageObjectRepo
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        meta = PageObject(
+            page_id=pid,
+            object_type="checklist_meta",
+            content=json.dumps({"x": 0, "y": 0, "width": 300, "title": "Work Tasks"}),
+            sort_order=50,
+        )
+        PageObjectRepo().create(meta)
+
+        main_window.editor._add_checklist()
+        checklist = list(main_window.editor._checklists.values())[0]
+
+        assert checklist._title_edit.text() == "Work Tasks"
+
+    def test_title_click_does_not_drag(self, main_window):
+        from src.ui.editor import ChecklistWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        checklist = ChecklistWidget(0, page_id=pid, parent=main_window.editor.content)
+        checklist.setFixedWidth(400)
+        checklist._refresh_size()
+
+        title_pos = checklist._title_edit.mapTo(
+            checklist, checklist._title_edit.rect().center()
+        )
+        from PyQt6.QtCore import QEvent, Qt
+        from PyQt6.QtGui import QMouseEvent
+
+        event = QMouseEvent(
+            QEvent.Type.MouseButtonPress,
+            title_pos.toPointF(),
+            title_pos.toPointF(),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        checklist.mousePressEvent(event)
+
+        assert checklist._dragging is False

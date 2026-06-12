@@ -128,12 +128,18 @@ class ChecklistWidget(QWidget):
         header_layout.setContentsMargins(12, 4, 12, 4)
         header_layout.setSpacing(6)
 
-        title = QLabel("⠿ Checklist")
+        from PyQt6.QtWidgets import QLineEdit
+
+        title = QLineEdit("Checklist")
+        title.setPlaceholderText("Checklist")
         title.setStyleSheet(
-            "font-family: 'Inter', sans-serif; font-size: 11px;"
-            " color: #8B6B7B; font-weight: 600;"
-            " background: transparent;"
+            "QLineEdit { border: none; background: transparent;"
+            " font-family: 'Inter', sans-serif; font-size: 11px;"
+            " color: #8B6B7B; font-weight: 600; padding: 0; }"
         )
+        title.returnPressed.connect(self._on_title_changed)
+        title.editingFinished.connect(self._on_title_changed)
+        self._title_edit = title
         header_layout.addWidget(title)
         header_layout.addStretch()
 
@@ -238,6 +244,7 @@ class ChecklistWidget(QWidget):
                 "x": self.x(),
                 "y": self.y(),
                 "width": self.width(),
+                "title": self._title_edit.text(),
             }
         )
         if meta:
@@ -261,6 +268,8 @@ class ChecklistWidget(QWidget):
         if meta:
             data = json.loads(meta.content)
             self._user_width = data.get("width")
+            title = data.get("title", "Checklist")
+            self._title_edit.setText(title)
             x = data.get("x")
             y = data.get("y")
             if x is not None and y is not None:
@@ -293,6 +302,9 @@ class ChecklistWidget(QWidget):
         self._install_border_filter(widget)
         self._refresh_size()
         return widget
+
+    def _on_title_changed(self):
+        self._save_meta()
 
     def _on_enter_pressed(self, obj_id):
         for i in range(self._checkboxes_layout.count()):
@@ -364,6 +376,9 @@ class ChecklistWidget(QWidget):
         if event.button() == Qt.MouseButton.LeftButton:
             pos = event.position().toPoint()
             if pos.y() <= self._header.height():
+                child = self._header.childAt(pos)
+                if child is self._title_edit:
+                    return
                 self._dragging = True
                 self._drag_start = event.globalPosition().toPoint() - self.pos()
                 self._header.setCursor(Qt.CursorShape.ClosedHandCursor)
