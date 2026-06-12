@@ -274,7 +274,7 @@ class TestTemplateButton:
         assert main_window.sidebar.btn_template is not None
 
     def test_template_button_text(self, main_window):
-        assert "Template" in main_window.sidebar.btn_template.text()
+        assert "Set as Template" in main_window.sidebar.btn_template.text()
 
     def test_template_button_with_page_loaded(self, main_window):
         pid = PageRepo().create(Page(title="TestPage"))

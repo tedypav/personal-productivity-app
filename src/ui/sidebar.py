@@ -856,7 +856,7 @@ class Sidebar(QWidget):
         self.btn_archive.setFixedWidth(110)
 
         template_icon = QIcon(_get_icon_path("page_template"))
-        self.btn_template = QPushButton("Template")
+        self.btn_template = QPushButton("Set as Template")
         self.btn_template.setIcon(template_icon)
         self.btn_template.setFixedWidth(110)
 
