@@ -419,3 +419,14 @@ class TestBulkCreateDialogStyling:
             "flower.svg",
         )
         assert os.path.exists(icon_path)
+
+    def test_chevron_up_icon_exists(self):
+        import os
+
+        icon_path = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)),
+            "assets",
+            "icons",
+            "chevron_up.svg",
+        )
+        assert os.path.exists(icon_path)

@@ -1512,7 +1512,7 @@ class Sidebar(QWidget):
                 background: #FFE4EC;
             }
             QSpinBox::up-arrow {
-                image: url(assets/icons/chevron_down.svg);
+                image: url(assets/icons/chevron_up.svg);
                 width: 10px;
                 height: 10px;
             }
@@ -1520,7 +1520,6 @@ class Sidebar(QWidget):
                 image: url(assets/icons/chevron_down.svg);
                 width: 10px;
                 height: 10px;
-                transform: rotate(180deg);
             }
         """)
         layout.addWidget(count_spin)
