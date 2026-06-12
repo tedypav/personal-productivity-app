@@ -791,15 +791,21 @@ class Sidebar(QWidget):
             }
             QPushButton {
                 padding: 6px 10px;
-                border: 1px solid #F0E6E8;
+                border: none;
                 border-radius: 18px;
-                background: #FFFFFF;
+                background: qlineargradient(
+                    x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #FFFFFF, stop:1 #FFF8F5
+                );
                 font-size: 11px;
                 font-weight: 500;
                 color: #2E2B2B;
             }
             QPushButton:hover {
-                background: #FFF0F3;
+                background: qlineargradient(
+                    x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #FFF0F3, stop:1 #F7D1DC
+                );
                 border: 1px solid #F7D1DC;
             }
             QPushButton:pressed {
