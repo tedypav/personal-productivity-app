@@ -948,6 +948,7 @@ class Sidebar(QWidget):
         delete_action.setShortcutContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
         delete_action.triggered.connect(self._delete_selected)
         self.tree.addAction(delete_action)
+        self.template_tree.addAction(delete_action)
 
         rename_action = QAction("Rename", self.tree)
         rename_action.setShortcut(QKeySequence("F2"))
@@ -1754,6 +1755,8 @@ class Sidebar(QWidget):
 
     def delete_selected(self):
         items = self.tree.selectedItems()
+        if not items:
+            items = self.template_tree.selectedItems()
         if len(items) > 1:
             self._bulk_delete(items)
         elif len(items) == 1:
@@ -1769,6 +1772,8 @@ class Sidebar(QWidget):
 
     def _delete_selected(self):
         items = self.tree.selectedItems()
+        if not items:
+            items = self.template_tree.selectedItems()
         if not items:
             return
         if len(items) > 1:
