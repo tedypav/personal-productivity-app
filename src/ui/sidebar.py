@@ -12,7 +12,6 @@ from PyQt6.QtWidgets import (
     QInputDialog,
     QLabel,
     QLineEdit,
-    QListWidget,
     QMenu,
     QMessageBox,
     QPushButton,
@@ -30,6 +29,7 @@ from PyQt6.QtWidgets import (
 from src.models.page import Page
 from src.repositories.page_repo import PageRepo
 from src.settings import load_settings
+from src.ui.dialogs import create_dialog_header
 from src.undo_manager import capture_page_tree, undo_manager
 
 
@@ -756,7 +756,6 @@ class FunImportsDialog(QDialog):
 class Sidebar(QWidget):
     page_selected = pyqtSignal(int)
     pages_changed = pyqtSignal()
-    save_template_requested = pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -851,18 +850,12 @@ class Sidebar(QWidget):
         self.btn_bulk_named.setIcon(page_icon)
         self.btn_bulk_named.setFixedWidth(110)
 
-        template_icon = QIcon(_get_icon_path("folder_template"))
-        self.btn_set_template = QPushButton("Set Template")
-        self.btn_set_template.setIcon(template_icon)
-        self.btn_set_template.setFixedWidth(110)
-
         archive_icon = QIcon(_get_icon_path("folder_archive"))
         self.btn_archive = QPushButton("Archive")
         self.btn_archive.setIcon(archive_icon)
         self.btn_archive.setFixedWidth(110)
 
         btn_layout2.addWidget(self.btn_bulk_named)
-        btn_layout2.addWidget(self.btn_set_template)
         btn_layout2.addWidget(self.btn_archive)
         btn_layout2.addStretch()
         layout.addLayout(btn_layout2)
@@ -880,18 +873,6 @@ class Sidebar(QWidget):
         view_layout.addWidget(self.btn_collapse)
         layout.addLayout(view_layout)
 
-        # --- Splitter for pages (top) and templates (bottom) ---
-        self._splitter = QSplitter(Qt.Orientation.Vertical)
-        self._splitter.setHandleWidth(4)
-        self._splitter.setStyleSheet("""
-            QSplitter::handle {
-                background: #E8DDE0;
-                margin: 2px 8px;
-                border-radius: 2px;
-            }
-        """)
-
-        # Upper tree: pages and folders
         self.tree = PageTreeWidget()
         self.tree.set_sidebar(self)
         self.tree.setHeaderHidden(True)
@@ -905,30 +886,31 @@ class Sidebar(QWidget):
         self.tree.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
         )
-        self._splitter.addWidget(self.tree)
 
-        # Lower tree: templates
         self.template_tree = QTreeWidget()
         self.template_tree.setHeaderHidden(True)
         self.template_tree.setIndentation(16)
         self.template_tree.setAnimated(True)
         self.template_tree.setIconSize(QSize(20, 20))
-        self.template_tree.setSelectionMode(QTreeWidget.SelectionMode.ExtendedSelection)
         self.template_tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self.template_tree.customContextMenuRequested.connect(
-            self._show_template_context_menu
-        )
         self.template_tree.itemClicked.connect(self._on_template_item_clicked)
         self.template_tree.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
         )
-        self._splitter.addWidget(self.template_tree)
 
-        # Set 2:1 stretch ratio
-        self._splitter.setStretchFactor(0, 2)
+        self._splitter = QSplitter(Qt.Orientation.Vertical)
+        self._splitter.addWidget(self.tree)
+        self._splitter.addWidget(self.template_tree)
+        self._splitter.setStretchFactor(0, 3)
         self._splitter.setStretchFactor(1, 1)
 
+        saved_sizes = self.settings.get("sidebar_splitter_sizes")
+        if saved_sizes:
+            self._splitter.setSizes(saved_sizes)
+
         layout.addWidget(self._splitter, 1)
+
+        self._splitter.splitterMoved.connect(self._save_splitter_sizes)
 
         self.btn_expand.clicked.connect(self._expand_all)
         self.btn_collapse.clicked.connect(self._collapse_all)
@@ -937,7 +919,6 @@ class Sidebar(QWidget):
         self.btn_new_folder.clicked.connect(self._create_folder)
         self.btn_new_page.clicked.connect(self._bulk_creation_requested)
         self.btn_bulk_named.clicked.connect(self._bulk_named_dialog)
-        self.btn_set_template.clicked.connect(self._save_template_clicked)
         self.btn_archive.clicked.connect(self._archive_selected)
 
         self._setup_shortcuts()
@@ -949,35 +930,17 @@ class Sidebar(QWidget):
         """Set reference to the PageEditor for Fun Imports insertion."""
         self._editor_ref = editor
 
+    def _save_splitter_sizes(self, pos, index):
+        from src.settings import save_settings
+
+        self.settings["sidebar_splitter_sizes"] = self._splitter.sizes()
+        save_settings(self.settings)
+
     def _expand_all(self):
         self.tree.expandAll()
-        self.template_tree.expandAll()
 
     def _collapse_all(self):
         self.tree.collapseAll()
-        self.template_tree.collapseAll()
-
-    def _on_template_item_clicked(self, item, column):
-        page_id = item.data(0, Qt.ItemDataRole.UserRole)
-        page_title = item.text(0)
-        if page_title == "Fun Imports":
-            self._open_fun_imports()
-            return
-        if page_id:
-            self.page_selected.emit(page_id)
-
-    def _open_fun_imports(self):
-        """Open the Fun Imports dialog for emojis and GIFs."""
-        target_edit = None
-        if self._editor_ref:
-            result = self._editor_ref._get_active_text_edit()
-            if result:
-                target_edit = result[0]
-        dialog = FunImportsDialog(self, target_edit=target_edit)
-        dialog.exec()
-
-    def _show_template_context_menu(self, pos):
-        self._show_context_menu(pos, tree=self.template_tree)
 
     def _setup_shortcuts(self):
         delete_action = QAction("Delete", self.tree)
@@ -992,31 +955,14 @@ class Sidebar(QWidget):
         rename_action.triggered.connect(self._rename_selected)
         self.tree.addAction(rename_action)
 
-        # Also add shortcuts to template tree
-        delete_action2 = QAction("Delete", self.template_tree)
-        delete_action2.setShortcut(QKeySequence("Delete"))
-        delete_action2.setShortcutContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
-        delete_action2.triggered.connect(self._delete_selected)
-        self.template_tree.addAction(delete_action2)
-
-        rename_action2 = QAction("Rename", self.template_tree)
-        rename_action2.setShortcut(QKeySequence("F2"))
-        rename_action2.setShortcutContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
-        rename_action2.triggered.connect(self._rename_selected)
-        self.template_tree.addAction(rename_action2)
-
     def _ensure_special_folders(self):
         from src.models.page import Page
 
         pages = self.repo.get_all()
         existing = {p.title for p in pages if p.page_type == "folder"}
-        for title in ("Templates", "Archive", "Fun Imports"):
+        for title in ("Archive", "Fun Imports"):
             if title not in existing:
                 self.repo.create(Page(title=title, page_type="folder"))
-
-    def _save_template_clicked(self):
-        """Save the current page as a template."""
-        self.save_template_requested.emit()
 
     def _archive_selected(self):
         """Archive the currently selected item(s) from the upper tree."""
@@ -1043,138 +989,64 @@ class Sidebar(QWidget):
 
         folder_icon = QIcon(_get_icon_path("folder"))
         page_icon = QIcon(_get_icon_path("page"))
-        template_icon = QIcon(_get_icon_path("folder_template"))
-        template_page_icon = QIcon(_get_icon_path("page_template"))
         archive_icon = QIcon(_get_icon_path("folder_archive"))
         fun_icon = QIcon(_get_icon_path("folder_fun"))
-
-        # Load templates from database
-        from src.repositories.template_repo import TemplateRepo
-
-        template_repo = TemplateRepo()
-        templates = template_repo.get_all()
 
         children_map = {}
         for p in pages:
             children_map.setdefault(p.parent_id, []).append(p)
 
-        def add_children(parent_item, parent_id):
-            children = children_map.get(parent_id, [])
-            for page in sorted(children, key=lambda x: x.title.lower()):
-                item = QTreeWidgetItem(parent_item)
-                if page.page_type == "folder":
-                    if page.title == "Templates":
-                        item.setIcon(0, template_icon)
-                    elif page.title == "Archive":
-                        item.setIcon(0, archive_icon)
-                    elif page.title == "Fun Imports":
-                        item.setIcon(0, fun_icon)
-                    else:
-                        item.setIcon(0, folder_icon)
-                    item.setText(0, page.title)
-                    font = item.font(0)
-                    font.setBold(True)
-                    item.setFont(0, font)
-                elif page.page_type == "template_page":
-                    item.setIcon(0, template_page_icon)
-                    item.setText(0, page.title)
-                else:
-                    item.setIcon(0, page_icon)
-                    item.setText(0, page.title)
-                item.setData(0, Qt.ItemDataRole.UserRole, page.id)
-                item.setData(0, Qt.ItemDataRole.UserRole + 1, page.page_type)
-                add_children(item, page.id)
-                # Add templates as children of the Templates folder
-                if page.title == "Templates" and page.page_type == "folder":
-                    for template in templates:
-                        t_item = QTreeWidgetItem(item)
-                        t_item.setIcon(0, page_icon)
-                        t_item.setText(0, template.name)
-                        t_item.setData(0, Qt.ItemDataRole.UserRole, -template.id)
-                        t_item.setData(0, Qt.ItemDataRole.UserRole + 1, "template")
-                        t_item.setData(
-                            0, Qt.ItemDataRole.UserRole + 2, template.category
-                        )
+        folder_icons = {
+            "Archive": archive_icon,
+            "Fun Imports": fun_icon,
+        }
 
-        # Separate special folders from regular pages
-        special_titles = {"Templates", "Archive", "Fun Imports"}
-        regular_root = [
-            p
-            for p in root_pages
-            if not (p.title in special_titles and p.page_type == "folder")
-        ]
-        fun_imports_root = [
-            p
-            for p in root_pages
-            if p.title == "Fun Imports" and p.page_type == "folder"
-        ]
-        templates_root = [
-            p for p in root_pages if p.title == "Templates" and p.page_type == "folder"
-        ]
-        archive_root = [
-            p for p in root_pages if p.title == "Archive" and p.page_type == "folder"
-        ]
-
-        # Upper tree: regular pages/folders sorted alphabetically
-        for page in sorted(regular_root, key=lambda x: x.title.lower()):
-            item = QTreeWidgetItem(self.tree)
+        def _page_icon(page):
             if page.page_type == "folder":
-                item.setIcon(0, folder_icon)
-                item.setText(0, page.title)
+                return folder_icons.get(page.title, folder_icon)
+            return page_icon
+
+        def _make_item(parent, page):
+            item = QTreeWidgetItem(parent)
+            item.setIcon(0, _page_icon(page))
+            item.setText(0, page.title)
+            if page.page_type == "folder":
                 font = item.font(0)
                 font.setBold(True)
                 item.setFont(0, font)
-            elif page.page_type == "template_page":
-                item.setIcon(0, template_page_icon)
-                item.setText(0, page.title)
-            else:
-                item.setIcon(0, page_icon)
-                item.setText(0, page.title)
             item.setData(0, Qt.ItemDataRole.UserRole, page.id)
             item.setData(0, Qt.ItemDataRole.UserRole + 1, page.page_type)
+            return item
+
+        def add_children(parent_item, parent_id):
+            children = children_map.get(parent_id, [])
+            for page in sorted(children, key=lambda x: x.title.lower()):
+                _make_item(parent_item, page)
+                add_children(parent_item.child(parent_item.childCount() - 1), page.id)
+
+        # Separate special folders from regular pages
+        special_titles = {"Fun Imports", "Archive", "Templates"}
+        special_root = [
+            p
+            for p in root_pages
+            if p.title in special_titles and p.page_type == "folder"
+        ]
+        regular_root = [p for p in root_pages if p.title not in special_titles]
+
+        # Upper tree: regular pages/folders
+        for page in sorted(regular_root, key=lambda x: x.title.lower()):
+            item = _make_item(self.tree, page)
             add_children(item, page.id)
 
-        # Lower tree: Fun Imports folder (above Templates)
-        for page in fun_imports_root:
-            item = QTreeWidgetItem(self.template_tree)
-            item.setIcon(0, fun_icon)
-            item.setText(0, page.title)
-            font = item.font(0)
-            font.setBold(True)
-            item.setFont(0, font)
-            item.setData(0, Qt.ItemDataRole.UserRole, page.id)
-            item.setData(0, Qt.ItemDataRole.UserRole + 1, page.page_type)
-            add_children(item, page.id)
-
-        # Lower tree: Templates folder
-        for page in templates_root:
-            item = QTreeWidgetItem(self.template_tree)
-            item.setIcon(0, template_icon)
-            item.setText(0, page.title)
-            font = item.font(0)
-            font.setBold(True)
-            item.setFont(0, font)
-            item.setData(0, Qt.ItemDataRole.UserRole, page.id)
-            item.setData(0, Qt.ItemDataRole.UserRole + 1, page.page_type)
-            add_children(item, page.id)
-
-        # Lower tree: Archive folder
-        for page in archive_root:
-            item = QTreeWidgetItem(self.template_tree)
-            item.setIcon(0, archive_icon)
-            item.setText(0, page.title)
-            font = item.font(0)
-            font.setBold(True)
-            item.setFont(0, font)
-            item.setData(0, Qt.ItemDataRole.UserRole, page.id)
-            item.setData(0, Qt.ItemDataRole.UserRole + 1, page.page_type)
+        # Lower tree: special folders
+        for page in sorted(special_root, key=lambda x: x.title.lower()):
+            item = _make_item(self.template_tree, page)
             add_children(item, page.id)
 
         if expanded_ids:
             self._restore_expanded(self.tree, expanded_ids)
         else:
             self.tree.expandAll()
-        self.template_tree.expandAll()
         has_pages = self.tree.topLevelItemCount() > 0
         has_templates = self.template_tree.topLevelItemCount() > 0
         if not has_pages and not has_templates:
@@ -1221,6 +1093,15 @@ class Sidebar(QWidget):
         if page_id:
             self.page_selected.emit(page_id)
 
+    def _on_template_item_clicked(self, item, column):
+        page_title = item.text(0)
+        if page_title == "Fun Imports":
+            self._open_fun_imports()
+
+    def _open_fun_imports(self):
+        dialog = FunImportsDialog(self, target_edit=None)
+        dialog.exec()
+
     def _create_page(self):
         title, ok = QInputDialog.getText(self, "New Page", "Page title:")
         if ok and title.strip():
@@ -1264,15 +1145,11 @@ class Sidebar(QWidget):
         self._bulk_create_dialog()
 
     def _bulk_create_dialog(self):
-        import os
-
-        from PyQt6.QtGui import QIcon
         from PyQt6.QtWidgets import (
             QComboBox,
             QDateEdit,
             QDialog,
             QDialogButtonBox,
-            QHBoxLayout,
             QLabel,
             QVBoxLayout,
         )
@@ -1280,26 +1157,7 @@ class Sidebar(QWidget):
         dialog = QDialog(self)
         dialog.setWindowTitle("Bulk Create Pages")
 
-        # Title with logo
-        title_layout = QHBoxLayout()
-        logo_path = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-            "assets",
-            "icons",
-            "logo_icon.svg",
-        )
-        if os.path.exists(logo_path):
-            logo_label = QLabel()
-            logo_label.setPixmap(QIcon(logo_path).pixmap(28, 28))
-            title_layout.addWidget(logo_label)
-        title_label = QLabel("Bulk Create Pages")
-        title_label.setStyleSheet(
-            "font-size: 16px; font-weight: 600;"
-            " color: #2E2B2B;"
-            " font-family: 'Playfair Display', serif;"
-        )
-        title_layout.addWidget(title_label)
-        title_layout.addStretch()
+        title_layout = create_dialog_header("Bulk Create Pages")
 
         layout = QVBoxLayout(dialog)
         layout.addLayout(title_layout)
@@ -1569,33 +1427,10 @@ class Sidebar(QWidget):
             self.pages_changed.emit()
 
     def _bulk_named_dialog(self):
-        import os
-
-        from PyQt6.QtGui import QIcon
-
         dialog = QDialog(self)
         dialog.setWindowTitle("Bulk Create Named Pages")
 
-        # Title with logo
-        title_layout = QHBoxLayout()
-        logo_path = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-            "assets",
-            "icons",
-            "logo_icon.svg",
-        )
-        if os.path.exists(logo_path):
-            logo_label = QLabel()
-            logo_label.setPixmap(QIcon(logo_path).pixmap(28, 28))
-            title_layout.addWidget(logo_label)
-        title_label = QLabel("Bulk Create Named Pages")
-        title_label.setStyleSheet(
-            "font-size: 16px; font-weight: 600;"
-            " color: #2E2B2B;"
-            " font-family: 'Playfair Display', serif;"
-        )
-        title_layout.addWidget(title_label)
-        title_layout.addStretch()
+        title_layout = create_dialog_header("Bulk Create Named Pages")
 
         layout = QVBoxLayout(dialog)
         layout.addLayout(title_layout)
@@ -1652,14 +1487,9 @@ class Sidebar(QWidget):
 
         if len(selected) > 1:
             delete_sel = menu.addAction(f"Delete Selected ({len(selected)})")
-            template_sel = menu.addAction(
-                f"Insert Template into Selected ({len(selected)})"
-            )
             action = menu.exec(tree.viewport().mapToGlobal(pos))
             if action == delete_sel:
                 self._bulk_delete(selected)
-            elif action == template_sel:
-                self._bulk_insert_template(selected)
             return
 
         rename_action = menu.addAction("Rename")
@@ -1801,26 +1631,7 @@ class Sidebar(QWidget):
         dialog.setMinimumWidth(300)
         dialog.setMinimumHeight(400)
 
-        # Title with logo
-        title_layout = QHBoxLayout()
-        logo_path = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-            "assets",
-            "icons",
-            "logo_icon.svg",
-        )
-        if os.path.exists(logo_path):
-            logo_label = QLabel()
-            logo_label.setPixmap(QIcon(logo_path).pixmap(28, 28))
-            title_layout.addWidget(logo_label)
-        title_label = QLabel("Move to Folder")
-        title_label.setStyleSheet(
-            "font-size: 16px; font-weight: 600;"
-            " color: #2E2B2B;"
-            " font-family: 'Playfair Display', serif;"
-        )
-        title_layout.addWidget(title_label)
-        title_layout.addStretch()
+        title_layout = create_dialog_header("Move to Folder")
 
         layout = QVBoxLayout(dialog)
         layout.addLayout(title_layout)
@@ -1933,104 +1744,13 @@ class Sidebar(QWidget):
         if captured:
             undo_manager.push({"type": "bulk", "actions": captured})
 
-        # Sync template deletion for all pages
+        # Delete all pages
         for pid in all_ids:
-            self._sync_template_deletion(pid)
             self.repo.delete(pid)
         if self._editor_ref and self._editor_ref.current_page_id in all_ids:
             self._editor_ref.clear_editor()
         self._load_pages()
         self.pages_changed.emit()
-
-    def _bulk_insert_template(self, items):
-        import json
-
-        from src.models.content_block import ContentBlock
-        from src.repositories.block_repo import BlockRepo
-        from src.repositories.template_repo import TemplateRepo
-
-        repo = TemplateRepo()
-        templates = repo.get_all()
-        if not templates:
-            QMessageBox.information(self, "Templates", "No templates saved yet.")
-            return
-
-        dialog = QDialog(self)
-        dialog.setWindowTitle("Insert Template into Selected Pages")
-
-        # Title with logo
-        title_layout = QHBoxLayout()
-        logo_path = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-            "assets",
-            "icons",
-            "logo_icon.svg",
-        )
-        if os.path.exists(logo_path):
-            logo_label = QLabel()
-            logo_label.setPixmap(QIcon(logo_path).pixmap(28, 28))
-            title_layout.addWidget(logo_label)
-        title_label = QLabel("Insert Template into Selected Pages")
-        title_label.setStyleSheet(
-            "font-size: 16px; font-weight: 600;"
-            " color: #2E2B2B;"
-            " font-family: 'Playfair Display', serif;"
-        )
-        title_layout.addWidget(title_label)
-        title_layout.addStretch()
-
-        layout = QVBoxLayout(dialog)
-        layout.addLayout(title_layout)
-        list_widget = QListWidget()
-        for t in templates:
-            list_widget.addItem(f"{t.name} ({t.category})")
-        layout.addWidget(list_widget)
-        buttons = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
-        )
-        buttons.accepted.connect(dialog.accept)
-        buttons.rejected.connect(dialog.reject)
-        layout.addWidget(buttons)
-
-        if (
-            dialog.exec() == QDialog.DialogCode.Accepted
-            and list_widget.currentRow() >= 0
-        ):
-            template = templates[list_widget.currentRow()]
-            blocks_data = json.loads(template.content_json)
-            page_ids = [
-                item.data(0, Qt.ItemDataRole.UserRole)
-                for item in items
-                if item.data(0, Qt.ItemDataRole.UserRole)
-            ]
-            for pid in page_ids:
-                for bd in blocks_data:
-                    block = ContentBlock(
-                        page_id=pid,
-                        block_type=bd.get("block_type", "text"),
-                        content_markdown=bd.get("content_markdown", ""),
-                    )
-                    BlockRepo().create(block)
-            QMessageBox.information(
-                self,
-                "Template",
-                f"Template '{template.name}' inserted into {len(page_ids)} page(s).",
-            )
-
-    def _sync_template_deletion(self, page_id):
-        """Delete template from database if the page is a template page."""
-        try:
-            page = self.repo.get_by_id(page_id)
-            if page and page.page_type == "template_page":
-                from src.repositories.template_repo import TemplateRepo
-
-                templates = TemplateRepo().get_all()
-                for template in templates:
-                    if template.name == page.title:
-                        TemplateRepo().delete(template.id)
-                        break
-        except Exception as e:
-            print(f"Error syncing template deletion: {e}")
 
     def delete_selected(self):
         items = self.tree.selectedItems()
@@ -2039,7 +1759,6 @@ class Sidebar(QWidget):
         elif len(items) == 1:
             item = items[0]
             page_id = item.data(0, Qt.ItemDataRole.UserRole)
-            self._sync_template_deletion(page_id)
             data = capture_page_tree(page_id)
             if data:
                 data["type"] = "page"
@@ -2049,7 +1768,7 @@ class Sidebar(QWidget):
             self.pages_changed.emit()
 
     def _delete_selected(self):
-        items = self.tree.selectedItems() or self.template_tree.selectedItems()
+        items = self.tree.selectedItems()
         if not items:
             return
         if len(items) > 1:
@@ -2057,7 +1776,6 @@ class Sidebar(QWidget):
         else:
             item = items[0]
             page_id = item.data(0, Qt.ItemDataRole.UserRole)
-            self._sync_template_deletion(page_id)
             data = capture_page_tree(page_id)
             if data:
                 data["type"] = "page"
@@ -2069,7 +1787,7 @@ class Sidebar(QWidget):
             self.pages_changed.emit()
 
     def _rename_selected(self):
-        items = self.tree.selectedItems() or self.template_tree.selectedItems()
+        items = self.tree.selectedItems()
         if not items or len(items) != 1:
             return
         item = items[0]

@@ -55,7 +55,8 @@ class TestLoadSettings:
         with open(fake_path, "w") as f:
             json.dump(custom, f)
         result = load_settings()
-        assert result == custom
+        for k, v in custom.items():
+            assert result[k] == v
 
     def test_settings_path_resolves(self):
         assert "settings.json" in SETTINGS_PATH
@@ -87,6 +88,24 @@ class TestLoadSettings:
         assert "week_start_day" in result
         assert "auto_save_interval_ms" in result
 
+    def test_splitter_size_defaults_are_none(self, monkeypatch, tmp_path):
+        fake_path = str(tmp_path / "settings.json")
+        monkeypatch.setattr("src.settings.SETTINGS_PATH", fake_path)
+        result = load_settings()
+        assert result["sidebar_splitter_sizes"] is None
+        assert result["main_splitter_sizes"] is None
+
+    def test_splitter_sizes_persist(self, monkeypatch, tmp_path):
+        fake_path = str(tmp_path / "settings.json")
+        monkeypatch.setattr("src.settings.SETTINGS_PATH", fake_path)
+        settings = dict(DEFAULT_SETTINGS)
+        settings["sidebar_splitter_sizes"] = [400, 200]
+        settings["main_splitter_sizes"] = [300, 900]
+        save_settings(settings)
+        loaded = load_settings()
+        assert loaded["sidebar_splitter_sizes"] == [400, 200]
+        assert loaded["main_splitter_sizes"] == [300, 900]
+
 
 class TestSaveSettings:
     def test_writes_valid_json(self, monkeypatch, tmp_path):
@@ -109,4 +128,5 @@ class TestSaveSettings:
         }
         save_settings(custom)
         loaded = load_settings()
-        assert loaded == custom
+        for k, v in custom.items():
+            assert loaded[k] == v

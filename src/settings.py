@@ -9,6 +9,8 @@ DEFAULT_SETTINGS = {
     "week_start_day": "Monday",
     "auto_save_interval_ms": 1000,
     "sidebar_width": 250,
+    "sidebar_splitter_sizes": None,
+    "main_splitter_sizes": None,
     "font_size": 14,
     "theme": "light",
 }

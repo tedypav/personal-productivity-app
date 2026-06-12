@@ -18,7 +18,6 @@ def mock_qmessagebox():
 
     with (
         patch("PyQt6.QtWidgets.QMessageBox", mock_instance),
-        patch("src.ui.editor.QMessageBox", mock_instance),
         patch("src.ui.sidebar.QMessageBox", mock_instance),
         patch("src.ui.main_window.QMessageBox", mock_instance),
     ):
@@ -57,8 +56,7 @@ def patch_db(temp_db_path, monkeypatch):
 
     conn = sqlite3.connect(temp_db_path, timeout=5)
     conn.execute("PRAGMA foreign_keys=ON")
-    for table in ("tasks", "content_blocks", "pages", "templates"):
-        conn.execute(f"DELETE FROM {table}")
+    conn.execute("DELETE FROM pages")
     conn.commit()
     conn.close()
 
@@ -81,35 +79,7 @@ def page_repo():
 
 
 @pytest.fixture
-def block_repo():
-    from src.repositories.block_repo import BlockRepo
-
-    return BlockRepo()
-
-
-@pytest.fixture
-def task_repo():
-    from src.repositories.task_repo import TaskRepo
-
-    return TaskRepo()
-
-
-@pytest.fixture
-def template_repo():
-    from src.repositories.template_repo import TemplateRepo
-
-    return TemplateRepo()
-
-
-@pytest.fixture
 def undo_mgr():
     from src.undo_manager import UndoManager
 
     return UndoManager()
-
-
-@pytest.fixture
-def in_memory_task_repo():
-    from src.repositories.in_memory_task_repo import InMemoryTaskRepo
-
-    return InMemoryTaskRepo()

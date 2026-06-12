@@ -7,14 +7,12 @@ class PageRepo:
     def get_all() -> list[Page]:
         conn = get_connection()
         rows = conn.execute("SELECT * FROM pages ORDER BY sort_order").fetchall()
-        conn.close()
         return [Page(**dict(r)) for r in rows]
 
     @staticmethod
     def get_by_id(page_id: int) -> Page | None:
         conn = get_connection()
         row = conn.execute("SELECT * FROM pages WHERE id=?", (page_id,)).fetchone()
-        conn.close()
         return Page(**dict(row)) if row else None
 
     @staticmethod
@@ -29,15 +27,13 @@ class PageRepo:
                 "SELECT * FROM pages WHERE parent_id=? ORDER BY sort_order",
                 (parent_id,),
             ).fetchall()
-        conn.close()
         return [Page(**dict(r)) for r in rows]
 
     @staticmethod
     def create(page: Page) -> int:
         conn = get_connection()
         max_order = conn.execute(
-            "SELECT COALESCE(MAX(sort_order), -1) + 1"
-            " FROM pages WHERE parent_id IS ?",
+            "SELECT COALESCE(MAX(sort_order), -1) + 1 FROM pages WHERE parent_id IS ?",
             (page.parent_id,),
         ).fetchone()[0]
         cursor = conn.execute(
@@ -53,7 +49,6 @@ class PageRepo:
         )
         conn.commit()
         page_id = cursor.lastrowid
-        conn.close()
         return page_id
 
     @staticmethod
@@ -66,14 +61,12 @@ class PageRepo:
             (page.title, page.parent_id, page.sort_order, page.page_type, page.id),
         )
         conn.commit()
-        conn.close()
 
     @staticmethod
     def delete(page_id: int):
         conn = get_connection()
         conn.execute("DELETE FROM pages WHERE id=?", (page_id,))
         conn.commit()
-        conn.close()
 
     @staticmethod
     def reorder(page_id: int, new_sort_order: int, new_parent_id: int | None):
@@ -84,4 +77,3 @@ class PageRepo:
             (new_sort_order, new_parent_id, page_id),
         )
         conn.commit()
-        conn.close()

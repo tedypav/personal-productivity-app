@@ -3,7 +3,7 @@ import sys
 import traceback
 
 from PyQt6.QtGui import QColor, QFont, QFontDatabase, QIcon, QPalette
-from PyQt6.QtWidgets import QApplication, QHBoxLayout, QProxyStyle, QStyle
+from PyQt6.QtWidgets import QApplication, QProxyStyle, QStyle
 
 from src.ui.main_window import MainWindow
 
@@ -463,7 +463,13 @@ def _excepthook(exc_type, exc_value, exc_tb):
         app = QApplication.instance()
         if app:
             msg = "".join(traceback.format_exception(exc_type, exc_value, exc_tb))
-            from PyQt6.QtWidgets import QDialog, QPushButton, QTextEdit, QVBoxLayout
+            from PyQt6.QtWidgets import (
+                QDialog,
+                QHBoxLayout,
+                QPushButton,
+                QTextEdit,
+                QVBoxLayout,
+            )
 
             dialog = QDialog()
             dialog.setWindowTitle("Unhandled Error")
