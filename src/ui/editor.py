@@ -463,6 +463,25 @@ class ChecklistWidget(QWidget):
             return
         super().mouseReleaseEvent(event)
 
+    def keyPressEvent(self, event):
+        from PyQt6.QtWidgets import QApplication
+
+        if event.key() in (Qt.Key.Key_Delete, Qt.Key.Key_D):
+            if event.key() == Qt.Key.Key_D and not (
+                event.modifiers() & Qt.KeyboardModifier.ControlModifier
+            ):
+                return super().keyPressEvent(event)
+            focused = QApplication.focusWidget()
+            if focused:
+                for i in range(self._checkboxes_layout.count()):
+                    w = self._checkboxes_layout.itemAt(i).widget()
+                    if w and hasattr(w, "obj_id"):
+                        if focused is w or focused in w.findChildren(type(focused)):
+                            self.item_delete_requested.emit(w.obj_id)
+                            event.accept()
+                            return
+        super().keyPressEvent(event)
+
     def _MIN_HEADER_H(self):
         return 36 + 42 + 32
 

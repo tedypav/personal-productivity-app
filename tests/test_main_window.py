@@ -1017,3 +1017,116 @@ class TestEditableTitle:
         checklist.mousePressEvent(event)
 
         assert checklist._dragging is False
+
+
+class TestDeleteKeyboard:
+    def test_delete_key_emits_signal(self, main_window):
+        from PyQt6.QtCore import QEvent, Qt
+        from PyQt6.QtGui import QKeyEvent
+
+        from src.ui.editor import ChecklistWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        checklist = ChecklistWidget(0, page_id=pid, parent=main_window.editor.content)
+        checklist.setFixedWidth(400)
+        checklist._add_item()
+        checklist._refresh_size()
+
+        item = checklist._checkboxes_layout.itemAt(0).widget()
+        item._text_edit.setFocus()
+
+        received = []
+        checklist.item_delete_requested.connect(lambda oid: received.append(oid))
+
+        event = QKeyEvent(
+            QEvent.Type.KeyPress,
+            Qt.Key.Key_Delete,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        checklist.keyPressEvent(event)
+
+        assert received == [item.obj_id]
+
+    def test_ctrl_d_emits_signal(self, main_window):
+        from PyQt6.QtCore import QEvent, Qt
+        from PyQt6.QtGui import QKeyEvent
+
+        from src.ui.editor import ChecklistWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        checklist = ChecklistWidget(0, page_id=pid, parent=main_window.editor.content)
+        checklist.setFixedWidth(400)
+        checklist._add_item()
+        checklist._refresh_size()
+
+        item = checklist._checkboxes_layout.itemAt(0).widget()
+        item._text_edit.setFocus()
+
+        received = []
+        checklist.item_delete_requested.connect(lambda oid: received.append(oid))
+
+        event = QKeyEvent(
+            QEvent.Type.KeyPress,
+            Qt.Key.Key_D,
+            Qt.KeyboardModifier.ControlModifier,
+        )
+        checklist.keyPressEvent(event)
+
+        assert received == [item.obj_id]
+
+    def test_d_without_ctrl_does_nothing(self, main_window):
+        from PyQt6.QtCore import QEvent, Qt
+        from PyQt6.QtGui import QKeyEvent
+
+        from src.ui.editor import ChecklistWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        checklist = ChecklistWidget(0, page_id=pid, parent=main_window.editor.content)
+        checklist.setFixedWidth(400)
+        checklist._add_item()
+        checklist._refresh_size()
+
+        item = checklist._checkboxes_layout.itemAt(0).widget()
+        item._text_edit.setFocus()
+
+        received = []
+        checklist.item_delete_requested.connect(lambda oid: received.append(oid))
+
+        event = QKeyEvent(
+            QEvent.Type.KeyPress,
+            Qt.Key.Key_D,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        checklist.keyPressEvent(event)
+
+        assert received == []
+
+    def test_delete_removes_item_from_db(self, main_window):
+        from PyQt6.QtCore import QEvent, Qt
+        from PyQt6.QtGui import QKeyEvent
+
+        from src.repositories.page_object_repo import PageObjectRepo
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+        main_window.editor._add_checklist()
+
+        checklist = list(main_window.editor._checklists.values())[0]
+        item = checklist._checkboxes_layout.itemAt(0).widget()
+        obj_id = item.obj_id
+        item._text_edit.setFocus()
+
+        event = QKeyEvent(
+            QEvent.Type.KeyPress,
+            Qt.Key.Key_Delete,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        checklist.keyPressEvent(event)
+
+        assert PageObjectRepo().get_by_id(obj_id) is None
