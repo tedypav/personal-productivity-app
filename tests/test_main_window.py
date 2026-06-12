@@ -267,3 +267,44 @@ class TestBackToFolderButton:
         child_id = PageRepo().create(Page(title="Child", parent_id=folder_id))
         main_window.editor.load_page(child_id)
         assert "Back to folder" in main_window.editor._back_btn.text()
+
+
+class TestTemplateButton:
+    def test_template_button_hidden_initially(self, main_window):
+        assert not main_window.editor._template_btn.isVisible()
+
+    def test_template_button_shown_for_page(self, main_window):
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+        assert main_window.editor._template_btn.isVisible()
+
+    def test_template_button_hidden_for_folder(self, main_window):
+        fid = PageRepo().create(Page(title="Folder", page_type="folder"))
+        main_window.editor.load_page(fid)
+        assert not main_window.editor._template_btn.isVisible()
+
+    def test_template_button_hidden_for_template_page(self, main_window):
+        pid = PageRepo().create(Page(title="Tpl", page_type="template_page"))
+        main_window.editor.load_page(pid)
+        assert not main_window.editor._template_btn.isVisible()
+
+    def test_template_button_hidden_on_clear(self, main_window):
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+        main_window.editor.clear_editor()
+        assert not main_window.editor._template_btn.isVisible()
+
+    def test_template_button_emits_signal(self, main_window):
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+        received = []
+        main_window.editor.set_as_template_requested.connect(
+            lambda p: received.append(p)
+        )
+        main_window.editor._template_btn.click()
+        assert received == [pid]
+
+    def test_template_button_text(self, main_window):
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+        assert "Template" in main_window.editor._template_btn.text()

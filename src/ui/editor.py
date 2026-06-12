@@ -72,6 +72,7 @@ class Canvas(QWidget):
 
 class PageEditor(QWidget):
     navigate_to_page = pyqtSignal(int)
+    set_as_template_requested = pyqtSignal(int)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -193,6 +194,23 @@ class PageEditor(QWidget):
         self._back_btn.hide()
         toolbar.addWidget(self._back_btn)
 
+        self._template_btn = QPushButton("★ Set as Template")
+        self._template_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._template_btn.setStyleSheet(
+            "QPushButton {"
+            " font-size: 12px; color: #5B9AC4; background: transparent;"
+            " border: 1px solid #B8D4E8; border-radius: 14px;"
+            " padding: 4px 14px; font-family: 'Inter', sans-serif;"
+            "}"
+            "QPushButton:hover {"
+            " background: #EBF5FB; border-color: #5B9AC4;"
+            " color: #3D7BA8;"
+            "}"
+        )
+        self._template_btn.clicked.connect(self._on_template_clicked)
+        self._template_btn.hide()
+        toolbar.addWidget(self._template_btn)
+
         parent_layout.addWidget(toolbar_widget)
 
     def _on_canvas_clicked(self, x, y):
@@ -201,6 +219,10 @@ class PageEditor(QWidget):
     def _on_back_clicked(self):
         if self._parent_folder_id is not None:
             self.navigate_to_page.emit(self._parent_folder_id)
+
+    def _on_template_clicked(self):
+        if self.current_page_id is not None:
+            self.set_as_template_requested.emit(self.current_page_id)
 
     def _center_empty_hint(self):
         if self._page_empty_hint.isVisible():
@@ -224,9 +246,14 @@ class PageEditor(QWidget):
             else:
                 self._parent_folder_id = None
                 self._back_btn.hide()
+            if page.page_type == "page":
+                self._template_btn.show()
+            else:
+                self._template_btn.hide()
         else:
             self._parent_folder_id = None
             self._back_btn.hide()
+            self._template_btn.hide()
         if self._empty_hint:
             self._empty_hint.hide()
         self.welcome_label.hide()
@@ -311,6 +338,7 @@ class PageEditor(QWidget):
         self._page_empty_hint.hide()
         self._clear_toc()
         self._back_btn.hide()
+        self._template_btn.hide()
         self._parent_folder_id = None
         self.content.setPhotoBackground(True)
         self._center_welcome_label()
