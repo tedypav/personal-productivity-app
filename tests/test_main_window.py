@@ -393,3 +393,47 @@ class TestCheckboxFeature:
         assert checklist._checkboxes_layout.count() == 1
         item = checklist._checkboxes_layout.itemAt(0).widget()
         assert item._text_edit.text() == "True"
+
+    def test_checklist_header_exists(self, main_window):
+        from src.ui.editor import ChecklistWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        checklist = ChecklistWidget(0, page_id=pid, parent=main_window.editor.content)
+        assert checklist._header is not None
+
+    def test_checklist_header_has_title(self, main_window):
+        from PyQt6.QtWidgets import QLabel
+
+        from src.ui.editor import ChecklistWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        checklist = ChecklistWidget(0, page_id=pid, parent=main_window.editor.content)
+        title_label = checklist._header.findChild(QLabel)
+        assert title_label is not None
+        assert "Checklist" in title_label.text()
+
+    def test_checklist_delete_button_is_tool_button(self, main_window):
+        from PyQt6.QtWidgets import QToolButton
+
+        from src.ui.editor import ChecklistWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        checklist = ChecklistWidget(0, page_id=pid, parent=main_window.editor.content)
+        delete_btn = checklist._header.findChild(QToolButton)
+        assert delete_btn is not None
+
+    def test_checklist_header_is_draggable(self, main_window):
+        from src.ui.editor import ChecklistWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        checklist = ChecklistWidget(0, page_id=pid, parent=main_window.editor.content)
+        assert hasattr(checklist, "_dragging")
+        assert checklist._dragging is False
