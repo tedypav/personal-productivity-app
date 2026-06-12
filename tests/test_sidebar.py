@@ -147,6 +147,40 @@ class TestSidebarLowerTree:
         ]
         assert titles == sorted(titles)
 
+    def test_expansion_state_persists_across_refresh(self, sidebar):
+        archive_id = PageRepo().create(Page(title="Archive", page_type="folder"))
+        PageRepo().create(Page(title="child", page_type="page", parent_id=archive_id))
+        sidebar.refresh()
+        item = sidebar.template_tree.topLevelItem(0)
+        item.setExpanded(True)
+        sidebar.refresh()
+        restored = sidebar.template_tree.topLevelItem(0)
+        assert restored is not None
+        assert restored.isExpanded()
+
+    def test_collapsed_state_persists_across_refresh(self, sidebar):
+        PageRepo().create(Page(title="Archive", page_type="folder"))
+        sidebar.refresh()
+        item = sidebar.template_tree.topLevelItem(0)
+        item.setExpanded(True)
+        sidebar.refresh()
+        item = sidebar.template_tree.topLevelItem(0)
+        item.setExpanded(False)
+        sidebar.refresh()
+        restored = sidebar.template_tree.topLevelItem(0)
+        assert restored is not None
+        assert not restored.isExpanded()
+
+    def test_expand_and_collapse_toggle(self, sidebar):
+        PageRepo().create(Page(title="Archive", page_type="folder"))
+        sidebar.refresh()
+        item = sidebar.template_tree.topLevelItem(0)
+        assert not item.isExpanded()
+        item.setExpanded(True)
+        assert item.isExpanded()
+        item.setExpanded(False)
+        assert not item.isExpanded()
+
 
 class TestSidebarSpecialFolderClicks:
     def test_fun_imports_does_not_emit_page_selected(self, sidebar, qtbot):
