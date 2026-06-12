@@ -765,11 +765,11 @@ class Sidebar(QWidget):
         self._empty_hint = None
         self.setStyleSheet("""
             Sidebar {
-                background: #FFF8F5;
+                background: linear-gradient(#FFF8F5, #FFF0F5);
             }
             QTreeWidget {
                 background: #FFFFFF;
-                border: 1px solid #F0E6E8;
+                border: 1px solid #F7D1DC;
                 border-radius: 12px;
                 font-size: 13px;
                 color: #2E2B2B;
@@ -791,16 +791,22 @@ class Sidebar(QWidget):
             }
             QPushButton {
                 padding: 6px 12px;
-                border: 1px solid #F0E6E8;
+                border: 1px solid #F7D1DC;
                 border-radius: 16px;
-                background: #FFFFFF;
+                background: qlineargradient(
+                    x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #FFFFFF, stop:1 #FFF5F7
+                );
                 font-size: 11px;
                 font-weight: 500;
                 color: #2E2B2B;
             }
             QPushButton:hover {
-                background: #FFF0F3;
-                border: 1px solid #F7D1DC;
+                background: qlineargradient(
+                    x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #FFF5F7, stop:1 #FFE4EC
+                );
+                border: 1px solid #F7AEC4;
             }
             QPushButton:pressed {
                 background: #F7D1DC;
