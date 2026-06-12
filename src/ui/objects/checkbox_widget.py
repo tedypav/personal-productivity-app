@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import (
 
 
 class CheckboxWidget(QWidget):
-    """A cute pink checkbox widget with editable text."""
+    """A single checkbox item with editable text and delete button."""
 
     changed = pyqtSignal(int, bool, str)
     delete_requested = pyqtSignal(int)
@@ -23,58 +23,41 @@ class CheckboxWidget(QWidget):
 
     def _setup_ui(self):
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(12, 8, 12, 8)
-        layout.setSpacing(10)
+        layout.setContentsMargins(8, 4, 8, 4)
+        layout.setSpacing(8)
 
         self._checkbox = QCheckBox()
         self._checkbox.setChecked(self._checked)
         self._checkbox.stateChanged.connect(self._on_check_changed)
-        self._checkbox.setStyleSheet("""
-            QCheckBox {
-                spacing: 8px;
-            }
-            QCheckBox::indicator {
-                width: 20px;
-                height: 20px;
-                border: 2px solid #F7D1DC;
-                border-radius: 10px;
-                background: #FFFFFF;
-            }
-            QCheckBox::indicator:checked {
-                background: #CFA6D6;
-                border: 2px solid #CFA6D6;
-                image: none;
-            }
-            QCheckBox::indicator:hover {
-                border-color: #CFA6D6;
-            }
-        """)
+        self._checkbox.setStyleSheet(
+            "QCheckBox { spacing: 6px; }"
+            "QCheckBox::indicator {"
+            " width: 18px; height: 18px;"
+            " border: 2px solid #F7D1DC; border-radius: 9px;"
+            " background: #FFFFFF; }"
+            "QCheckBox::indicator:checked {"
+            " background: #CFA6D6; border: 2px solid #CFA6D6; }"
+            "QCheckBox::indicator:hover { border-color: #CFA6D6; }"
+        )
         layout.addWidget(self._checkbox)
 
         self._text_edit = QLineEdit(self._text)
         self._text_edit.setPlaceholderText("Type something...")
         self._text_edit.setStyleSheet(
-            "QLineEdit {"
-            " border: none; background: transparent;"
-            " font-size: 14px; color: #2E2B2B;"
-            " font-family: 'Inter', sans-serif;"
-            " padding: 4px 0;"
-            "}"
+            "QLineEdit { border: none; background: transparent;"
+            " font-size: 13px; color: #2E2B2B;"
+            " font-family: 'Inter', sans-serif; padding: 2px 0; }"
         )
         self._text_edit.textChanged.connect(self._on_text_changed)
         layout.addWidget(self._text_edit, 1)
 
         self._delete_btn = QPushButton("×")
-        self._delete_btn.setFixedSize(24, 24)
+        self._delete_btn.setFixedSize(20, 20)
         self._delete_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._delete_btn.setStyleSheet(
-            "QPushButton {"
-            " border: none; font-size: 16px; color: #9CA3AF;"
-            " border-radius: 12px; background: transparent;"
-            "}"
-            "QPushButton:hover {"
-            " color: #EF4444; background: #FEE2E2;"
-            "}"
+            "QPushButton { border: none; font-size: 14px; color: #9CA3AF;"
+            " border-radius: 10px; background: transparent; }"
+            " QPushButton:hover { color: #EF4444; background: #FEE2E2; }"
         )
         self._delete_btn.clicked.connect(
             lambda: self.delete_requested.emit(self.obj_id)
@@ -95,22 +78,16 @@ class CheckboxWidget(QWidget):
     def _update_style(self):
         if self._checked:
             self._text_edit.setStyleSheet(
-                "QLineEdit {"
-                " border: none; background: transparent;"
-                " font-size: 14px; color: #9CA3AF;"
-                " font-family: 'Inter', sans-serif;"
-                " padding: 4px 0;"
-                " text-decoration: line-through;"
-                "}"
+                "QLineEdit { border: none; background: transparent;"
+                " font-size: 13px; color: #9CA3AF;"
+                " font-family: 'Inter', sans-serif; padding: 2px 0;"
+                " text-decoration: line-through; }"
             )
         else:
             self._text_edit.setStyleSheet(
-                "QLineEdit {"
-                " border: none; background: transparent;"
-                " font-size: 14px; color: #2E2B2B;"
-                " font-family: 'Inter', sans-serif;"
-                " padding: 4px 0;"
-                "}"
+                "QLineEdit { border: none; background: transparent;"
+                " font-size: 13px; color: #2E2B2B;"
+                " font-family: 'Inter', sans-serif; padding: 2px 0; }"
             )
 
     def get_data(self) -> dict:

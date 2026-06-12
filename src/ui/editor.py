@@ -77,6 +77,114 @@ class Canvas(QWidget):
         super().mousePressEvent(event)
 
 
+class ChecklistWidget(QWidget):
+    """A container for a group of checkboxes with an add button."""
+
+    object_changed = pyqtSignal(int, bool, str)
+    object_delete_requested = pyqtSignal(int)
+
+    def __init__(self, checklist_id, page_id=None, parent=None):
+        super().__init__(parent)
+        self.checklist_id = checklist_id
+        self.page_id = page_id
+        self.setObjectName("checklist")
+        self.setStyleSheet(
+            "#checklist {"
+            " background: #FFFFFF; border: 1px solid #F7D1DC;"
+            " border-radius: 12px;"
+            "}"
+        )
+        self._layout = QVBoxLayout(self)
+        self._layout.setContentsMargins(0, 0, 0, 0)
+        self._layout.setSpacing(0)
+
+        header = QHBoxLayout()
+        header.setContentsMargins(12, 8, 12, 4)
+        header.setSpacing(6)
+
+        title = QLabel("Checklist")
+        title.setStyleSheet(
+            "font-family: 'Inter', sans-serif; font-size: 11px;"
+            " color: #9CA3AF; font-weight: 500;"
+        )
+        header.addWidget(title)
+        header.addStretch()
+
+        delete_btn = QPushButton("×")
+        delete_btn.setFixedSize(20, 20)
+        delete_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        delete_btn.setStyleSheet(
+            "QPushButton { border: none; font-size: 14px; color: #9CA3AF;"
+            " border-radius: 10px; background: transparent; }"
+            " QPushButton:hover { color: #EF4444; background: #FEE2E2; }"
+        )
+        delete_btn.clicked.connect(self._delete_checklist)
+        header.addWidget(delete_btn)
+
+        self._layout.addLayout(header)
+
+        self._checkboxes_layout = QVBoxLayout()
+        self._checkboxes_layout.setContentsMargins(0, 0, 0, 0)
+        self._checkboxes_layout.setSpacing(0)
+        self._layout.addLayout(self._checkboxes_layout)
+
+        add_btn = QPushButton("+ Add item")
+        add_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        add_btn.setStyleSheet(
+            "QPushButton { border: none; font-size: 12px; color: #CFA6D6;"
+            " padding: 8px 12px; text-align: left;"
+            " font-family: 'Inter', sans-serif; }"
+            " QPushButton:hover { color: #9b59b6; }"
+        )
+        add_btn.clicked.connect(self._add_item)
+        self._layout.addWidget(add_btn)
+
+        self.adjustSize()
+
+    def _add_item(self, text="", checked=False):
+        from src.ui.objects.checkbox_widget import CheckboxWidget
+
+        obj = PageObject(
+            page_id=self.page_id,
+            object_type="checkbox",
+            content=json.dumps({"text": text, "checked": checked}),
+            is_checked=checked,
+        )
+        obj.id = PageObjectRepo().create(obj)
+        widget = CheckboxWidget(
+            obj_id=obj.id,
+            text=text,
+            checked=checked,
+        )
+        widget.changed.connect(self.object_changed)
+        widget.delete_requested.connect(self.object_delete_requested)
+        self._checkboxes_layout.addWidget(widget)
+        self.adjustSize()
+        return obj
+
+    def _delete_checklist(self):
+        for i in range(self._checkboxes_layout.count()):
+            widget = self._checkboxes_layout.itemAt(i).widget()
+            if widget and hasattr(widget, "obj_id"):
+                PageObjectRepo().delete(widget.obj_id)
+        self.object_delete_requested.emit(self.checklist_id)
+        self.deleteLater()
+
+    def load_objects(self, objects):
+        from src.ui.objects.checkbox_widget import CheckboxWidget
+
+        for obj in objects:
+            widget = CheckboxWidget(
+                obj_id=obj.id,
+                text=json.loads(obj.content).get("text", ""),
+                checked=bool(obj.is_checked),
+            )
+            widget.changed.connect(self.object_changed)
+            widget.delete_requested.connect(self.object_delete_requested)
+            self._checkboxes_layout.addWidget(widget)
+        self.adjustSize()
+
+
 class PageEditor(QWidget):
     navigate_to_page = pyqtSignal(int)
 
@@ -87,7 +195,8 @@ class PageEditor(QWidget):
         self._toc_widget = None
         self._parent_folder_id = None
         self._objects = []
-        self._objects_container = None
+        self._checklists = {}
+        self._canvas_click_pos = None
         self.setStyleSheet("background: #2a1a35;")
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
 
@@ -177,10 +286,10 @@ class PageEditor(QWidget):
             " background: #FFF0F3; color: #2E2B2B;"
             "}"
         )
-        checkbox_action = menu.addAction("✓  Checkbox")
+        checkbox_action = menu.addAction("✓  Checklist")
         action = menu.exec(self._add_btn.mapToGlobal(self._add_btn.rect().bottomLeft()))
         if action == checkbox_action:
-            self._add_checkbox()
+            self._add_checklist()
 
     def _center_welcome_label(self):
         if hasattr(self, "welcome_label") and self.welcome_label.isVisible():
@@ -241,7 +350,7 @@ class PageEditor(QWidget):
         self._back_btn.hide()
         toolbar.addWidget(self._back_btn)
 
-        self._checkbox_btn = QPushButton("✓ + Checkbox")
+        self._checkbox_btn = QPushButton("✓ + Checklist")
         self._checkbox_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._checkbox_btn.setStyleSheet(
             "QPushButton {"
@@ -254,14 +363,14 @@ class PageEditor(QWidget):
             " color: #9b59b6;"
             "}"
         )
-        self._checkbox_btn.clicked.connect(self._add_checkbox)
+        self._checkbox_btn.clicked.connect(self._add_checklist)
         self._checkbox_btn.hide()
         toolbar.addWidget(self._checkbox_btn)
 
         parent_layout.addWidget(toolbar_widget)
 
     def _on_canvas_clicked(self, x, y):
-        pass
+        self._canvas_click_pos = (x, y)
 
     def _on_back_clicked(self):
         if self._parent_folder_id is not None:
@@ -330,55 +439,54 @@ class PageEditor(QWidget):
         self._objects = PageObjectRepo().get_by_page(self.current_page_id)
         if not self._objects:
             return
-        self._create_objects_container()
+        self._group_objects_into_checklists()
+
+    def _group_objects_into_checklists(self):
+        checklists = {}
         for obj in self._objects:
-            if obj.object_type == "checkbox":
-                self._add_checkbox_widget(obj)
+            cid = obj.sort_order // 100
+            if cid not in checklists:
+                checklists[cid] = []
+            checklists[cid].append(obj)
 
-    def _create_objects_container(self):
-        if self._objects_container:
-            self._objects_container.deleteLater()
-        self._objects_container = QWidget(self.content)
-        self._objects_container.setStyleSheet(
-            "background: #FFFFFF; border: 1px solid #F7D1DC;" " border-radius: 12px;"
+        for cid, objs in sorted(checklists.items()):
+            self._create_checklist_widget(cid, objs)
+
+    def _create_checklist_widget(self, checklist_id, objects=None):
+        widget = ChecklistWidget(
+            checklist_id, page_id=self.current_page_id, parent=self.content
         )
-        self._objects_layout = QVBoxLayout(self._objects_container)
-        self._objects_layout.setContentsMargins(0, 0, 0, 0)
-        self._objects_layout.setSpacing(0)
-        self._objects_container.adjustSize()
+        widget.object_changed.connect(self._on_object_changed)
+        widget.object_delete_requested.connect(self._on_checklist_delete)
+        if objects:
+            widget.load_objects(objects)
+        self._checklists[checklist_id] = widget
+
         canvas_w = self.content.width()
-        container_w = min(500, canvas_w - 80)
-        self._objects_container.setFixedWidth(container_w)
+        container_w = min(400, canvas_w - 80)
+        widget.setFixedWidth(container_w)
         x = (canvas_w - container_w) // 2
-        self._objects_container.move(x, 60)
-        self._objects_container.show()
+        y = 60 + len(self._checklists) * 200
+        widget.move(x, y)
+        widget.show()
+        return widget
 
-    def _add_checkbox_widget(self, obj):
-        from src.ui.objects.checkbox_widget import CheckboxWidget
-
-        if not self._objects_container:
-            self._create_objects_container()
-        widget = CheckboxWidget(
-            obj_id=obj.id,
-            text=json.loads(obj.content).get("text", ""),
-            checked=bool(obj.is_checked),
-        )
-        widget.changed.connect(self._on_object_changed)
-        widget.delete_requested.connect(self._on_object_delete)
-        self._objects_layout.addWidget(widget)
-        self._objects_container.adjustSize()
-
-    def _add_checkbox(self):
+    def _add_checklist(self):
         if not self.current_page_id:
             return
-        obj = PageObject(
-            page_id=self.current_page_id,
-            object_type="checkbox",
-            content=json.dumps({"text": "", "checked": False}),
-        )
-        obj.id = PageObjectRepo().create(obj)
+
+        checklist_id = max(self._checklists.keys(), default=-1) + 1
+        widget = self._create_checklist_widget(checklist_id)
+
+        if self._canvas_click_pos:
+            x, y = self._canvas_click_pos
+            canvas_w = self.content.width()
+            container_w = min(400, canvas_w - 80)
+            widget.move(max(20, x - container_w // 2), max(60, y - 30))
+            self._canvas_click_pos = None
+
+        obj = widget._add_item()
         self._objects.append(obj)
-        self._add_checkbox_widget(obj)
         self._page_empty_hint.hide()
         self._position_floating_button()
 
@@ -390,23 +498,21 @@ class PageEditor(QWidget):
                 PageObjectRepo().update(obj)
                 break
 
-    def _on_object_delete(self, obj_id):
-        PageObjectRepo().delete(obj_id)
-        self._objects = [o for o in self._objects if o.id != obj_id]
-        for i in range(self._objects_layout.count()):
-            widget = self._objects_layout.itemAt(i).widget()
-            if widget and hasattr(widget, "obj_id") and widget.obj_id == obj_id:
-                widget.deleteLater()
-                break
+    def _on_checklist_delete(self, checklist_id):
+        if checklist_id in self._checklists:
+            del self._checklists[checklist_id]
+        self._objects = [
+            o for o in self._objects if o.sort_order // 100 != checklist_id
+        ]
         if not self._objects:
             self._page_empty_hint.show()
             self._center_empty_hint()
 
     def _clear_objects(self):
         self._objects = []
-        if self._objects_container:
-            self._objects_container.deleteLater()
-            self._objects_container = None
+        for widget in self._checklists.values():
+            widget.deleteLater()
+        self._checklists.clear()
 
     def _show_toc(self, children):
         from PyQt6.QtWidgets import QPushButton
@@ -480,6 +586,7 @@ class PageEditor(QWidget):
         self._checkbox_btn.hide()
         self._add_btn.hide()
         self._parent_folder_id = None
+        self._canvas_click_pos = None
         self.content.setPhotoBackground(True)
         self._center_welcome_label()
 
