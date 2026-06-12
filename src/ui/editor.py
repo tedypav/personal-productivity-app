@@ -175,9 +175,13 @@ class ChecklistWidget(QWidget):
         from src.ui.objects.checkbox_widget import CheckboxWidget
 
         for obj in objects:
+            content = json.loads(obj.content)
+            text = content.get("text", "")
+            if not isinstance(text, str):
+                text = str(text)
             widget = CheckboxWidget(
                 obj_id=obj.id,
-                text=json.loads(obj.content).get("text", ""),
+                text=text,
                 checked=bool(obj.is_checked),
             )
             widget.changed.connect(self.object_changed)
