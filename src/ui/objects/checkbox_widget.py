@@ -19,6 +19,7 @@ class CheckboxWidget(QWidget):
         self.obj_id = obj_id
         self._text = text
         self._checked = checked
+        self.setStyleSheet("background: transparent;")
         self._setup_ui()
 
     def _setup_ui(self):
@@ -30,7 +31,7 @@ class CheckboxWidget(QWidget):
         self._checkbox.setChecked(self._checked)
         self._checkbox.stateChanged.connect(self._on_check_changed)
         self._checkbox.setStyleSheet(
-            "QCheckBox { spacing: 6px; }"
+            "QCheckBox { spacing: 6px; background: transparent; }"
             "QCheckBox::indicator {"
             " width: 18px; height: 18px;"
             " border: 2px solid #F7D1DC; border-radius: 9px;"
