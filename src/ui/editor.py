@@ -191,9 +191,20 @@ class ChecklistWidget(QWidget):
 
     def eventFilter(self, obj, event):
         from PyQt6.QtCore import QEvent
-        from PyQt6.QtGui import QMouseEvent
+        from PyQt6.QtGui import QKeyEvent, QMouseEvent
 
         if obj is self:
+            return super().eventFilter(obj, event)
+        if isinstance(event, QKeyEvent):
+            is_del = event.type() == QEvent.Type.KeyPress
+            if is_del and event.key() == Qt.Key.Key_Delete:
+                for i in range(self._checkboxes_layout.count()):
+                    w = self._checkboxes_layout.itemAt(i).widget()
+                    if w and hasattr(w, "obj_id"):
+                        if obj is w or obj in w.findChildren(type(obj)):
+                            self.item_delete_requested.emit(w.obj_id)
+                            event.accept()
+                            return True
             return super().eventFilter(obj, event)
         if not isinstance(event, QMouseEvent):
             return super().eventFilter(obj, event)
@@ -464,13 +475,9 @@ class ChecklistWidget(QWidget):
         super().mouseReleaseEvent(event)
 
     def keyPressEvent(self, event):
-        from PyQt6.QtWidgets import QApplication
+        if event.key() == Qt.Key.Key_Delete:
+            from PyQt6.QtWidgets import QApplication
 
-        if event.key() in (Qt.Key.Key_Delete, Qt.Key.Key_D):
-            if event.key() == Qt.Key.Key_D and not (
-                event.modifiers() & Qt.KeyboardModifier.ControlModifier
-            ):
-                return super().keyPressEvent(event)
             focused = QApplication.focusWidget()
             if focused:
                 for i in range(self._checkboxes_layout.count()):
