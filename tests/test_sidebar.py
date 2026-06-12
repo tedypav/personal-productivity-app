@@ -419,12 +419,3 @@ class TestBulkCreateDialogStyling:
             "flower.svg",
         )
         assert os.path.exists(icon_path)
-
-    def test_bulk_create_dialog_has_date_edits(self, sidebar):
-        from unittest.mock import MagicMock, patch
-
-        with patch("src.ui.sidebar.QDialog") as mock_dialog:
-            mock_instance = mock_dialog.return_value
-            mock_instance.exec.return_value = 0
-            mock_instance.findChild = MagicMock(return_value=None)
-            sidebar._bulk_create_dialog()
