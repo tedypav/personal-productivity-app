@@ -3,7 +3,7 @@ from PyQt6.QtWidgets import (
     QCheckBox,
     QHBoxLayout,
     QLineEdit,
-    QPushButton,
+    QToolButton,
     QWidget,
 )
 
@@ -52,13 +52,14 @@ class CheckboxWidget(QWidget):
         self._text_edit.textChanged.connect(self._on_text_changed)
         layout.addWidget(self._text_edit, 1)
 
-        self._delete_btn = QPushButton("×")
+        self._delete_btn = QToolButton()
+        self._delete_btn.setText("×")
         self._delete_btn.setFixedSize(20, 20)
         self._delete_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._delete_btn.setStyleSheet(
-            "QPushButton { border: none; font-size: 14px; color: #9CA3AF;"
-            " border-radius: 10px; background: transparent; }"
-            " QPushButton:hover { color: #EF4444; background: #FEE2E2; }"
+            "QToolButton { border: none; font-size: 12px;"
+            " color: #9CA3AF; background: transparent; }"
+            " QToolButton:hover { color: #EF4444; }"
         )
         self._delete_btn.clicked.connect(
             lambda: self.delete_requested.emit(self.obj_id)
