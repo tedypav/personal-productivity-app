@@ -71,10 +71,13 @@ class Canvas(QWidget):
 
 
 class PageEditor(QWidget):
+    navigate_to_page = pyqtSignal(int)
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.current_page_id = None
         self._empty_hint = None
+        self._toc_widget = None
         self.setStyleSheet("background: #2a1a35;")
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
 
@@ -189,6 +192,7 @@ class PageEditor(QWidget):
         from src.repositories.page_repo import PageRepo
 
         self.current_page_id = page_id
+        self._clear_toc()
         page = PageRepo().get_by_id(page_id)
         if page:
             self.page_title.setText(page.title)
@@ -196,14 +200,72 @@ class PageEditor(QWidget):
             self._empty_hint.hide()
         self.welcome_label.hide()
         self.content.setPhotoBackground(False)
-        self._page_empty_hint.show()
-        self._center_empty_hint()
+
+        if page and page.page_type == "folder":
+            children = PageRepo().get_children(page_id)
+            if children:
+                self._page_empty_hint.hide()
+                self._show_toc(children)
+            else:
+                self._page_empty_hint.hide()
+        else:
+            self._page_empty_hint.show()
+            self._center_empty_hint()
+
+    def _show_toc(self, children):
+        from PyQt6.QtWidgets import QPushButton
+
+        toc_container = QWidget(self.content)
+        toc_container.setStyleSheet("background: transparent;")
+        toc_layout = QVBoxLayout(toc_container)
+        toc_layout.setContentsMargins(40, 40, 40, 40)
+        toc_layout.setSpacing(4)
+
+        folder_label = QLabel("Pages in this folder:")
+        folder_label.setStyleSheet(
+            "font-family: 'Playfair Display', serif;"
+            " font-size: 16px; font-weight: 600;"
+            " color: #2E2B2B; background: transparent;"
+            " margin-bottom: 8px;"
+        )
+        toc_layout.addWidget(folder_label)
+
+        for child in children:
+            btn = QPushButton(child.title)
+            btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn.setStyleSheet(
+                "QPushButton {"
+                " text-align: left; font-size: 14px;"
+                " color: #7c3aed; background: transparent;"
+                " border: none; padding: 6px 0;"
+                " font-family: 'Inter', sans-serif;"
+                "}"
+                "QPushButton:hover {"
+                " color: #5b21b6; text-decoration: underline;"
+                "}"
+            )
+            btn.clicked.connect(
+                lambda checked, pid=child.id: self.navigate_to_page.emit(pid)
+            )
+            toc_layout.addWidget(btn)
+
+        toc_layout.addStretch()
+        toc_container.adjustSize()
+        toc_container.move(40, 60)
+        toc_container.show()
+        self._toc_widget = toc_container
+
+    def _clear_toc(self):
+        if self._toc_widget:
+            self._toc_widget.deleteLater()
+            self._toc_widget = None
 
     def clear_editor(self):
         self.current_page_id = None
         self.page_title.setText("Select a page")
         self.welcome_label.show()
         self._page_empty_hint.hide()
+        self._clear_toc()
         self.content.setPhotoBackground(True)
         self._center_welcome_label()
 

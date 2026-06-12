@@ -151,3 +151,76 @@ class TestCanvasBackground:
         main_window.editor.load_page(pid)
         main_window.editor.clear_editor()
         assert main_window.editor.content._show_photo_bg is True
+
+
+class TestFolderTableOfContents:
+    def test_folder_shows_toc(self, main_window):
+        folder_id = PageRepo().create(Page(title="MyFolder", page_type="folder"))
+        PageRepo().create(Page(title="Child1", parent_id=folder_id))
+        main_window.editor.load_page(folder_id)
+        assert main_window.editor._toc_widget is not None
+        assert main_window.editor._toc_widget.isVisible()
+
+    def test_folder_toc_hidden_hint(self, main_window):
+        folder_id = PageRepo().create(Page(title="MyFolder", page_type="folder"))
+        PageRepo().create(Page(title="Child1", parent_id=folder_id))
+        main_window.editor.load_page(folder_id)
+        assert not main_window.editor._page_empty_hint.isVisible()
+
+    def test_empty_folder_shows_no_toc(self, main_window):
+        folder_id = PageRepo().create(Page(title="EmptyFolder", page_type="folder"))
+        main_window.editor.load_page(folder_id)
+        assert main_window.editor._toc_widget is None
+
+    def test_toc_cleared_on_clear(self, main_window):
+        folder_id = PageRepo().create(Page(title="MyFolder", page_type="folder"))
+        PageRepo().create(Page(title="Child1", parent_id=folder_id))
+        main_window.editor.load_page(folder_id)
+        main_window.editor.clear_editor()
+        assert main_window.editor._toc_widget is None
+
+    def test_toc_replaced_on_new_folder(self, main_window):
+        f1 = PageRepo().create(Page(title="Folder1", page_type="folder"))
+        PageRepo().create(Page(title="A", parent_id=f1))
+        f2 = PageRepo().create(Page(title="Folder2", page_type="folder"))
+        PageRepo().create(Page(title="B", parent_id=f2))
+        main_window.editor.load_page(f1)
+        old_toc = main_window.editor._toc_widget
+        main_window.editor.load_page(f2)
+        assert main_window.editor._toc_widget is not None
+        assert main_window.editor._toc_widget is not old_toc
+
+    def test_navigate_to_page_signal(self, main_window):
+        folder_id = PageRepo().create(Page(title="MyFolder", page_type="folder"))
+        child_id = PageRepo().create(Page(title="Child1", parent_id=folder_id))
+        main_window.editor.load_page(folder_id)
+
+        received = []
+        main_window.editor.navigate_to_page.connect(lambda pid: received.append(pid))
+        buttons = main_window.editor._toc_widget.findChildren(
+            __import__("PyQt6.QtWidgets", fromlist=["QPushButton"]).QPushButton
+        )
+        assert len(buttons) == 1
+        buttons[0].click()
+        assert received == [child_id]
+
+    def test_regular_page_no_toc(self, main_window):
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+        assert main_window.editor._toc_widget is None
+
+    def test_page_title_set_for_folder(self, main_window):
+        folder_id = PageRepo().create(Page(title="MyFolder", page_type="folder"))
+        main_window.editor.load_page(folder_id)
+        assert main_window.editor.page_title.text() == "MyFolder"
+
+    def test_toc_multiple_children(self, main_window):
+        folder_id = PageRepo().create(Page(title="MyFolder", page_type="folder"))
+        PageRepo().create(Page(title="A", parent_id=folder_id))
+        PageRepo().create(Page(title="B", parent_id=folder_id))
+        PageRepo().create(Page(title="C", parent_id=folder_id))
+        main_window.editor.load_page(folder_id)
+        buttons = main_window.editor._toc_widget.findChildren(
+            __import__("PyQt6.QtWidgets", fromlist=["QPushButton"]).QPushButton
+        )
+        assert len(buttons) == 3

@@ -66,6 +66,7 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self._splitter)
 
         self.sidebar.page_selected.connect(self.editor.load_page)
+        self.editor.navigate_to_page.connect(self._navigate_to_page)
         self.sidebar.set_editor(self.editor)
 
         self._setup_menu()
@@ -149,6 +150,23 @@ class MainWindow(QMainWindow):
     def _save_splitter_sizes(self, pos, index):
         self.settings["main_splitter_sizes"] = self._splitter.sizes()
         save_settings(self.settings)
+
+    def _navigate_to_page(self, page_id):
+        from PyQt6.QtCore import Qt
+
+        tree = self.sidebar.tree
+        root = tree.invisibleRootItem()
+        stack = [root]
+        while stack:
+            parent = stack.pop()
+            for i in range(parent.childCount()):
+                child = parent.child(i)
+                pid = child.data(0, Qt.ItemDataRole.UserRole)
+                if pid == page_id:
+                    tree.setCurrentItem(child)
+                    self.sidebar.page_selected.emit(page_id)
+                    return
+                stack.append(child)
 
     def _auto_save(self):
         self.editor.save_current()
