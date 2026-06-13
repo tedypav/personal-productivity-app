@@ -638,6 +638,36 @@ class TableWidget(QWidget):
         add_col_btn.clicked.connect(self._add_column)
         header_layout.addWidget(add_col_btn)
 
+        remove_row_btn = QPushButton("- Row")
+        remove_row_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        remove_row_btn.setStyleSheet(
+            "QPushButton {"
+            " font-size: 10px; color: #9CA3AF; background: transparent;"
+            " border: 1px solid #F0E6E8; border-radius: 10px;"
+            " padding: 2px 8px; font-family: 'Inter', sans-serif;"
+            "}"
+            "QPushButton:hover {"
+            " background: #FFF0F3; border-color: #EF4444; color: #EF4444;"
+            "}"
+        )
+        remove_row_btn.clicked.connect(self._remove_row)
+        header_layout.addWidget(remove_row_btn)
+
+        remove_col_btn = QPushButton("- Col")
+        remove_col_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        remove_col_btn.setStyleSheet(
+            "QPushButton {"
+            " font-size: 10px; color: #9CA3AF; background: transparent;"
+            " border: 1px solid #F0E6E8; border-radius: 10px;"
+            " padding: 2px 8px; font-family: 'Inter', sans-serif;"
+            "}"
+            "QPushButton:hover {"
+            " background: #FFF0F3; border-color: #EF4444; color: #EF4444;"
+            "}"
+        )
+        remove_col_btn.clicked.connect(self._remove_column)
+        header_layout.addWidget(remove_col_btn)
+
         delete_btn = QToolButton()
         delete_btn.setText("×")
         delete_btn.setFixedSize(28, 28)
@@ -729,6 +759,24 @@ class TableWidget(QWidget):
         self._table.horizontalHeader().setSectionResizeMode(
             col, self._table.horizontalHeader().ResizeMode.Stretch
         )
+
+    def _remove_row(self):
+        rows = self._table.selectionModel().selectedRows()
+        if rows:
+            for row in sorted(rows, reverse=True):
+                self._table.removeRow(row.row())
+        elif self._table.rowCount() > 1:
+            self._table.removeRow(self._table.rowCount() - 1)
+        self._save_meta()
+
+    def _remove_column(self):
+        cols = self._table.selectionModel().selectedColumns()
+        if cols:
+            for col in sorted(cols, reverse=True):
+                self._table.removeColumn(col.column())
+        elif self._table.columnCount() > 1:
+            self._table.removeColumn(self._table.columnCount() - 1)
+        self._save_meta()
 
     def _delete_table(self):
         self.object_delete_requested.emit(self.table_id)
