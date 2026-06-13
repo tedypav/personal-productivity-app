@@ -206,7 +206,10 @@ class ChecklistWidget(QWidget):
                 for i in range(self._checkboxes_layout.count()):
                     w = self._checkboxes_layout.itemAt(i).widget()
                     if w and hasattr(w, "obj_id") and w.isAncestorOf(obj):
-                        if hasattr(w, "_text_edit") and obj is w._text_edit:
+                        is_task = hasattr(
+                            w, "_text_edit"
+                        ) and w._text_edit.isAncestorOf(obj)
+                        if is_task:
                             self.item_delete_requested.emit(w.obj_id)
                         else:
                             self.object_delete_requested.emit(self.checklist_id)
@@ -503,7 +506,10 @@ class ChecklistWidget(QWidget):
                 for i in range(self._checkboxes_layout.count()):
                     w = self._checkboxes_layout.itemAt(i).widget()
                     if w and hasattr(w, "obj_id") and w.isAncestorOf(focused):
-                        if hasattr(w, "_text_edit") and focused is w._text_edit:
+                        is_task = hasattr(
+                            w, "_text_edit"
+                        ) and w._text_edit.isAncestorOf(focused)
+                        if is_task:
                             self.item_delete_requested.emit(w.obj_id)
                         else:
                             self.object_delete_requested.emit(self.checklist_id)
