@@ -666,6 +666,8 @@ class TableWidget(QWidget):
         self._table.horizontalHeader().setStretchLastSection(True)
         self._table.verticalHeader().setStretchLastSection(True)
         self._table.verticalHeader().setDefaultSectionSize(32)
+        self._table.verticalHeader().setMinimumSectionSize(32)
+        self._table.verticalHeader().setMaximumSectionSize(32)
         self._table.setMinimumHeight(0)
         from PyQt6.QtWidgets import QSizePolicy
 
