@@ -216,6 +216,12 @@ class ChecklistWidget(QWidget):
         pos = obj.mapTo(self, event.position().toPoint())
         if event.type() == QEvent.Type.MouseButtonPress:
             if event.button() == Qt.MouseButton.LeftButton:
+                for i in range(self._checkboxes_layout.count()):
+                    w = self._checkboxes_layout.itemAt(i).widget()
+                    if w and hasattr(w, "obj_id"):
+                        if obj is w or obj in w.findChildren(type(obj)):
+                            w.focus_text()
+                            break
                 edge = self._detect_edge(pos)
                 if edge:
                     self._resizing = True
