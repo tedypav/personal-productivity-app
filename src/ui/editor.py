@@ -670,7 +670,7 @@ class TableWidget(QWidget):
         from PyQt6.QtWidgets import QSizePolicy
 
         self._table.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
         )
         for c in range(self._table.columnCount()):
             self._table.horizontalHeader().setSectionResizeMode(
