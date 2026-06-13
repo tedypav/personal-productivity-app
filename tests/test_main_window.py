@@ -1346,3 +1346,92 @@ class TestTableWidget:
 
         table._delete_table()
         assert received == [0]
+
+    def test_table_add_column(self, main_window):
+        from src.ui.editor import TableWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        table = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        initial_cols = table._table.columnCount()
+        table._add_column()
+        assert table._table.columnCount() == initial_cols + 1
+        assert table._table.horizontalHeaderItem(initial_cols).text() == "Column 4"
+
+    def test_table_row_height_is_32px(self, main_window):
+        from src.ui.editor import TableWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        table = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        vh = table._table.verticalHeader()
+        assert vh.minimumSectionSize() == 32
+        assert vh.maximumSectionSize() == 32
+        assert vh.defaultSectionSize() == 32
+
+    def test_table_vertical_size_policy_is_preferred(self, main_window):
+        from PyQt6.QtWidgets import QSizePolicy
+
+        from src.ui.editor import TableWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        table = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        policy = table._table.sizePolicy()
+        assert policy.verticalPolicy() == QSizePolicy.Policy.Preferred
+
+    def test_new_table_has_fresh_defaults(self, main_window):
+        from src.ui.editor import TableWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        table1 = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        table1._add_row()
+        table1._add_column()
+        assert table1._table.rowCount() == 3
+        assert table1._table.columnCount() == 4
+
+        table2 = TableWidget(1, page_id=pid, parent=main_window.editor.content)
+        assert table2._table.rowCount() == 2
+        assert table2._table.columnCount() == 3
+
+    def test_table_meta_deleted_on_remove(self, main_window):
+        from src.repositories.page_object_repo import PageObjectRepo
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+        main_window.editor._add_table()
+
+        checklist = list(main_window.editor._tables.values())[0]
+        table_id = list(main_window.editor._tables.keys())[0]
+        checklist._save_meta()
+
+        meta = PageObjectRepo().get_table_meta(pid, table_id)
+        assert meta is not None
+
+        main_window.editor._on_table_delete(table_id)
+
+        meta_after = PageObjectRepo().get_table_meta(pid, table_id)
+        assert meta_after is None
+
+    def test_table_persists_data(self, main_window):
+        from PyQt6.QtWidgets import QTableWidgetItem
+
+        from src.ui.editor import TableWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        table = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        table._table.setItem(0, 0, QTableWidgetItem("Hello"))
+        table._table.setItem(1, 2, QTableWidgetItem("World"))
+        table._save_meta()
+
+        table2 = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        table2._load_meta()
+        assert table2._table.item(0, 0).text() == "Hello"
+        assert table2._table.item(1, 2).text() == "World"

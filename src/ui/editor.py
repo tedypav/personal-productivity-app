@@ -1412,10 +1412,14 @@ class PageEditor(QWidget):
             widget.hide()
             widget.deleteLater()
             del self._tables[table_id]
-        for o in list(self._objects):
-            if o.object_type == "table_meta" and o.sort_order // 100 == table_id:
-                PageObjectRepo().delete(o.id)
-                self._objects.remove(o)
+        meta = PageObjectRepo().get_table_meta(self.current_page_id, table_id)
+        if meta:
+            PageObjectRepo().delete(meta.id)
+        self._objects = [
+            o
+            for o in self._objects
+            if not (o.object_type == "table_meta" and o.sort_order // 100 == table_id)
+        ]
         if not self._objects:
             self._page_empty_hint.show()
             self._center_empty_hint()
