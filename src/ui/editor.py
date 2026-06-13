@@ -713,6 +713,7 @@ class TableWidget(QWidget):
         self._table.verticalHeader().setVisible(False)
         self._table.setSelectionMode(QTableWidget.SelectionMode.ContiguousSelection)
         self._table.horizontalHeader().setStretchLastSection(True)
+        self._table.horizontalHeader().setFixedHeight(28)
         self._table.verticalHeader().setDefaultSectionSize(32)
         self._table.verticalHeader().setMinimumSectionSize(32)
         self._table.verticalHeader().setMaximumSectionSize(32)
@@ -786,6 +787,16 @@ class TableWidget(QWidget):
         self._layout.addWidget(self._table)
 
         self._install_border_filter()
+
+    def sizeHint(self):
+        from PyQt6.QtCore import QSize
+
+        header_h = 36
+        table_header_h = 28
+        rows = self._table.rowCount()
+        row_h = 32
+        total_h = header_h + table_header_h + (rows * row_h)
+        return QSize(self.width(), total_h)
 
     def _on_title_changed(self):
         self._save_meta()
@@ -1630,6 +1641,7 @@ class PageEditor(QWidget):
                     break
             checklist._refresh_size()
             if checklist._checkboxes_layout.count() == 0:
+                self._objects = [o for o in self._objects if o.sort_order // 100 != cid]
                 del self._checklists[cid]
                 checklist.deleteLater()
         if not self._objects:
