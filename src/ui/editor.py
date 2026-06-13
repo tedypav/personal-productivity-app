@@ -1047,6 +1047,7 @@ class PageEditor(QWidget):
         if not self._objects:
             return
         self._group_objects_into_checklists()
+        self._group_objects_into_tables()
 
     def _group_objects_into_checklists(self):
         checklists = {}
@@ -1060,6 +1061,16 @@ class PageEditor(QWidget):
 
         for cid, objs in sorted(checklists.items()):
             self._create_checklist_widget(cid, objs)
+
+    def _group_objects_into_tables(self):
+        table_ids = set()
+        for obj in self._objects:
+            if obj.object_type == "table_meta":
+                table_id = obj.sort_order // 100
+                table_ids.add(table_id)
+
+        for table_id in sorted(table_ids):
+            self._create_table_widget(table_id)
 
     def _create_checklist_widget(self, checklist_id, objects=None):
         widget = ChecklistWidget(
@@ -1194,9 +1205,11 @@ class PageEditor(QWidget):
     def _clear_objects(self):
         self._objects = []
         for widget in self._checklists.values():
+            widget.hide()
             widget.deleteLater()
         self._checklists.clear()
         for widget in self._tables.values():
+            widget.hide()
             widget.deleteLater()
         self._tables.clear()
 
