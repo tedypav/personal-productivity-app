@@ -896,9 +896,10 @@ class TableWidget(QWidget):
 
     def eventFilter(self, obj, event):
         from PyQt6.QtCore import QEvent
-        from PyQt6.QtGui import QKeyEvent
+        from PyQt6.QtGui import QKeyEvent, QMouseEvent
 
-        if obj is not self._table.viewport():
+        is_viewport_child = self._table.viewport().isAncestorOf(obj)
+        if obj is not self._table.viewport() and not is_viewport_child:
             return super().eventFilter(obj, event)
 
         if isinstance(event, QKeyEvent):
@@ -909,6 +910,15 @@ class TableWidget(QWidget):
                 if event.key() == Qt.Key.Key_Backtab:
                     self._handle_tab(event, reverse=True)
                     return True
+
+        if isinstance(event, QMouseEvent) and obj is self._table.viewport():
+            if event.type() == QEvent.Type.MouseMove:
+                pos = event.position().toPoint()
+                edge = self._detect_edge(pos)
+                if edge and not self._resizing and not self._dragging:
+                    self.setCursor(self._edge_cursor(edge))
+                elif not edge and not self._resizing and not self._dragging:
+                    self.setCursor(Qt.CursorShape.ArrowCursor)
 
         return super().eventFilter(obj, event)
 
