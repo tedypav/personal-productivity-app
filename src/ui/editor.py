@@ -742,7 +742,7 @@ class TableWidget(QWidget):
             "QTableWidget::item:selected {"
             " background: #F3E8F6; color: #2E2B2B;"
             "}"
-            "QHeaderView::section {"
+            "QTableWidget QHeaderView::section {"
             " background: #FFF0F3; border: none;"
             " border-bottom: 1px solid #F7D1DC;"
             " border-right: 1px solid #F7D1DC;"
@@ -750,10 +750,18 @@ class TableWidget(QWidget):
             " font-family: 'Inter', sans-serif; font-size: 11px;"
             " font-weight: 600; color: #8B6B7B;"
             "}"
-            "QTableCornerButton::section {"
+            "QTableWidget QTableCornerButton::section {"
             " background: #FFF0F3; border: none;"
             " border-bottom: 1px solid #F7D1DC;"
             " border-right: 1px solid #F7D1DC;"
+            "}"
+            "QTableWidget QLineEdit {"
+            " border: 1px solid #CFA6D6; border-radius: 4px;"
+            " padding: 2px 4px; font-family: 'Inter', sans-serif;"
+            " font-size: 13px; color: #2E2B2B; background: #FFFFFF;"
+            "}"
+            "QTableWidget QLineEdit:focus {"
+            " border-color: #9b59b6;"
             "}"
             "QScrollBar:vertical {"
             " background: #FFFFFF; width: 8px; margin: 0; }"
@@ -842,8 +850,11 @@ class TableWidget(QWidget):
         edit.setFocus()
         edit.selectAll()
         self._header_edit = edit
+        edit.show()
 
         def finish_edit():
+            if self._header_edit is not edit:
+                return
             new_text = edit.text().strip()
             if new_text:
                 self._table.horizontalHeaderItem(logical_index).setText(new_text)
@@ -852,7 +863,6 @@ class TableWidget(QWidget):
             self._header_edit = None
 
         edit.editingFinished.connect(finish_edit)
-        edit.returnPressed.connect(finish_edit)
 
     def _delete_table(self):
         self.object_delete_requested.emit(self.table_id)
