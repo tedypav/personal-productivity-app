@@ -1367,8 +1367,7 @@ class TestTableWidget:
 
         table = TableWidget(0, page_id=pid, parent=main_window.editor.content)
         vh = table._table.verticalHeader()
-        assert vh.minimumSectionSize() == 32
-        assert vh.maximumSectionSize() == 32
+        assert vh.minimumSectionSize() == 24
         assert vh.defaultSectionSize() == 32
 
     def test_table_vertical_size_policy_is_maximum(self, main_window):

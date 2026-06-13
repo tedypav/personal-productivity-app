@@ -488,6 +488,7 @@ class ChecklistWidget(QWidget):
             self._resize_start = None
             self._resize_origin = None
             self.setCursor(Qt.CursorShape.ArrowCursor)
+            self._scale_rows_to_fit()
             self._save_meta()
             event.accept()
             return
@@ -715,8 +716,7 @@ class TableWidget(QWidget):
         self._table.horizontalHeader().setStretchLastSection(True)
         self._table.horizontalHeader().setFixedHeight(28)
         self._table.verticalHeader().setDefaultSectionSize(32)
-        self._table.verticalHeader().setMinimumSectionSize(32)
-        self._table.verticalHeader().setMaximumSectionSize(32)
+        self._table.verticalHeader().setMinimumSectionSize(24)
         self._table.horizontalHeader().sectionDoubleClicked.connect(self._rename_column)
         self._table.setMinimumHeight(0)
         self._table.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -797,6 +797,16 @@ class TableWidget(QWidget):
         row_h = 32
         total_h = header_h + table_header_h + (rows * row_h)
         return QSize(self.width(), total_h)
+
+    def _scale_rows_to_fit(self):
+        table_header_h = 28
+        rows = self._table.rowCount()
+        if rows == 0:
+            return
+        available_h = self.height() - 36 - table_header_h
+        row_h = max(24, available_h // rows)
+        for r in range(rows):
+            self._table.verticalHeader().resizeSection(r, row_h)
 
     def _on_title_changed(self):
         self._save_meta()
@@ -883,13 +893,12 @@ class TableWidget(QWidget):
     def _install_border_filter(self):
         self._table.setMouseTracking(True)
         self._table.viewport().installEventFilter(self)
-        self._table.installEventFilter(self)
 
     def eventFilter(self, obj, event):
         from PyQt6.QtCore import QEvent
-        from PyQt6.QtGui import QKeyEvent, QMouseEvent
+        from PyQt6.QtGui import QKeyEvent
 
-        if obj not in (self._table, self._table.viewport()):
+        if obj is not self._table.viewport():
             return super().eventFilter(obj, event)
 
         if isinstance(event, QKeyEvent):
@@ -900,74 +909,6 @@ class TableWidget(QWidget):
                 if event.key() == Qt.Key.Key_Backtab:
                     self._handle_tab(event, reverse=True)
                     return True
-            return super().eventFilter(obj, event)
-
-        if not isinstance(event, QMouseEvent):
-            return super().eventFilter(obj, event)
-
-        pos = self._table.viewport().mapTo(self, event.position().toPoint())
-
-        if event.type() == QEvent.Type.MouseButtonPress:
-            if event.button() == Qt.MouseButton.LeftButton:
-                edge = self._detect_edge(pos)
-                if edge:
-                    self._resizing = True
-                    self._resize_edge = edge
-                    self._resize_start = event.globalPosition().toPoint()
-                    self._resize_origin = (
-                        self.x(),
-                        self.y(),
-                        self.width(),
-                        self.height(),
-                    )
-                    event.accept()
-                    return True
-
-        if event.type() == QEvent.Type.MouseMove:
-            if self._resizing and self._resize_start is not None:
-                curr = event.globalPosition().toPoint()
-                dx = curr.x() - self._resize_start.x()
-                dy = curr.y() - self._resize_start.y()
-                ox, oy, ow, oh = self._resize_origin
-                edge = self._resize_edge
-                new_x, new_y, new_w, new_h = ox, oy, ow, oh
-                if "right" in edge:
-                    new_w = max(self._MIN_W, ow + dx)
-                if "bottom" in edge:
-                    new_h = max(self._MIN_H, oh + dy)
-                if "left" in edge:
-                    new_w = max(self._MIN_W, ow - dx)
-                    new_x = ox + ow - new_w
-                if "top" in edge:
-                    new_h = max(self._MIN_H, oh - dy)
-                    new_y = oy + oh - new_h
-                parent = self.parent()
-                if parent:
-                    new_x = max(0, min(new_x, parent.width() - new_w))
-                    new_y = max(0, min(new_y, parent.height() - new_h))
-                self._user_width = new_w
-                self.setMinimumWidth(0)
-                self.setMaximumWidth(16777215)
-                self.setGeometry(new_x, new_y, new_w, new_h)
-                event.accept()
-                return True
-            else:
-                edge = self._detect_edge(pos)
-                if edge and not self._resizing and not self._dragging:
-                    self.setCursor(self._edge_cursor(edge))
-                elif not edge and not self._resizing and not self._dragging:
-                    self.setCursor(Qt.CursorShape.ArrowCursor)
-
-        if event.type() == QEvent.Type.MouseButtonRelease:
-            if self._resizing:
-                self._resizing = False
-                self._resize_edge = None
-                self._resize_start = None
-                self._resize_origin = None
-                self.setCursor(Qt.CursorShape.ArrowCursor)
-                self._save_meta()
-                event.accept()
-                return True
 
         return super().eventFilter(obj, event)
 
