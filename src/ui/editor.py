@@ -719,8 +719,8 @@ class TableWidget(QWidget):
         self._table.verticalHeader().setMinimumSectionSize(24)
         self._table.horizontalHeader().sectionDoubleClicked.connect(self._rename_column)
         self._table.setMinimumHeight(0)
-        self._table.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self._table.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self._table.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self._table.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         from PyQt6.QtWidgets import QSizePolicy
 
         self._table.setSizePolicy(
