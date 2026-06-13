@@ -950,6 +950,23 @@ class PageEditor(QWidget):
         self._checkbox_btn.hide()
         toolbar.addWidget(self._checkbox_btn)
 
+        self._table_btn = QPushButton("⊞ + Table")
+        self._table_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._table_btn.setStyleSheet(
+            "QPushButton {"
+            " font-size: 12px; color: #CFA6D6; background: transparent;"
+            " border: 1px solid #F0E6E8; border-radius: 14px;"
+            " padding: 4px 14px; font-family: 'Inter', sans-serif;"
+            "}"
+            "QPushButton:hover {"
+            " background: #FFF0F3; border-color: #CFA6D6;"
+            " color: #9b59b6;"
+            "}"
+        )
+        self._table_btn.clicked.connect(self._add_table)
+        self._table_btn.hide()
+        toolbar.addWidget(self._table_btn)
+
         parent_layout.addWidget(toolbar_widget)
 
     def _on_canvas_clicked(self, x, y):
@@ -1004,10 +1021,12 @@ class PageEditor(QWidget):
             else:
                 self._page_empty_hint.hide()
             self._checkbox_btn.hide()
+            self._table_btn.hide()
             self._add_btn.hide()
         else:
             self._load_objects()
             self._checkbox_btn.show()
+            self._table_btn.show()
             self._add_btn.show()
             self._position_floating_button()
             if not self._objects:
@@ -1264,6 +1283,7 @@ class PageEditor(QWidget):
         self._clear_objects()
         self._back_btn.hide()
         self._checkbox_btn.hide()
+        self._table_btn.hide()
         self._add_btn.hide()
         self._parent_folder_id = None
         self._canvas_click_pos = None
