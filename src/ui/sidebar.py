@@ -1,7 +1,7 @@
 import os
 
-from PyQt6.QtCore import QDate, QMimeData, QObject, QSize, Qt, pyqtSignal
-from PyQt6.QtGui import QAction, QFont, QIcon, QKeySequence
+from PyQt6.QtCore import QDate, QEvent, QMimeData, QRect, QSize, Qt, pyqtSignal
+from PyQt6.QtGui import QAction, QColor, QFont, QIcon, QKeySequence
 from PyQt6.QtWidgets import (
     QAbstractItemView,
     QDialog,
@@ -19,6 +19,7 @@ from PyQt6.QtWidgets import (
     QSizePolicy,
     QSpinBox,
     QSplitter,
+    QStyledItemDelegate,
     QTabWidget,
     QTreeWidget,
     QTreeWidgetItem,
@@ -33,7 +34,7 @@ from src.ui.dialogs import create_dialog_header
 from src.undo_manager import capture_page_tree, undo_manager
 
 
-class DeleteButtonDelegate(QObject):
+class DeleteButtonDelegate(QStyledItemDelegate):
     def __init__(self, tree, sidebar):
         super().__init__(tree)
         self._tree = tree
@@ -42,36 +43,48 @@ class DeleteButtonDelegate(QObject):
         tree.setMouseTracking(True)
         tree.viewport().installEventFilter(self)
 
-    def eventFilter(self, obj, event):
-        from PyQt6.QtCore import QEvent
+    def paint(self, painter, option, index):
+        super().paint(painter, option, index)
 
+        can_delete = index.data(Qt.ItemDataRole.UserRole + 2)
+        if not can_delete:
+            return
+
+        btn_rect = self._get_button_rect(option.rect)
+        is_hovered = index.row() == self._hovered_row
+
+        painter.save()
+        if is_hovered:
+            painter.setPen(QColor("#EF4444"))
+        else:
+            painter.setPen(QColor("#9CA3AF"))
+        font = QFont("Inter", 12)
+        painter.setFont(font)
+        painter.drawText(btn_rect, Qt.AlignmentFlag.AlignCenter, "\u00d7")
+        painter.restore()
+
+    def editorEvent(self, event, model, option, index):
         if event.type() == QEvent.Type.MouseMove:
-            pos = event.position().toPoint()
-            item = self._tree.itemAt(pos)
-            new_row = self._tree.indexFromItem(item).row() if item else -1
+            item = self._tree.itemAt(event.position().toPoint())
+            same = item and self._tree.indexFromItem(item) == index
+            new_row = index.row() if same else -1
             if new_row != self._hovered_row:
                 self._hovered_row = new_row
                 self._tree.viewport().update()
         elif event.type() == QEvent.Type.MouseButtonPress:
-            pos = event.position().toPoint()
-            item = self._tree.itemAt(pos)
-            if item:
-                can_delete = item.data(0, Qt.ItemDataRole.UserRole + 2)
-                if can_delete:
-                    rect = self._tree.visualItemRect(item)
-                    btn_rect = self._get_button_rect(rect)
-                    if btn_rect.contains(pos):
-                        page_id = item.data(0, Qt.ItemDataRole.UserRole)
-                        self._sidebar._delete_item(page_id)
-                        return True
+            can_delete = index.data(Qt.ItemDataRole.UserRole + 2)
+            if can_delete:
+                btn_rect = self._get_button_rect(option.rect)
+                if btn_rect.contains(event.position().toPoint()):
+                    page_id = index.data(Qt.ItemDataRole.UserRole)
+                    self._sidebar._delete_item(page_id)
+                    return True
         elif event.type() == QEvent.Type.Leave:
             self._hovered_row = -1
             self._tree.viewport().update()
-        return False
+        return super().editorEvent(event, model, option, index)
 
     def _get_button_rect(self, item_rect):
-        from PyQt6.QtCore import QRect
-
         btn_size = 18
         return QRect(
             item_rect.right() - btn_size - 6,
