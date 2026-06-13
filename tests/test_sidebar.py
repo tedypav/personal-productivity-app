@@ -534,3 +534,48 @@ class TestDelegateSurvivesDeletion:
 
         sidebar.tree.verticalScrollBar().setValue(0)
         assert delegate._hovered_index is None
+
+
+class TestBulkCreationDates:
+    def test_bulk_date_range_respects_user_selection(self, sidebar):
+        from datetime import date, timedelta
+
+        start = date(2026, 1, 1)
+        end = date(2026, 1, 10)
+        titles = []
+        current = start
+        while current <= end:
+            titles.append(current.strftime("%Y-%m-%d"))
+            current += timedelta(days=1)
+        assert len(titles) == 10
+        assert titles[0] == "2026-01-01"
+        assert titles[-1] == "2026-01-10"
+
+    def test_bulk_date_range_single_day(self, sidebar):
+        from datetime import date, timedelta
+
+        start = date(2026, 3, 15)
+        end = date(2026, 3, 15)
+        titles = []
+        current = start
+        while current <= end:
+            titles.append(current.strftime("%Y-%m-%d"))
+            current += timedelta(days=1)
+        assert titles == ["2026-03-15"]
+
+    def test_bulk_named_skips_duplicates_across_runs(self, sidebar):
+        PageRepo().create(Page(title="Report 1", parent_id=None))
+        PageRepo().create(Page(title="Report 2", parent_id=None))
+
+        existing = {p.title for p in PageRepo().get_children(None)}
+        base = "Report"
+        count = 5
+        for i in range(1, count + 1):
+            title = f"{base} {i}"
+            if title not in existing:
+                PageRepo().create(Page(title=title, page_type="page", parent_id=None))
+
+        all_pages = PageRepo().get_children(None)
+        report_pages = [p for p in all_pages if p.title.startswith("Report")]
+        titles = sorted([p.title for p in report_pages])
+        assert titles == ["Report 1", "Report 2", "Report 3", "Report 4", "Report 5"]
