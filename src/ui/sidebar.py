@@ -875,6 +875,7 @@ class Sidebar(QWidget):
         self.tree = PageTreeWidget()
         self.tree.set_sidebar(self)
         self.tree.setHeaderHidden(True)
+        self.tree.setColumnCount(2)
         self.tree.setIndentation(16)
         self.tree.setAnimated(True)
         self.tree.setIconSize(QSize(20, 20))
@@ -888,6 +889,7 @@ class Sidebar(QWidget):
 
         self.template_tree = QTreeWidget()
         self.template_tree.setHeaderHidden(True)
+        self.template_tree.setColumnCount(2)
         self.template_tree.setIndentation(16)
         self.template_tree.setAnimated(True)
         self.template_tree.setIconSize(QSize(20, 20))
@@ -1033,7 +1035,9 @@ class Sidebar(QWidget):
                 return template_page_icon
             return page_icon
 
-        def _make_item(parent, page):
+        special_titles = {"Fun Imports", "Archive", "Templates"}
+
+        def _make_item(parent, page, tree):
             item = QTreeWidgetItem(parent)
             item.setIcon(0, _page_icon(page))
             item.setText(0, page.title)
@@ -1043,16 +1047,35 @@ class Sidebar(QWidget):
                 item.setFont(0, font)
             item.setData(0, Qt.ItemDataRole.UserRole, page.id)
             item.setData(0, Qt.ItemDataRole.UserRole + 1, page.page_type)
+            is_system_folder = (
+                tree is self.template_tree
+                and page.page_type == "folder"
+                and page.title in special_titles
+            )
+            if not is_system_folder:
+                from PyQt6.QtWidgets import QToolButton
+
+                btn = QToolButton()
+                btn.setText("\u00d7")
+                btn.setFixedSize(20, 20)
+                btn.setCursor(Qt.CursorShape.PointingHandCursor)
+                btn.setStyleSheet(
+                    "QToolButton { border: none; font-size: 14px;"
+                    " color: #9CA3AF; background: transparent; }"
+                    " QToolButton:hover { color: #EF4444; }"
+                )
+                btn.clicked.connect(lambda checked, p=page: self._delete_item(p.id))
+                tree.setItemWidget(item, 1, btn)
             return item
 
-        def add_children(parent_item, parent_id):
+        def add_children(parent_item, parent_id, tree):
             children = children_map.get(parent_id, [])
             for page in sorted(children, key=lambda x: x.title.lower()):
-                _make_item(parent_item, page)
-                add_children(parent_item.child(parent_item.childCount() - 1), page.id)
+                _make_item(parent_item, page, tree)
+                child_item = parent_item.child(parent_item.childCount() - 1)
+                add_children(child_item, page.id, tree)
 
         # Separate special folders from regular pages
-        special_titles = {"Fun Imports", "Archive", "Templates"}
         special_root = [
             p
             for p in root_pages
@@ -1062,13 +1085,13 @@ class Sidebar(QWidget):
 
         # Upper tree: regular pages/folders
         for page in sorted(regular_root, key=lambda x: x.title.lower()):
-            item = _make_item(self.tree, page)
-            add_children(item, page.id)
+            item = _make_item(self.tree, page, self.tree)
+            add_children(item, page.id, self.tree)
 
         # Lower tree: special folders
         for page in sorted(special_root, key=lambda x: x.title.lower()):
-            item = _make_item(self.template_tree, page)
-            add_children(item, page.id)
+            item = _make_item(self.template_tree, page, self.template_tree)
+            add_children(item, page.id, self.template_tree)
 
         if expanded_ids:
             self._restore_expanded(self.tree, expanded_ids)
@@ -1078,6 +1101,12 @@ class Sidebar(QWidget):
             self._restore_expanded(self.template_tree, template_expanded_ids)
         has_pages = self.tree.topLevelItemCount() > 0
         has_templates = self.template_tree.topLevelItemCount() > 0
+
+        self.tree.header().resizeSection(1, 24)
+        self.tree.header().setStretchLastSection(False)
+        self.template_tree.header().resizeSection(1, 24)
+        self.template_tree.header().setStretchLastSection(False)
+
         if not has_pages and not has_templates:
             if not self._empty_hint:
                 self._empty_hint = QLabel("No pages yet.\nClick + to create one.")
@@ -1924,6 +1953,17 @@ class Sidebar(QWidget):
             self.repo.delete(page_id)
             self._load_pages()
             self.pages_changed.emit()
+
+    def _delete_item(self, page_id):
+        data = capture_page_tree(page_id)
+        if data:
+            data["type"] = "page"
+            undo_manager.push(data)
+        self.repo.delete(page_id)
+        if self._editor_ref and self._editor_ref.current_page_id == page_id:
+            self._editor_ref.clear_editor()
+        self._load_pages()
+        self.pages_changed.emit()
 
     def _delete_selected(self):
         items = self.tree.selectedItems() + self.template_tree.selectedItems()

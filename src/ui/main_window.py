@@ -67,7 +67,6 @@ class MainWindow(QMainWindow):
 
         self.sidebar.page_selected.connect(self.editor.load_page)
         self.editor.navigate_to_page.connect(self._navigate_to_page)
-        self.editor.delete_page_requested.connect(self._delete_page)
         self.sidebar.set_editor(self.editor)
 
         self._setup_menu()

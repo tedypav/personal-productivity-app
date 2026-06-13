@@ -541,7 +541,6 @@ class ChecklistWidget(QWidget):
 
 class PageEditor(QWidget):
     navigate_to_page = pyqtSignal(int)
-    delete_page_requested = pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -967,15 +966,12 @@ class PageEditor(QWidget):
             from PyQt6.QtWidgets import QApplication
 
             focused = QApplication.focusWidget()
-            if not focused or not self.current_page_id:
+            if not focused:
                 return
             for checklist in self._checklists.values():
                 if checklist.isAncestorOf(focused):
                     event.accept()
                     return
-            self.delete_page_requested.emit()
-            event.accept()
-            return
         super().keyPressEvent(event)
 
     def clear_editor(self):

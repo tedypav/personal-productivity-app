@@ -1129,48 +1129,6 @@ class TestDeleteKeyboard:
 
         assert PageObjectRepo().get_by_id(obj_id) is None
 
-    def test_ctrl_d_deletes_page_when_no_checklist_focused(self, main_window):
-        from PyQt6.QtCore import QEvent, Qt
-        from PyQt6.QtGui import QKeyEvent
-
-        pid = PageRepo().create(Page(title="TestPage"))
-        main_window.editor.load_page(pid)
-
-        received = []
-        main_window.editor.delete_page_requested.connect(lambda: received.append(True))
-
-        main_window.editor.setFocus()
-
-        event = QKeyEvent(
-            QEvent.Type.KeyPress,
-            Qt.Key.Key_D,
-            Qt.KeyboardModifier.ControlModifier,
-        )
-        main_window.editor.keyPressEvent(event)
-
-        assert received == [True]
-
-    def test_delete_key_deletes_page_when_no_checklist_focused(self, main_window):
-        from PyQt6.QtCore import QEvent, Qt
-        from PyQt6.QtGui import QKeyEvent
-
-        pid = PageRepo().create(Page(title="TestPage"))
-        main_window.editor.load_page(pid)
-
-        received = []
-        main_window.editor.delete_page_requested.connect(lambda: received.append(True))
-
-        main_window.editor.setFocus()
-
-        event = QKeyEvent(
-            QEvent.Type.KeyPress,
-            Qt.Key.Key_Delete,
-            Qt.KeyboardModifier.NoModifier,
-        )
-        main_window.editor.keyPressEvent(event)
-
-        assert received == [True]
-
     def test_no_page_delete_when_checklist_focused(self, main_window):
         from PyQt6.QtCore import QEvent, Qt
         from PyQt6.QtGui import QKeyEvent
@@ -1188,11 +1146,6 @@ class TestDeleteKeyboard:
         item = checklist._checkboxes_layout.itemAt(0).widget()
         item._text_edit.setFocus()
 
-        page_deleted = []
-        main_window.editor.delete_page_requested.connect(
-            lambda: page_deleted.append(True)
-        )
-
         item_deleted = []
         checklist.item_delete_requested.connect(lambda oid: item_deleted.append(oid))
 
@@ -1203,5 +1156,80 @@ class TestDeleteKeyboard:
         )
         checklist.eventFilter(item._text_edit, event)
 
-        assert page_deleted == []
         assert item_deleted == [item.obj_id]
+
+
+class TestSidebarDeleteButton:
+    def test_regular_page_has_delete_button(self, main_window):
+        from PyQt6.QtCore import Qt
+        from PyQt6.QtWidgets import QToolButton
+
+        PageRepo().create(Page(title="TestPage"))
+        main_window.sidebar.refresh()
+
+        items = main_window.sidebar.tree.findItems(
+            "TestPage", Qt.MatchFlag.MatchExactly | Qt.MatchFlag.MatchRecursive
+        )
+        assert len(items) == 1
+        btn = main_window.sidebar.tree.itemWidget(items[0], 1)
+        assert isinstance(btn, QToolButton)
+        assert btn.text() == "\u00d7"
+
+    def test_system_folder_has_no_delete_button(self, main_window):
+        from PyQt6.QtCore import Qt
+
+        PageRepo().create(Page(title="Templates", page_type="folder"))
+        main_window.sidebar.refresh()
+
+        items = main_window.sidebar.template_tree.findItems(
+            "Templates",
+            Qt.MatchFlag.MatchExactly | Qt.MatchFlag.MatchRecursive,
+        )
+        assert len(items) >= 1
+        btn = main_window.sidebar.template_tree.itemWidget(items[0], 1)
+        assert btn is None
+
+    def test_child_of_system_folder_has_delete_button(self, main_window):
+        from PyQt6.QtCore import Qt
+        from PyQt6.QtWidgets import QToolButton
+
+        folder_id = PageRepo().create(Page(title="Archive", page_type="folder"))
+        PageRepo().create(Page(title="Old Notes", parent_id=folder_id))
+        main_window.sidebar.refresh()
+
+        items = main_window.sidebar.template_tree.findItems(
+            "Old Notes", Qt.MatchFlag.MatchExactly | Qt.MatchFlag.MatchRecursive
+        )
+        assert len(items) == 1
+        btn = main_window.sidebar.template_tree.itemWidget(items[0], 1)
+        assert isinstance(btn, QToolButton)
+
+    def test_delete_button_removes_page(self, main_window):
+        from PyQt6.QtCore import Qt
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.sidebar.refresh()
+
+        items = main_window.sidebar.tree.findItems(
+            "TestPage", Qt.MatchFlag.MatchExactly | Qt.MatchFlag.MatchRecursive
+        )
+        assert len(items) == 1
+        btn = main_window.sidebar.tree.itemWidget(items[0], 1)
+        btn.click()
+
+        assert PageRepo().get_by_id(pid) is None
+
+    def test_delete_button_clears_editor_if_page_open(self, main_window):
+        from PyQt6.QtCore import Qt
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+        main_window.sidebar.refresh()
+
+        items = main_window.sidebar.tree.findItems(
+            "TestPage", Qt.MatchFlag.MatchExactly | Qt.MatchFlag.MatchRecursive
+        )
+        btn = main_window.sidebar.tree.itemWidget(items[0], 1)
+        btn.click()
+
+        assert main_window.editor.current_page_id is None
