@@ -668,6 +668,25 @@ class TableWidget(QWidget):
         remove_col_btn.clicked.connect(self._remove_column)
         header_layout.addWidget(remove_col_btn)
 
+        self._row_num_btn = QPushButton("#")
+        self._row_num_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._row_num_btn.setCheckable(True)
+        self._row_num_btn.setStyleSheet(
+            "QPushButton {"
+            " font-size: 10px; color: #9CA3AF; background: transparent;"
+            " border: 1px solid #F0E6E8; border-radius: 10px;"
+            " padding: 2px 8px; font-family: 'Inter', sans-serif;"
+            "}"
+            "QPushButton:hover {"
+            " background: #FFF0F3; border-color: #CFA6D6; color: #CFA6D6;"
+            "}"
+            "QPushButton:checked {"
+            " background: #F3E8F6; border-color: #CFA6D6; color: #CFA6D6;"
+            "}"
+        )
+        self._row_num_btn.clicked.connect(self._toggle_row_numbers)
+        header_layout.addWidget(self._row_num_btn)
+
         delete_btn = QToolButton()
         delete_btn.setText("×")
         delete_btn.setFixedSize(28, 28)
@@ -698,6 +717,7 @@ class TableWidget(QWidget):
         self._table.verticalHeader().setDefaultSectionSize(32)
         self._table.verticalHeader().setMinimumSectionSize(32)
         self._table.verticalHeader().setMaximumSectionSize(32)
+        self._table.horizontalHeader().sectionDoubleClicked.connect(self._rename_column)
         self._table.setMinimumHeight(0)
         from PyQt6.QtWidgets import QSizePolicy
 
@@ -777,6 +797,23 @@ class TableWidget(QWidget):
         elif self._table.columnCount() > 1:
             self._table.removeColumn(self._table.columnCount() - 1)
         self._save_meta()
+
+    def _toggle_row_numbers(self):
+        show = self._row_num_btn.isChecked()
+        self._table.verticalHeader().setVisible(show)
+        self._save_meta()
+
+    def _rename_column(self, logical_index):
+        from PyQt6.QtWidgets import QInputDialog
+
+        current = self._table.horizontalHeaderItem(logical_index)
+        current_text = current.text() if current else ""
+        new_text, ok = QInputDialog.getText(
+            self, "Rename Column", "Column name:", text=current_text
+        )
+        if ok and new_text.strip():
+            self._table.horizontalHeaderItem(logical_index).setText(new_text.strip())
+            self._save_meta()
 
     def _delete_table(self):
         self.object_delete_requested.emit(self.table_id)
