@@ -1094,7 +1094,7 @@ class TestDeleteKeyboard:
         item = checklist._checkboxes_layout.itemAt(0).widget()
 
         received = []
-        checklist.item_delete_requested.connect(lambda oid: received.append(oid))
+        checklist.object_delete_requested.connect(lambda cid: received.append(cid))
 
         event = QKeyEvent(
             QEvent.Type.KeyPress,
@@ -1104,7 +1104,7 @@ class TestDeleteKeyboard:
         result = checklist.eventFilter(item._checkbox, event)
 
         assert result is True
-        assert received == [item.obj_id]
+        assert received == [checklist.checklist_id]
 
     def test_delete_removes_item_from_db(self, main_window):
         from PyQt6.QtCore import QEvent, Qt

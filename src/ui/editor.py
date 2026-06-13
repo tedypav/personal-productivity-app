@@ -206,7 +206,10 @@ class ChecklistWidget(QWidget):
                 for i in range(self._checkboxes_layout.count()):
                     w = self._checkboxes_layout.itemAt(i).widget()
                     if w and hasattr(w, "obj_id") and w.isAncestorOf(obj):
-                        self.item_delete_requested.emit(w.obj_id)
+                        if hasattr(w, "_text_edit") and obj is w._text_edit:
+                            self.item_delete_requested.emit(w.obj_id)
+                        else:
+                            self.object_delete_requested.emit(self.checklist_id)
                         event.accept()
                         return True
             return super().eventFilter(obj, event)
@@ -218,7 +221,10 @@ class ChecklistWidget(QWidget):
                 for i in range(self._checkboxes_layout.count()):
                     w = self._checkboxes_layout.itemAt(i).widget()
                     if w and hasattr(w, "obj_id") and w.isAncestorOf(obj):
-                        w.focus_text()
+                        if hasattr(w, "_text_edit") and obj is w._text_edit:
+                            pass
+                        else:
+                            w.focus_text()
                         break
                 edge = self._detect_edge(pos)
                 if edge:
@@ -497,7 +503,10 @@ class ChecklistWidget(QWidget):
                 for i in range(self._checkboxes_layout.count()):
                     w = self._checkboxes_layout.itemAt(i).widget()
                     if w and hasattr(w, "obj_id") and w.isAncestorOf(focused):
-                        self.item_delete_requested.emit(w.obj_id)
+                        if hasattr(w, "_text_edit") and focused is w._text_edit:
+                            self.item_delete_requested.emit(w.obj_id)
+                        else:
+                            self.object_delete_requested.emit(self.checklist_id)
                         event.accept()
                         return
         super().keyPressEvent(event)
@@ -952,17 +961,15 @@ class PageEditor(QWidget):
             from PyQt6.QtWidgets import QApplication
 
             focused = QApplication.focusWidget()
-            in_checklist = False
-            for checklist in self._checklists.values():
-                if focused and (
-                    focused is checklist or checklist.isAncestorOf(focused)
-                ):
-                    in_checklist = True
-                    break
-            if not in_checklist and self.current_page_id:
-                self.delete_page_requested.emit()
-                event.accept()
+            if not focused or not self.current_page_id:
                 return
+            for checklist in self._checklists.values():
+                if checklist.isAncestorOf(focused):
+                    event.accept()
+                    return
+            self.delete_page_requested.emit()
+            event.accept()
+            return
         super().keyPressEvent(event)
 
     def clear_editor(self):
