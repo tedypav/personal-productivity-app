@@ -820,36 +820,40 @@ class TableWidget(QWidget):
         self._save_meta()
 
     def _rename_column(self, logical_index):
-        from PyQt6.QtWidgets import QInputDialog
+        from PyQt6.QtWidgets import QLineEdit
 
         current = self._table.horizontalHeaderItem(logical_index)
         current_text = current.text() if current else ""
-        dialog = QInputDialog(self)
-        dialog.setWindowTitle("Rename Column")
-        dialog.setLabelText("Column name:")
-        dialog.setTextValue(current_text)
-        dialog.setStyleSheet(
-            "QInputDialog { background: #FFFFFF; }"
-            "QLabel { font-family: 'Inter', sans-serif; font-size: 13px;"
-            " color: #2E2B2B; }"
-            "QLineEdit { border: 1px solid #F7D1DC; border-radius: 10px;"
-            " padding: 6px 12px; font-family: 'Inter', sans-serif;"
-            " font-size: 13px; color: #2E2B2B; background: #FFFFFF; }"
-            "QLineEdit:focus { border-color: #CFA6D6; }"
-            "QPushButton { font-family: 'Inter', sans-serif; font-size: 13px;"
-            " padding: 6px 16px; border-radius: 8px; }"
-            "QPushButton#okButton { background: #CFA6D6; color: #FFFFFF;"
-            " border: none; }"
-            "QPushButton#okButton:hover { background: #9b59b6; }"
-            "QPushButton#cancelButton { background: #F0E6E8; color: #2E2B2B;"
-            " border: none; }"
-            "QPushButton#cancelButton:hover { background: #E0D6D8; }"
+
+        header = self._table.horizontalHeader()
+        section_rect = header.sectionRect(logical_index)
+        header_pos = header.mapTo(self._table.viewport(), section_rect.topLeft())
+
+        edit = QLineEdit(self._table.viewport())
+        edit.setText(current_text)
+        edit.setGeometry(
+            header_pos.x(), header_pos.y(), section_rect.width(), section_rect.height()
         )
-        ok = dialog.exec()
-        new_text = dialog.textValue()
-        if ok and new_text.strip():
-            self._table.horizontalHeaderItem(logical_index).setText(new_text.strip())
-            self._save_meta()
+        edit.setStyleSheet(
+            "QLineEdit { border: 1px solid #CFA6D6; border-radius: 4px;"
+            " padding: 2px 4px; font-family: 'Inter', sans-serif;"
+            " font-size: 11px; font-weight: 600; color: #8B6B7B;"
+            " background: #FFFFFF; }"
+        )
+        edit.setFocus()
+        edit.selectAll()
+        self._header_edit = edit
+
+        def finish_edit():
+            new_text = edit.text().strip()
+            if new_text:
+                self._table.horizontalHeaderItem(logical_index).setText(new_text)
+                self._save_meta()
+            edit.deleteLater()
+            self._header_edit = None
+
+        edit.editingFinished.connect(finish_edit)
+        edit.returnPressed.connect(finish_edit)
 
     def _delete_table(self):
         self.object_delete_requested.emit(self.table_id)
