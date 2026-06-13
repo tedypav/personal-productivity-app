@@ -430,3 +430,53 @@ class TestBulkCreateDialogStyling:
             "chevron_up.svg",
         )
         assert os.path.exists(icon_path)
+
+
+class TestBulkCreateSkipsDuplicates:
+    def test_bulk_named_skips_existing_pages(self, sidebar):
+        PageRepo().create(Page(title="Page 1", parent_id=None))
+        existing = PageRepo().get_children(None)
+        existing_titles = {p.title for p in existing}
+        assert "Page 1" in existing_titles
+
+        base = "Page"
+        count = 3
+        for i in range(1, count + 1):
+            title = f"{base} {i}"
+            if title not in existing_titles:
+                PageRepo().create(Page(title=title, page_type="page", parent_id=None))
+
+        all_pages = PageRepo().get_children(None)
+        all_titles = [p.title for p in all_pages]
+        assert all_titles.count("Page 1") == 1
+        assert "Page 2" in all_titles
+        assert "Page 3" in all_titles
+
+    def test_bulk_named_creates_only_new_pages(self, sidebar):
+        PageRepo().create(Page(title="Task 1", parent_id=None))
+        PageRepo().create(Page(title="Task 2", parent_id=None))
+
+        existing = {p.title for p in PageRepo().get_children(None)}
+        new_titles = ["Task 1", "Task 2", "Task 3", "Task 4"]
+        for title in new_titles:
+            if title not in existing:
+                PageRepo().create(Page(title=title, page_type="page", parent_id=None))
+
+        all_pages = PageRepo().get_children(None)
+        task_pages = [p for p in all_pages if p.title.startswith("Task")]
+        assert len(task_pages) == 4
+
+    def test_bulk_date_skips_existing_pages(self, sidebar):
+        PageRepo().create(Page(title="2026-01-01", parent_id=None))
+
+        existing = {p.title for p in PageRepo().get_children(None)}
+        titles = ["2026-01-01", "2026-01-02", "2026-01-03"]
+        for title in titles:
+            if title not in existing:
+                PageRepo().create(Page(title=title, page_type="page", parent_id=None))
+
+        all_pages = PageRepo().get_children(None)
+        all_titles = [p.title for p in all_pages]
+        assert all_titles.count("2026-01-01") == 1
+        assert "2026-01-02" in all_titles
+        assert "2026-01-03" in all_titles

@@ -1551,10 +1551,16 @@ class Sidebar(QWidget):
                 for year in range(start.year, end.year + 1):
                     titles.append(str(year))
 
+            existing = {p.title for p in self.repo.get_children(selected_folder_id)}
             for title in titles:
-                self.repo.create(
-                    Page(title=title, page_type="page", parent_id=selected_folder_id)
-                )
+                if title not in existing:
+                    self.repo.create(
+                        Page(
+                            title=title,
+                            page_type="page",
+                            parent_id=selected_folder_id,
+                        )
+                    )
             self._load_pages()
             self.pages_changed.emit()
 
@@ -1625,14 +1631,17 @@ class Sidebar(QWidget):
             selected = self.tree.selectedItems()
             if selected:
                 selected_folder_id = selected[0].data(0, Qt.ItemDataRole.UserRole)
+            existing = {p.title for p in self.repo.get_children(selected_folder_id)}
             for i in range(1, count + 1):
-                self.repo.create(
-                    Page(
-                        title=f"{base} {i}",
-                        page_type="page",
-                        parent_id=selected_folder_id,
+                title = f"{base} {i}"
+                if title not in existing:
+                    self.repo.create(
+                        Page(
+                            title=title,
+                            page_type="page",
+                            parent_id=selected_folder_id,
+                        )
                     )
-                )
             self._load_pages()
             self.pages_changed.emit()
 
