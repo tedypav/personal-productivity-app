@@ -39,7 +39,7 @@ class DeleteButtonDelegate(QStyledItemDelegate):
         super().__init__(tree)
         self._tree = tree
         self._sidebar = sidebar
-        self._hovered_row = -1
+        self._hovered_index = None
         tree.setMouseTracking(True)
         tree.viewport().installEventFilter(self)
 
@@ -51,7 +51,7 @@ class DeleteButtonDelegate(QStyledItemDelegate):
             return
 
         btn_rect = self._get_button_rect(option.rect)
-        is_hovered = index.row() == self._hovered_row
+        is_hovered = self._hovered_index == index
 
         painter.save()
         if is_hovered:
@@ -66,11 +66,16 @@ class DeleteButtonDelegate(QStyledItemDelegate):
     def editorEvent(self, event, model, option, index):
         if event.type() == QEvent.Type.MouseMove:
             item = self._tree.itemAt(event.position().toPoint())
-            same = item and self._tree.indexFromItem(item) == index
-            new_row = index.row() if same else -1
-            if new_row != self._hovered_row:
-                self._hovered_row = new_row
-                self._tree.viewport().update()
+            new_index = self._tree.indexFromItem(item) if item else None
+            if new_index != self._hovered_index:
+                old = self._hovered_index
+                self._hovered_index = new_index
+                if old and old.isValid():
+                    self._tree.viewport().update(
+                        self._tree.visualItemRect(self._tree.itemFromIndex(old))
+                    )
+                if new_index and new_index.isValid():
+                    self._tree.viewport().update(self._tree.visualItemRect(item))
         elif event.type() == QEvent.Type.MouseButtonPress:
             can_delete = index.data(Qt.ItemDataRole.UserRole + 2)
             if can_delete:
@@ -80,8 +85,12 @@ class DeleteButtonDelegate(QStyledItemDelegate):
                     self._sidebar._delete_item(page_id)
                     return True
         elif event.type() == QEvent.Type.Leave:
-            self._hovered_row = -1
-            self._tree.viewport().update()
+            old = self._hovered_index
+            self._hovered_index = None
+            if old and old.isValid():
+                self._tree.viewport().update(
+                    self._tree.visualItemRect(self._tree.itemFromIndex(old))
+                )
         return super().editorEvent(event, model, option, index)
 
     def _get_button_rect(self, item_rect):
