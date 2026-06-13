@@ -683,6 +683,8 @@ class TableWidget(QWidget):
         add_row_btn.clicked.connect(self._add_row)
         self._layout.addWidget(add_row_btn)
 
+        self._install_border_filter()
+
     def _on_title_changed(self):
         self._save_meta()
 
@@ -694,6 +696,85 @@ class TableWidget(QWidget):
 
     def _delete_table(self):
         self.object_delete_requested.emit(self.table_id)
+
+    def _install_border_filter(self):
+        self._table.setMouseTracking(True)
+        self._table.viewport().installEventFilter(self)
+
+    def eventFilter(self, obj, event):
+        from PyQt6.QtCore import QEvent
+        from PyQt6.QtGui import QMouseEvent
+
+        if obj is not self._table.viewport():
+            return super().eventFilter(obj, event)
+        if not isinstance(event, QMouseEvent):
+            return super().eventFilter(obj, event)
+
+        pos = self._table.viewport().mapTo(self, event.position().toPoint())
+
+        if event.type() == QEvent.Type.MouseButtonPress:
+            if event.button() == Qt.MouseButton.LeftButton:
+                edge = self._detect_edge(pos)
+                if edge:
+                    self._resizing = True
+                    self._resize_edge = edge
+                    self._resize_start = event.globalPosition().toPoint()
+                    self._resize_origin = (
+                        self.x(),
+                        self.y(),
+                        self.width(),
+                        self.height(),
+                    )
+                    event.accept()
+                    return True
+
+        if event.type() == QEvent.Type.MouseMove:
+            if self._resizing and self._resize_start is not None:
+                curr = event.globalPosition().toPoint()
+                dx = curr.x() - self._resize_start.x()
+                dy = curr.y() - self._resize_start.y()
+                ox, oy, ow, oh = self._resize_origin
+                edge = self._resize_edge
+                new_x, new_y, new_w, new_h = ox, oy, ow, oh
+                if "right" in edge:
+                    new_w = max(self._MIN_W, ow + dx)
+                if "bottom" in edge:
+                    new_h = max(self._MIN_H, oh + dy)
+                if "left" in edge:
+                    new_w = max(self._MIN_W, ow - dx)
+                    new_x = ox + ow - new_w
+                if "top" in edge:
+                    new_h = max(self._MIN_H, oh - dy)
+                    new_y = oy + oh - new_h
+                parent = self.parent()
+                if parent:
+                    new_x = max(0, min(new_x, parent.width() - new_w))
+                    new_y = max(0, min(new_y, parent.height() - new_h))
+                self._user_width = new_w
+                self.setMinimumWidth(0)
+                self.setMaximumWidth(16777215)
+                self.setGeometry(new_x, new_y, new_w, new_h)
+                event.accept()
+                return True
+            else:
+                edge = self._detect_edge(pos)
+                if edge and not self._resizing and not self._dragging:
+                    self.setCursor(self._edge_cursor(edge))
+                elif not edge and not self._resizing and not self._dragging:
+                    self.setCursor(Qt.CursorShape.ArrowCursor)
+
+        if event.type() == QEvent.Type.MouseButtonRelease:
+            if self._resizing:
+                self._resizing = False
+                self._resize_edge = None
+                self._resize_start = None
+                self._resize_origin = None
+                self.setCursor(Qt.CursorShape.ArrowCursor)
+                self._save_meta()
+                event.accept()
+                return True
+
+        return super().eventFilter(obj, event)
 
     def _save_meta(self):
         from src.repositories.page_object_repo import PageObjectRepo
