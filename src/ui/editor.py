@@ -205,11 +205,10 @@ class ChecklistWidget(QWidget):
             if is_del and (is_delete_key or is_ctrl_d):
                 for i in range(self._checkboxes_layout.count()):
                     w = self._checkboxes_layout.itemAt(i).widget()
-                    if w and hasattr(w, "obj_id"):
-                        if obj is w or obj in w.findChildren(type(obj)):
-                            self.item_delete_requested.emit(w.obj_id)
-                            event.accept()
-                            return True
+                    if w and hasattr(w, "obj_id") and w.isAncestorOf(obj):
+                        self.item_delete_requested.emit(w.obj_id)
+                        event.accept()
+                        return True
             return super().eventFilter(obj, event)
         if not isinstance(event, QMouseEvent):
             return super().eventFilter(obj, event)
@@ -218,10 +217,9 @@ class ChecklistWidget(QWidget):
             if event.button() == Qt.MouseButton.LeftButton:
                 for i in range(self._checkboxes_layout.count()):
                     w = self._checkboxes_layout.itemAt(i).widget()
-                    if w and hasattr(w, "obj_id"):
-                        if obj is w or obj in w.findChildren(type(obj)):
-                            w.focus_text()
-                            break
+                    if w and hasattr(w, "obj_id") and w.isAncestorOf(obj):
+                        w.focus_text()
+                        break
                 edge = self._detect_edge(pos)
                 if edge:
                     self._resizing = True
@@ -498,11 +496,10 @@ class ChecklistWidget(QWidget):
             if focused:
                 for i in range(self._checkboxes_layout.count()):
                     w = self._checkboxes_layout.itemAt(i).widget()
-                    if w and hasattr(w, "obj_id"):
-                        if focused is w or focused in w.findChildren(type(focused)):
-                            self.item_delete_requested.emit(w.obj_id)
-                            event.accept()
-                            return
+                    if w and hasattr(w, "obj_id") and w.isAncestorOf(focused):
+                        self.item_delete_requested.emit(w.obj_id)
+                        event.accept()
+                        return
         super().keyPressEvent(event)
 
     def _MIN_HEADER_H(self):
