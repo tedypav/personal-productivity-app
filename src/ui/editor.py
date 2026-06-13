@@ -873,10 +873,21 @@ class TableWidget(QWidget):
 
     def eventFilter(self, obj, event):
         from PyQt6.QtCore import QEvent
-        from PyQt6.QtGui import QMouseEvent
+        from PyQt6.QtGui import QKeyEvent, QMouseEvent
 
         if obj is not self._table.viewport():
             return super().eventFilter(obj, event)
+
+        if isinstance(event, QKeyEvent):
+            if event.type() == QEvent.Type.KeyPress:
+                if event.key() == Qt.Key.Key_Tab:
+                    self._handle_tab(event)
+                    return True
+                if event.key() == Qt.Key.Key_Backtab:
+                    self._handle_tab(event, reverse=True)
+                    return True
+            return super().eventFilter(obj, event)
+
         if not isinstance(event, QMouseEvent):
             return super().eventFilter(obj, event)
 
@@ -945,6 +956,30 @@ class TableWidget(QWidget):
                 return True
 
         return super().eventFilter(obj, event)
+
+    def _handle_tab(self, event, reverse=False):
+        row = self._table.currentRow()
+        col = self._table.currentColumn()
+        rows = self._table.rowCount()
+        cols = self._table.columnCount()
+
+        if reverse:
+            col -= 1
+            if col < 0:
+                col = cols - 1
+                row -= 1
+                if row < 0:
+                    row = rows - 1
+        else:
+            col += 1
+            if col >= cols:
+                col = 0
+                row += 1
+                if row >= rows:
+                    self._table.insertRow(rows)
+                    self._save_meta()
+
+        self._table.setCurrentCell(row, col)
 
     def _save_meta(self):
         from src.repositories.page_object_repo import PageObjectRepo
