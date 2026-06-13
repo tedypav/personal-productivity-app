@@ -56,6 +56,23 @@ py -m mypy src/
 git commit -m "your message"
 ```
 
+### Before Merging to Main
+
+1. **Sync documentation** — Ask the docs agent to update documentation:
+   ```
+   @docs sync documentation with current implementation
+   ```
+2. **Run full test suite** — Ensure all tests pass:
+   ```powershell
+   py -m pytest --cov=src --cov-report=term-missing
+   ```
+3. **Check code quality** — Ensure ruff and mypy pass:
+   ```powershell
+   py -m ruff check src/
+   py -m mypy src/
+   ```
+4. **Manual regression** — Run affected steps from the `instructions` checklist
+
 ## Using the Instructions File
 
 The `instructions` file is your comprehensive testing guide. Use it to:

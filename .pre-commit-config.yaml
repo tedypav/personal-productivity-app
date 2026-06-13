@@ -12,3 +12,18 @@ repos:
       - id: mypy
         args: [--ignore-missing-imports]
         additional_dependencies: []
+
+  - repo: local
+    hooks:
+      - id: docs-sync-check
+        name: Documentation sync check
+        entry: py scripts/check_docs_sync.py
+        language: system
+        pass_filenames: false
+        always_run: true
+      - id: code-health-check
+        name: Code health check
+        entry: py scripts/check_code_health.py
+        language: system
+        pass_filenames: false
+        always_run: true
