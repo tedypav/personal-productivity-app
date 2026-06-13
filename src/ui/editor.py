@@ -633,6 +633,11 @@ class TableWidget(QWidget):
         self._table.setHorizontalHeaderLabels(["Column 1", "Column 2", "Column 3"])
         self._table.verticalHeader().setVisible(False)
         self._table.setSelectionMode(QTableWidget.SelectionMode.ContiguousSelection)
+        self._table.horizontalHeader().setStretchLastSection(True)
+        for c in range(self._table.columnCount()):
+            self._table.horizontalHeader().setSectionResizeMode(
+                c, self._table.horizontalHeader().ResizeMode.Stretch
+            )
         self._table.setStyleSheet(
             "QTableWidget {"
             " border: none; gridline-color: #F7D1DC;"
