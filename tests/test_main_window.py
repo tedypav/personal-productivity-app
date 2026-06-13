@@ -1226,3 +1226,63 @@ class TestSidebarDeleteButton:
         main_window.sidebar._delete_item(pid)
 
         assert main_window.editor.current_page_id is None
+
+    def test_delegate_is_set_on_tree(self, main_window):
+        from src.ui.sidebar import DeleteButtonDelegate
+
+        assert isinstance(
+            main_window.sidebar.tree.itemDelegate(),
+            DeleteButtonDelegate,
+        )
+
+    def test_delegate_is_set_on_template_tree(self, main_window):
+        from src.ui.sidebar import DeleteButtonDelegate
+
+        assert isinstance(
+            main_window.sidebar.template_tree.itemDelegate(),
+            DeleteButtonDelegate,
+        )
+
+    def test_hover_only_affects_target_item(self, main_window):
+        from PyQt6.QtCore import QModelIndex, Qt
+
+        PageRepo().create(Page(title="Parent", page_type="folder"))
+        main_window.sidebar.refresh()
+
+        items = main_window.sidebar.tree.findItems(
+            "Parent",
+            Qt.MatchFlag.MatchExactly | Qt.MatchFlag.MatchRecursive,
+        )
+        parent_item = items[0]
+        parent_index = main_window.sidebar.tree.indexFromItem(parent_item)
+
+        delegate = main_window.sidebar.tree.itemDelegate()
+        delegate._hovered_index = parent_index
+
+        assert delegate._hovered_index == parent_index
+        assert delegate._hovered_index != QModelIndex()
+
+    def test_delete_item_with_undo(self, main_window):
+        from PyQt6.QtCore import Qt
+
+        pid = PageRepo().create(Page(title="UndoPage"))
+        main_window.sidebar.refresh()
+
+        items = main_window.sidebar.tree.findItems(
+            "UndoPage",
+            Qt.MatchFlag.MatchExactly | Qt.MatchFlag.MatchRecursive,
+        )
+        assert len(items) == 1
+
+        main_window.sidebar._delete_item(pid)
+        assert PageRepo().get_by_id(pid) is None
+
+    def test_delete_folder_removes_children(self, main_window):
+        fid = PageRepo().create(Page(title="TestFolder", page_type="folder"))
+        child_id = PageRepo().create(Page(title="Child", parent_id=fid))
+        main_window.sidebar.refresh()
+
+        main_window.sidebar._delete_item(fid)
+
+        assert PageRepo().get_by_id(fid) is None
+        assert PageRepo().get_by_id(child_id) is None
