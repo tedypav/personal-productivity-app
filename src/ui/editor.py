@@ -664,7 +664,14 @@ class TableWidget(QWidget):
         self._table.verticalHeader().setVisible(False)
         self._table.setSelectionMode(QTableWidget.SelectionMode.ContiguousSelection)
         self._table.horizontalHeader().setStretchLastSection(True)
+        self._table.verticalHeader().setStretchLastSection(True)
         self._table.verticalHeader().setDefaultSectionSize(32)
+        self._table.setMinimumHeight(0)
+        from PyQt6.QtWidgets import QSizePolicy
+
+        self._table.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
+        )
         for c in range(self._table.columnCount()):
             self._table.horizontalHeader().setSectionResizeMode(
                 c, self._table.horizontalHeader().ResizeMode.Stretch
@@ -1403,11 +1410,10 @@ class PageEditor(QWidget):
             widget.hide()
             widget.deleteLater()
             del self._tables[table_id]
-        self._objects = [
-            o
-            for o in self._objects
-            if not (o.object_type == "table_meta" and o.sort_order // 100 == table_id)
-        ]
+        for o in list(self._objects):
+            if o.object_type == "table_meta" and o.sort_order // 100 == table_id:
+                PageObjectRepo().delete(o.id)
+                self._objects.remove(o)
         if not self._objects:
             self._page_empty_hint.show()
             self._center_empty_hint()
