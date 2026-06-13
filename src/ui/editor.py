@@ -606,7 +606,37 @@ class TableWidget(QWidget):
         header_layout.addWidget(title)
         header_layout.addStretch()
 
-        from PyQt6.QtWidgets import QToolButton
+        from PyQt6.QtWidgets import QPushButton, QToolButton
+
+        add_row_btn = QPushButton("+ Row")
+        add_row_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        add_row_btn.setStyleSheet(
+            "QPushButton {"
+            " font-size: 10px; color: #CFA6D6; background: transparent;"
+            " border: 1px solid #F0E6E8; border-radius: 10px;"
+            " padding: 2px 8px; font-family: 'Inter', sans-serif;"
+            "}"
+            "QPushButton:hover {"
+            " background: #FFF0F3; border-color: #CFA6D6; color: #9b59b6;"
+            "}"
+        )
+        add_row_btn.clicked.connect(self._add_row)
+        header_layout.addWidget(add_row_btn)
+
+        add_col_btn = QPushButton("+ Cell")
+        add_col_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        add_col_btn.setStyleSheet(
+            "QPushButton {"
+            " font-size: 10px; color: #CFA6D6; background: transparent;"
+            " border: 1px solid #F0E6E8; border-radius: 10px;"
+            " padding: 2px 8px; font-family: 'Inter', sans-serif;"
+            "}"
+            "QPushButton:hover {"
+            " background: #FFF0F3; border-color: #CFA6D6; color: #9b59b6;"
+            "}"
+        )
+        add_col_btn.clicked.connect(self._add_column)
+        header_layout.addWidget(add_col_btn)
 
         delete_btn = QToolButton()
         delete_btn.setText("×")
@@ -669,20 +699,6 @@ class TableWidget(QWidget):
         self._table.cellChanged.connect(self._on_cell_changed)
         self._layout.addWidget(self._table)
 
-        from PyQt6.QtWidgets import QPushButton
-
-        add_row_btn = QPushButton("+ Add row")
-        add_row_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        add_row_btn.setStyleSheet(
-            "QPushButton { border: none; font-size: 12px; color: #CFA6D6;"
-            " padding: 8px 12px; text-align: left;"
-            " font-family: 'Inter', sans-serif;"
-            " background: #FFFFFF; }"
-            " QPushButton:hover { color: #9b59b6; }"
-        )
-        add_row_btn.clicked.connect(self._add_row)
-        self._layout.addWidget(add_row_btn)
-
         self._install_border_filter()
 
     def _on_title_changed(self):
@@ -693,6 +709,16 @@ class TableWidget(QWidget):
 
     def _add_row(self):
         self._table.insertRow(self._table.rowCount())
+
+    def _add_column(self):
+        from PyQt6.QtWidgets import QTableWidgetItem
+
+        col = self._table.columnCount()
+        self._table.setColumnCount(col + 1)
+        self._table.setHorizontalHeaderItem(col, QTableWidgetItem(f"Column {col + 1}"))
+        self._table.horizontalHeader().setSectionResizeMode(
+            col, self._table.horizontalHeader().ResizeMode.Stretch
+        )
 
     def _delete_table(self):
         self.object_delete_requested.emit(self.table_id)
