@@ -28,6 +28,12 @@ SOURCE_TO_TEST = {
     "checkbox_widget.py": "test_sidebar.py",
     "dialogs.py": "test_main_window.py",
     "main.py": "test_main_window.py",
+    "styles.py": "test_main_window.py",
+    "bulk_create_dialog.py": "test_bulk_create.py",
+    "fun_imports.py": "test_sidebar.py",
+    "checklist_widget.py": "test_main_window.py",
+    "resizable_mixin.py": "test_main_window.py",
+    "table_widget.py": "test_main_window.py",
 }
 
 

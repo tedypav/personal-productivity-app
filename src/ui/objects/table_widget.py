@@ -1,0 +1,481 @@
+import json
+
+from PyQt6.QtCore import QSize, Qt, pyqtSignal
+from PyQt6.QtWidgets import (
+    QHBoxLayout,
+    QLineEdit,
+    QPushButton,
+    QToolButton,
+    QVBoxLayout,
+    QWidget,
+)
+
+from src.models.page_object import PageObject
+from src.repositories.page_object_repo import PageObjectRepo
+from src.ui.objects.resizable_mixin import ResizableMixin
+
+__all__ = ["TableWidget"]
+
+
+class TableWidget(ResizableMixin, QWidget):
+    """A floating table card with editable cells."""
+
+    object_changed = pyqtSignal(int, str)
+    object_delete_requested = pyqtSignal(int)
+
+    def __init__(self, table_id, page_id=None, parent=None):
+        super().__init__(parent)
+        self.table_id = table_id
+        self.page_id = page_id
+        self._init_resizable_state()
+        self._MIN_H = 100
+        self.setObjectName("table_card")
+        self.setStyleSheet(
+            "#table_card {"
+            " background-color: #FFFFFF;"
+            " border: 1px solid #F7D1DC;"
+            " border-radius: 12px;"
+            "}"
+            "#table_card > QWidget {"
+            " background-color: transparent;"
+            "}"
+        )
+        self._layout = QVBoxLayout(self)
+        self._layout.setContentsMargins(0, 0, 0, 0)
+        self._layout.setSpacing(0)
+        self._build_header()
+        self._build_table()
+        self._install_border_filter()
+
+    def _build_header(self):
+        header = QWidget()
+        header.setFixedHeight(36)
+        header.setObjectName("table_header")
+        header.setCursor(Qt.CursorShape.OpenHandCursor)
+        header.setStyleSheet(
+            "#table_header {"
+            " background-color: #FFF0F3;"
+            " border-top-left-radius: 12px;"
+            " border-bottom: 1px solid #F7D1DC;"
+            "}"
+        )
+        header_layout = QHBoxLayout(header)
+        header_layout.setContentsMargins(12, 4, 12, 4)
+        header_layout.setSpacing(6)
+
+        title = QLineEdit("Table")
+        title.setPlaceholderText("Table")
+        title.setStyleSheet(
+            "QLineEdit { border: none; background: transparent;"
+            " font-family: 'Inter', sans-serif; font-size: 11px;"
+            " color: #8B6B7B; font-weight: 600; padding: 0; }"
+        )
+        title.returnPressed.connect(self._on_title_changed)
+        title.editingFinished.connect(self._on_title_changed)
+        self._title_edit = title
+        header_layout.addWidget(title)
+        header_layout.addStretch()
+
+        add_row_btn = QPushButton("+ Row")
+        add_row_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        add_row_btn.setStyleSheet(
+            "QPushButton {"
+            " font-size: 10px; color: #CFA6D6; background: transparent;"
+            " border: 1px solid #F0E6E8; border-radius: 10px;"
+            " padding: 2px 8px; font-family: 'Inter', sans-serif;"
+            "}"
+            "QPushButton:hover {"
+            " background: #FFF0F3; border-color: #CFA6D6; color: #9b59b6;"
+            "}"
+        )
+        add_row_btn.clicked.connect(self._add_row)
+        header_layout.addWidget(add_row_btn)
+
+        add_col_btn = QPushButton("+ Col")
+        add_col_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        add_col_btn.setStyleSheet(
+            "QPushButton {"
+            " font-size: 10px; color: #CFA6D6; background: transparent;"
+            " border: 1px solid #F0E6E8; border-radius: 10px;"
+            " padding: 2px 8px; font-family: 'Inter', sans-serif;"
+            "}"
+            "QPushButton:hover {"
+            " background: #FFF0F3; border-color: #CFA6D6; color: #9b59b6;"
+            "}"
+        )
+        add_col_btn.clicked.connect(self._add_column)
+        header_layout.addWidget(add_col_btn)
+
+        remove_row_btn = QPushButton("- Row")
+        remove_row_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        remove_row_btn.setStyleSheet(
+            "QPushButton {"
+            " font-size: 10px; color: #9CA3AF; background: transparent;"
+            " border: 1px solid #F0E6E8; border-radius: 10px;"
+            " padding: 2px 8px; font-family: 'Inter', sans-serif;"
+            "}"
+            "QPushButton:hover {"
+            " background: #FFF0F3; border-color: #EF4444; color: #EF4444;"
+            "}"
+        )
+        remove_row_btn.clicked.connect(self._remove_row)
+        header_layout.addWidget(remove_row_btn)
+
+        remove_col_btn = QPushButton("- Col")
+        remove_col_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        remove_col_btn.setStyleSheet(
+            "QPushButton {"
+            " font-size: 10px; color: #9CA3AF; background: transparent;"
+            " border: 1px solid #F0E6E8; border-radius: 10px;"
+            " padding: 2px 8px; font-family: 'Inter', sans-serif;"
+            "}"
+            "QPushButton:hover {"
+            " background: #FFF0F3; border-color: #EF4444; color: #EF4444;"
+            "}"
+        )
+        remove_col_btn.clicked.connect(self._remove_column)
+        header_layout.addWidget(remove_col_btn)
+
+        self._row_num_btn = QPushButton("#")
+        self._row_num_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._row_num_btn.setCheckable(True)
+        self._row_num_btn.setStyleSheet(
+            "QPushButton {"
+            " font-size: 10px; color: #9CA3AF; background: transparent;"
+            " border: 1px solid #F0E6E8; border-radius: 10px;"
+            " padding: 2px 8px; font-family: 'Inter', sans-serif;"
+            "}"
+            "QPushButton:hover {"
+            " background: #FFF0F3; border-color: #CFA6D6; color: #CFA6D6;"
+            "}"
+            "QPushButton:checked {"
+            " background: #F3E8F6; border-color: #CFA6D6; color: #CFA6D6;"
+            "}"
+        )
+        self._row_num_btn.clicked.connect(self._toggle_row_numbers)
+        header_layout.addWidget(self._row_num_btn)
+
+        delete_btn = QToolButton()
+        delete_btn.setText("×")
+        delete_btn.setFixedSize(28, 28)
+        delete_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        delete_btn.setStyleSheet(
+            "QToolButton {"
+            " border: none; font-size: 14px;"
+            " color: #4B5563; background: transparent;"
+            " }"
+            " QToolButton:hover {"
+            " color: #EF4444;"
+            " }"
+        )
+        delete_btn.clicked.connect(self._delete_table)
+        header_layout.addWidget(delete_btn)
+
+        self._header = header
+        self._layout.addWidget(header)
+
+    def _build_table(self):
+        from PyQt6.QtWidgets import QSizePolicy, QTableWidget
+
+        self._table = QTableWidget(2, 3)
+        self._table.setHorizontalHeaderLabels(["Column 1", "Column 2", "Column 3"])
+        self._table.verticalHeader().setVisible(False)
+        self._table.setSelectionMode(QTableWidget.SelectionMode.ContiguousSelection)
+        self._table.horizontalHeader().setStretchLastSection(True)
+        self._table.horizontalHeader().setFixedHeight(28)
+        self._table.verticalHeader().setDefaultSectionSize(32)
+        self._table.verticalHeader().setMinimumSectionSize(24)
+        self._table.horizontalHeader().sectionDoubleClicked.connect(self._rename_column)
+        self._table.setMinimumHeight(0)
+        self._table.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self._table.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self._table.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum
+        )
+        for c in range(self._table.columnCount()):
+            self._table.horizontalHeader().setSectionResizeMode(
+                c, self._table.horizontalHeader().ResizeMode.Stretch
+            )
+        self._table.setStyleSheet(
+            "QTableWidget {"
+            " border: none; gridline-color: #F7D1DC;"
+            " font-family: 'Inter', sans-serif; font-size: 13px;"
+            " color: #2E2B2B; background: #FFFFFF;"
+            " selection-background-color: #F3E8F6;"
+            " selection-color: #2E2B2B;"
+            "}"
+            "QTableWidget::item {"
+            " padding: 4px 8px; border: none;"
+            " border-radius: 6px;"
+            "}"
+            "QTableWidget::item:selected {"
+            " background: #F3E8F6; color: #2E2B2B;"
+            "}"
+            "QTableWidget QHeaderView::section {"
+            " background: #FFF0F3; border: none;"
+            " border-bottom: 1px solid #F7D1DC;"
+            " border-right: 1px solid #F7D1DC;"
+            " padding: 4px 8px;"
+            " font-family: 'Inter', sans-serif; font-size: 11px;"
+            " font-weight: 600; color: #8B6B7B;"
+            "}"
+            "QTableWidget QTableCornerButton::section {"
+            " background: #FFF0F3; border: none;"
+            " border-bottom: 1px solid #F7D1DC;"
+            " border-right: 1px solid #F7D1DC;"
+            "}"
+            "QTableWidget QLineEdit {"
+            " border: 1px solid #CFA6D6; border-radius: 6px;"
+            " padding: 4px 8px; font-family: 'Inter', sans-serif;"
+            " font-size: 13px; color: #2E2B2B; background: #FFFFFF;"
+            "}"
+            "QTableWidget QLineEdit:focus {"
+            " border-color: #9b59b6;"
+            "}"
+            "QScrollBar:vertical {"
+            " background: #FFFFFF; width: 8px; margin: 0; }"
+            "QScrollBar::handle:vertical {"
+            " background: #E8DDE0; border-radius: 4px; min-height: 20px; }"
+            "QScrollBar::handle:vertical:hover {"
+            " background: #CFA6D6; }"
+            "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {"
+            " height: 0; }"
+            "QScrollBar:horizontal {"
+            " background: #FFFFFF; height: 8px; margin: 0; }"
+            "QScrollBar::handle:horizontal {"
+            " background: #E8DDE0; border-radius: 4px; min-width: 20px; }"
+            "QScrollBar::handle:horizontal:hover {"
+            " background: #CFA6D6; }"
+            "QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {"
+            " width: 0; }"
+        )
+        self._table.cellChanged.connect(self._on_cell_changed)
+        self._layout.addWidget(self._table)
+
+    def sizeHint(self):
+        header_h = 36
+        table_header_h = 28
+        rows = self._table.rowCount()
+        row_h = 32
+        total_h = header_h + table_header_h + (rows * row_h)
+        return QSize(self.width(), total_h)
+
+    def _scale_rows_to_fit(self):
+        table_header_h = 28
+        rows = self._table.rowCount()
+        if rows == 0:
+            return
+        available_h = self.height() - 36 - table_header_h
+        row_h = max(24, available_h // rows)
+        for r in range(rows):
+            self._table.verticalHeader().resizeSection(r, row_h)
+
+    def _on_title_changed(self):
+        self._save_meta()
+
+    def _on_cell_changed(self, row, col):
+        self._save_meta()
+
+    def _add_row(self):
+        self._table.insertRow(self._table.rowCount())
+
+    def _add_column(self):
+        from PyQt6.QtWidgets import QTableWidgetItem
+
+        col = self._table.columnCount()
+        self._table.setColumnCount(col + 1)
+        self._table.setHorizontalHeaderItem(col, QTableWidgetItem(f"Column {col + 1}"))
+        self._table.horizontalHeader().setSectionResizeMode(
+            col, self._table.horizontalHeader().ResizeMode.Stretch
+        )
+
+    def _remove_row(self):
+        rows = self._table.selectionModel().selectedRows()
+        if rows:
+            for row in sorted(rows, reverse=True):
+                self._table.removeRow(row.row())
+        elif self._table.rowCount() > 1:
+            self._table.removeRow(self._table.rowCount() - 1)
+        self._save_meta()
+
+    def _remove_column(self):
+        cols = self._table.selectionModel().selectedColumns()
+        if cols:
+            for col in sorted(cols, reverse=True):
+                self._table.removeColumn(col.column())
+        elif self._table.columnCount() > 1:
+            self._table.removeColumn(self._table.columnCount() - 1)
+        self._save_meta()
+
+    def _toggle_row_numbers(self):
+        show = self._row_num_btn.isChecked()
+        self._table.verticalHeader().setVisible(show)
+        self._save_meta()
+
+    def _rename_column(self, logical_index):
+        current = self._table.horizontalHeaderItem(logical_index)
+        current_text = current.text() if current else ""
+
+        header = self._table.horizontalHeader()
+        x = header.sectionPosition(logical_index)
+        w = header.sectionSize(logical_index)
+        h = header.height()
+
+        edit = QLineEdit(self._table.viewport())
+        edit.setText(current_text)
+        edit.setGeometry(x, 0, w, h)
+        edit.setStyleSheet(
+            "QLineEdit { border: 1px solid #CFA6D6; border-radius: 4px;"
+            " padding: 2px 4px; font-family: 'Inter', sans-serif;"
+            " font-size: 11px; font-weight: 600; color: #8B6B7B;"
+            " background: #FFFFFF; }"
+        )
+        edit.setFocus()
+        edit.selectAll()
+        self._header_edit = edit
+        edit.show()
+
+        def finish_edit():
+            if self._header_edit is not edit:
+                return
+            new_text = edit.text().strip()
+            if new_text:
+                self._table.horizontalHeaderItem(logical_index).setText(new_text)
+                self._save_meta()
+            edit.deleteLater()
+            self._header_edit = None
+
+        edit.editingFinished.connect(finish_edit)
+
+    def _delete_table(self):
+        self.object_delete_requested.emit(self.table_id)
+
+    def _install_border_filter(self):
+        self._table.setMouseTracking(True)
+        self._table.viewport().installEventFilter(self)
+
+    def eventFilter(self, obj, event):
+        from PyQt6.QtCore import QEvent
+        from PyQt6.QtGui import QKeyEvent, QMouseEvent
+
+        is_viewport_child = self._table.viewport().isAncestorOf(obj)
+        if obj is not self._table.viewport() and not is_viewport_child:
+            return super().eventFilter(obj, event)
+
+        if isinstance(event, QKeyEvent):
+            if event.type() == QEvent.Type.KeyPress:
+                if event.key() == Qt.Key.Key_Tab:
+                    self._handle_tab(event)
+                    return True
+                if event.key() == Qt.Key.Key_Backtab:
+                    self._handle_tab(event, reverse=True)
+                    return True
+
+        if isinstance(event, QMouseEvent) and obj is self._table.viewport():
+            if event.type() == QEvent.Type.MouseMove:
+                pos = event.position().toPoint()
+                edge = self._detect_edge(pos)
+                if edge and not self._resizing and not self._dragging:
+                    self.setCursor(self._edge_cursor(edge))
+                elif not edge and not self._resizing and not self._dragging:
+                    self.setCursor(Qt.CursorShape.ArrowCursor)
+
+        return super().eventFilter(obj, event)
+
+    def _handle_tab(self, event, reverse=False):
+        row = self._table.currentRow()
+        col = self._table.currentColumn()
+        rows = self._table.rowCount()
+        cols = self._table.columnCount()
+
+        if reverse:
+            col -= 1
+            if col < 0:
+                col = cols - 1
+                row -= 1
+                if row < 0:
+                    row = rows - 1
+        else:
+            col += 1
+            if col >= cols:
+                col = 0
+                row += 1
+                if row >= rows:
+                    self._table.insertRow(rows)
+                    self._save_meta()
+
+        self._table.setCurrentCell(row, col)
+
+    def _save_meta(self):
+        repo = PageObjectRepo()
+        meta = repo.get_table_meta(self.page_id, self.table_id)
+        rows = self._table.rowCount()
+        cols = self._table.columnCount()
+        headers = [
+            self._table.horizontalHeaderItem(c).text()
+            if self._table.horizontalHeaderItem(c)
+            else ""
+            for c in range(cols)
+        ]
+        data = []
+        for r in range(rows):
+            row_data = []
+            for c in range(cols):
+                item = self._table.item(r, c)
+                row_data.append(item.text() if item else "")
+            data.append(row_data)
+        content = json.dumps(
+            {
+                "x": self.x(),
+                "y": self.y(),
+                "width": self.width(),
+                "title": self._title_edit.text(),
+                "headers": headers,
+                "data": data,
+                "show_row_numbers": self._row_num_btn.isChecked(),
+            }
+        )
+        if meta:
+            meta.content = content
+            repo.update(meta)
+        else:
+            obj = PageObject(
+                page_id=self.page_id,
+                object_type="table_meta",
+                content=content,
+                sort_order=self.table_id * 100 + 50,
+            )
+            repo.create(obj)
+
+    def _load_meta(self):
+        meta = PageObjectRepo().get_table_meta(self.page_id, self.table_id)
+        if meta:
+            data = json.loads(meta.content)
+            self._user_width = data.get("width")
+            title = data.get("title", "Table")
+            self._title_edit.setText(title)
+            headers = data.get("headers", ["Column 1", "Column 2", "Column 3"])
+            rows_data = data.get("data", [["", "", ""], ["", "", ""]])
+            self._table.setColumnCount(len(headers))
+            self._table.setHorizontalHeaderLabels(headers)
+            self._table.setRowCount(len(rows_data))
+            from PyQt6.QtWidgets import QTableWidgetItem
+
+            for r, row in enumerate(rows_data):
+                for c, val in enumerate(row):
+                    self._table.setItem(r, c, QTableWidgetItem(val))
+            show_row_nums = data.get("show_row_numbers", False)
+            self._row_num_btn.setChecked(show_row_nums)
+            self._table.verticalHeader().setVisible(show_row_nums)
+            x = data.get("x")
+            y = data.get("y")
+            if x is not None and y is not None:
+                self._loaded_pos = (x, y)
+                self.move(x, y)
+            else:
+                self._loaded_pos = None
+        else:
+            self._loaded_pos = None
+
+    def _min_height(self):
+        return self._MIN_H

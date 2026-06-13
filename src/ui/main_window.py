@@ -78,13 +78,6 @@ class MainWindow(QMainWindow):
         undo_z.triggered.connect(self._undo_delete)
         self.sidebar.addAction(undo_z)
 
-        self._auto_save_timer = QTimer(self)
-        self._auto_save_timer.setInterval(
-            self.settings.get("auto_save_interval_ms", 1000)
-        )
-        self._auto_save_timer.timeout.connect(self._auto_save)
-        self._auto_save_timer.start()
-
         QTimer.singleShot(0, self.showMaximized)
 
     def _make_action(self, menu, text, slot, shortcut=None):
@@ -166,9 +159,6 @@ class MainWindow(QMainWindow):
                     self.sidebar.page_selected.emit(page_id)
                     return
                 stack.append(child)
-
-    def _auto_save(self):
-        self.editor.save_current()
 
     def _new_page(self):
         self.sidebar._create_page()
