@@ -713,7 +713,6 @@ class TableWidget(QWidget):
         self._table.verticalHeader().setVisible(False)
         self._table.setSelectionMode(QTableWidget.SelectionMode.ContiguousSelection)
         self._table.horizontalHeader().setStretchLastSection(True)
-        self._table.verticalHeader().setStretchLastSection(True)
         self._table.verticalHeader().setDefaultSectionSize(32)
         self._table.verticalHeader().setMinimumSectionSize(32)
         self._table.verticalHeader().setMaximumSectionSize(32)
