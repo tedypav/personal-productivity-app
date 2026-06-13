@@ -408,6 +408,7 @@ class ChecklistWidget(QWidget):
                 child = self._header.childAt(pos)
                 if child is self._title_edit:
                     return
+                self.setFocus()
                 self._dragging = True
                 self._drag_start = event.globalPosition().toPoint() - self.pos()
                 self._header.setCursor(Qt.CursorShape.ClosedHandCursor)

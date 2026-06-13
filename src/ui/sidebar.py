@@ -1102,10 +1102,14 @@ class Sidebar(QWidget):
         has_pages = self.tree.topLevelItemCount() > 0
         has_templates = self.template_tree.topLevelItemCount() > 0
 
-        self.tree.header().resizeSection(1, 24)
-        self.tree.header().setStretchLastSection(False)
-        self.template_tree.header().resizeSection(1, 24)
-        self.template_tree.header().setStretchLastSection(False)
+        header = self.tree.header()
+        header.setSectionResizeMode(0, header.ResizeMode.Stretch)
+        header.setSectionResizeMode(1, header.ResizeMode.Fixed)
+        header.resizeSection(1, 24)
+        header = self.template_tree.header()
+        header.setSectionResizeMode(0, header.ResizeMode.Stretch)
+        header.setSectionResizeMode(1, header.ResizeMode.Fixed)
+        header.resizeSection(1, 24)
 
         if not has_pages and not has_templates:
             if not self._empty_hint:
