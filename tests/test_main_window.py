@@ -1435,3 +1435,104 @@ class TestTableWidget:
         table2._load_meta()
         assert table2._table.item(0, 0).text() == "Hello"
         assert table2._table.item(1, 2).text() == "World"
+
+    def test_column_rename(self, main_window):
+        from src.ui.editor import TableWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        table = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        table._table.horizontalHeaderItem(0).setText("Task")
+        assert table._table.horizontalHeaderItem(0).text() == "Task"
+
+    def test_column_rename_persists(self, main_window):
+        from src.ui.editor import TableWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        table = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        table._table.horizontalHeaderItem(1).setText("Due Date")
+        table._save_meta()
+
+        table2 = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        table2._load_meta()
+        assert table2._table.horizontalHeaderItem(1).text() == "Due Date"
+
+    def test_row_number_toggle(self, main_window):
+        from src.ui.editor import TableWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        table = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        assert not table._row_num_btn.isChecked()
+
+        table._row_num_btn.setChecked(True)
+        table._toggle_row_numbers()
+        assert table._row_num_btn.isChecked()
+
+        table._row_num_btn.setChecked(False)
+        table._toggle_row_numbers()
+        assert not table._row_num_btn.isChecked()
+
+    def test_row_number_toggle_persists(self, main_window):
+        from src.ui.editor import TableWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        table = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        table._row_num_btn.setChecked(True)
+        table._toggle_row_numbers()
+        table._save_meta()
+
+        table2 = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        table2._load_meta()
+        assert table2._row_num_btn.isChecked()
+
+    def test_remove_row(self, main_window):
+        from src.ui.editor import TableWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        table = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        initial = table._table.rowCount()
+        table._remove_row()
+        assert table._table.rowCount() == initial - 1
+
+    def test_remove_row_keeps_minimum(self, main_window):
+        from src.ui.editor import TableWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        table = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        table._remove_row()
+        assert table._table.rowCount() == 1
+
+    def test_remove_column(self, main_window):
+        from src.ui.editor import TableWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        table = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        initial = table._table.columnCount()
+        table._remove_column()
+        assert table._table.columnCount() == initial - 1
+
+    def test_remove_column_keeps_minimum(self, main_window):
+        from src.ui.editor import TableWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        table = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        table._remove_column()
+        table._remove_column()
+        assert table._table.columnCount() == 1
+        table._remove_column()
+        assert table._table.columnCount() == 1

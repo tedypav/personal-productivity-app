@@ -925,6 +925,7 @@ class TableWidget(QWidget):
                 "title": self._title_edit.text(),
                 "headers": headers,
                 "data": data,
+                "show_row_numbers": self._row_num_btn.isChecked(),
             }
         )
         if meta:
@@ -960,6 +961,9 @@ class TableWidget(QWidget):
             for r, row in enumerate(rows_data):
                 for c, val in enumerate(row):
                     self._table.setItem(r, c, QTableWidgetItem(val))
+            show_row_nums = data.get("show_row_numbers", False)
+            self._row_num_btn.setChecked(show_row_nums)
+            self._table.verticalHeader().setVisible(show_row_nums)
             x = data.get("x")
             y = data.get("y")
             if x is not None and y is not None:
