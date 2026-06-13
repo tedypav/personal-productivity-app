@@ -1371,7 +1371,7 @@ class TestTableWidget:
         assert vh.maximumSectionSize() == 32
         assert vh.defaultSectionSize() == 32
 
-    def test_table_vertical_size_policy_is_preferred(self, main_window):
+    def test_table_vertical_size_policy_is_maximum(self, main_window):
         from PyQt6.QtWidgets import QSizePolicy
 
         from src.ui.editor import TableWidget
@@ -1381,7 +1381,7 @@ class TestTableWidget:
 
         table = TableWidget(0, page_id=pid, parent=main_window.editor.content)
         policy = table._table.sizePolicy()
-        assert policy.verticalPolicy() == QSizePolicy.Policy.Preferred
+        assert policy.verticalPolicy() == QSizePolicy.Policy.Maximum
 
     def test_new_table_has_fresh_defaults(self, main_window):
         from src.ui.editor import TableWidget

@@ -721,7 +721,7 @@ class TableWidget(QWidget):
         from PyQt6.QtWidgets import QSizePolicy
 
         self._table.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum
         )
         for c in range(self._table.columnCount()):
             self._table.horizontalHeader().setSectionResizeMode(
@@ -736,7 +736,8 @@ class TableWidget(QWidget):
             " selection-color: #2E2B2B;"
             "}"
             "QTableWidget::item {"
-            " padding: 2px 8px; border: none;"
+            " padding: 4px 8px; border: none;"
+            " border-radius: 6px;"
             "}"
             "QTableWidget::item:selected {"
             " background: #F3E8F6; color: #2E2B2B;"
@@ -755,8 +756,8 @@ class TableWidget(QWidget):
             " border-right: 1px solid #F7D1DC;"
             "}"
             "QTableWidget QLineEdit {"
-            " border: 1px solid #CFA6D6; border-radius: 4px;"
-            " padding: 2px 4px; font-family: 'Inter', sans-serif;"
+            " border: 1px solid #CFA6D6; border-radius: 6px;"
+            " padding: 4px 8px; font-family: 'Inter', sans-serif;"
             " font-size: 13px; color: #2E2B2B; background: #FFFFFF;"
             "}"
             "QTableWidget QLineEdit:focus {"
@@ -1459,7 +1460,12 @@ class PageEditor(QWidget):
             self._table_btn.show()
             self._add_btn.show()
             self._position_floating_button()
-            if not self._objects:
+            content_objects = [
+                o
+                for o in self._objects
+                if o.object_type not in ("checklist_meta", "table_meta")
+            ]
+            if not content_objects:
                 self._page_empty_hint.show()
                 self._center_empty_hint()
             else:
