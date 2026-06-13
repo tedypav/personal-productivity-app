@@ -623,7 +623,7 @@ class TableWidget(QWidget):
         add_row_btn.clicked.connect(self._add_row)
         header_layout.addWidget(add_row_btn)
 
-        add_col_btn = QPushButton("+ Cell")
+        add_col_btn = QPushButton("+ Col")
         add_col_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         add_col_btn.setStyleSheet(
             "QPushButton {"
@@ -664,6 +664,7 @@ class TableWidget(QWidget):
         self._table.verticalHeader().setVisible(False)
         self._table.setSelectionMode(QTableWidget.SelectionMode.ContiguousSelection)
         self._table.horizontalHeader().setStretchLastSection(True)
+        self._table.verticalHeader().setDefaultSectionSize(32)
         for c in range(self._table.columnCount()):
             self._table.horizontalHeader().setSectionResizeMode(
                 c, self._table.horizontalHeader().ResizeMode.Stretch
@@ -677,7 +678,7 @@ class TableWidget(QWidget):
             " selection-color: #2E2B2B;"
             "}"
             "QTableWidget::item {"
-            " padding: 4px 8px; border: none;"
+            " padding: 2px 8px; border: none;"
             "}"
             "QTableWidget::item:selected {"
             " background: #F3E8F6; color: #2E2B2B;"
