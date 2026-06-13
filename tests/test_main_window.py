@@ -1160,22 +1160,21 @@ class TestDeleteKeyboard:
 
 
 class TestSidebarDeleteButton:
-    def test_regular_page_has_delete_button(self, main_window):
+    def test_regular_page_has_delete_flag(self, main_window):
         from PyQt6.QtCore import Qt
-        from PyQt6.QtWidgets import QToolButton
 
         PageRepo().create(Page(title="TestPage"))
         main_window.sidebar.refresh()
 
         items = main_window.sidebar.tree.findItems(
-            "TestPage", Qt.MatchFlag.MatchExactly | Qt.MatchFlag.MatchRecursive
+            "TestPage",
+            Qt.MatchFlag.MatchExactly | Qt.MatchFlag.MatchRecursive,
         )
         assert len(items) == 1
-        btn = main_window.sidebar.tree.itemWidget(items[0], 1)
-        assert isinstance(btn, QToolButton)
-        assert btn.text() == "\u00d7"
+        can_delete = items[0].data(0, Qt.ItemDataRole.UserRole + 2)
+        assert can_delete is True
 
-    def test_system_folder_has_no_delete_button(self, main_window):
+    def test_system_folder_has_no_delete_flag(self, main_window):
         from PyQt6.QtCore import Qt
 
         PageRepo().create(Page(title="Templates", page_type="folder"))
@@ -1186,23 +1185,23 @@ class TestSidebarDeleteButton:
             Qt.MatchFlag.MatchExactly | Qt.MatchFlag.MatchRecursive,
         )
         assert len(items) >= 1
-        btn = main_window.sidebar.template_tree.itemWidget(items[0], 1)
-        assert btn is None
+        can_delete = items[0].data(0, Qt.ItemDataRole.UserRole + 2)
+        assert can_delete is False
 
-    def test_child_of_system_folder_has_delete_button(self, main_window):
+    def test_child_of_system_folder_has_delete_flag(self, main_window):
         from PyQt6.QtCore import Qt
-        from PyQt6.QtWidgets import QToolButton
 
-        folder_id = PageRepo().create(Page(title="Archive", page_type="folder"))
+        folder_id = PageRepo().create(Page(title="Templates", page_type="folder"))
         PageRepo().create(Page(title="Old Notes", parent_id=folder_id))
         main_window.sidebar.refresh()
 
         items = main_window.sidebar.template_tree.findItems(
-            "Old Notes", Qt.MatchFlag.MatchExactly | Qt.MatchFlag.MatchRecursive
+            "Old Notes",
+            Qt.MatchFlag.MatchExactly | Qt.MatchFlag.MatchRecursive,
         )
         assert len(items) == 1
-        btn = main_window.sidebar.template_tree.itemWidget(items[0], 1)
-        assert isinstance(btn, QToolButton)
+        can_delete = items[0].data(0, Qt.ItemDataRole.UserRole + 2)
+        assert can_delete is True
 
     def test_delete_button_removes_page(self, main_window):
         from PyQt6.QtCore import Qt
@@ -1211,25 +1210,19 @@ class TestSidebarDeleteButton:
         main_window.sidebar.refresh()
 
         items = main_window.sidebar.tree.findItems(
-            "TestPage", Qt.MatchFlag.MatchExactly | Qt.MatchFlag.MatchRecursive
+            "TestPage",
+            Qt.MatchFlag.MatchExactly | Qt.MatchFlag.MatchRecursive,
         )
         assert len(items) == 1
-        btn = main_window.sidebar.tree.itemWidget(items[0], 1)
-        btn.click()
+        main_window.sidebar._delete_item(pid)
 
         assert PageRepo().get_by_id(pid) is None
 
     def test_delete_button_clears_editor_if_page_open(self, main_window):
-        from PyQt6.QtCore import Qt
-
         pid = PageRepo().create(Page(title="TestPage"))
         main_window.editor.load_page(pid)
         main_window.sidebar.refresh()
 
-        items = main_window.sidebar.tree.findItems(
-            "TestPage", Qt.MatchFlag.MatchExactly | Qt.MatchFlag.MatchRecursive
-        )
-        btn = main_window.sidebar.tree.itemWidget(items[0], 1)
-        btn.click()
+        main_window.sidebar._delete_item(pid)
 
         assert main_window.editor.current_page_id is None

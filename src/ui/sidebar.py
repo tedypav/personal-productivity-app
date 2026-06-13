@@ -1,6 +1,6 @@
 import os
 
-from PyQt6.QtCore import QDate, QMimeData, QSize, Qt, pyqtSignal
+from PyQt6.QtCore import QDate, QMimeData, QObject, QSize, Qt, pyqtSignal
 from PyQt6.QtGui import QAction, QFont, QIcon, QKeySequence
 from PyQt6.QtWidgets import (
     QAbstractItemView,
@@ -31,6 +31,54 @@ from src.repositories.page_repo import PageRepo
 from src.settings import load_settings
 from src.ui.dialogs import create_dialog_header
 from src.undo_manager import capture_page_tree, undo_manager
+
+
+class DeleteButtonDelegate(QObject):
+    def __init__(self, tree, sidebar):
+        super().__init__(tree)
+        self._tree = tree
+        self._sidebar = sidebar
+        self._hovered_row = -1
+        tree.setMouseTracking(True)
+        tree.viewport().installEventFilter(self)
+
+    def eventFilter(self, obj, event):
+        from PyQt6.QtCore import QEvent
+
+        if event.type() == QEvent.Type.MouseMove:
+            pos = event.position().toPoint()
+            item = self._tree.itemAt(pos)
+            new_row = self._tree.indexFromItem(item).row() if item else -1
+            if new_row != self._hovered_row:
+                self._hovered_row = new_row
+                self._tree.viewport().update()
+        elif event.type() == QEvent.Type.MouseButtonPress:
+            pos = event.position().toPoint()
+            item = self._tree.itemAt(pos)
+            if item:
+                can_delete = item.data(0, Qt.ItemDataRole.UserRole + 2)
+                if can_delete:
+                    rect = self._tree.visualItemRect(item)
+                    btn_rect = self._get_button_rect(rect)
+                    if btn_rect.contains(pos):
+                        page_id = item.data(0, Qt.ItemDataRole.UserRole)
+                        self._sidebar._delete_item(page_id)
+                        return True
+        elif event.type() == QEvent.Type.Leave:
+            self._hovered_row = -1
+            self._tree.viewport().update()
+        return False
+
+    def _get_button_rect(self, item_rect):
+        from PyQt6.QtCore import QRect
+
+        btn_size = 18
+        return QRect(
+            item_rect.right() - btn_size - 6,
+            item_rect.top() + (item_rect.height() - btn_size) // 2,
+            btn_size,
+            btn_size,
+        )
 
 
 def _get_icon_path(name):
@@ -875,7 +923,6 @@ class Sidebar(QWidget):
         self.tree = PageTreeWidget()
         self.tree.set_sidebar(self)
         self.tree.setHeaderHidden(True)
-        self.tree.setColumnCount(2)
         self.tree.setIndentation(16)
         self.tree.setAnimated(True)
         self.tree.setIconSize(QSize(20, 20))
@@ -889,7 +936,6 @@ class Sidebar(QWidget):
 
         self.template_tree = QTreeWidget()
         self.template_tree.setHeaderHidden(True)
-        self.template_tree.setColumnCount(2)
         self.template_tree.setIndentation(16)
         self.template_tree.setAnimated(True)
         self.template_tree.setIconSize(QSize(20, 20))
@@ -902,6 +948,9 @@ class Sidebar(QWidget):
         self.template_tree.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
         )
+
+        self._tree_delegate = DeleteButtonDelegate(self.tree, self)
+        self._template_delegate = DeleteButtonDelegate(self.template_tree, self)
 
         self._splitter = QSplitter(Qt.Orientation.Vertical)
         self._splitter.addWidget(self.tree)
@@ -1052,20 +1101,7 @@ class Sidebar(QWidget):
                 and page.page_type == "folder"
                 and page.title in special_titles
             )
-            if not is_system_folder:
-                from PyQt6.QtWidgets import QToolButton
-
-                btn = QToolButton()
-                btn.setText("\u00d7")
-                btn.setFixedSize(20, 20)
-                btn.setCursor(Qt.CursorShape.PointingHandCursor)
-                btn.setStyleSheet(
-                    "QToolButton { border: none; font-size: 14px;"
-                    " color: #9CA3AF; background: transparent; }"
-                    " QToolButton:hover { color: #EF4444; }"
-                )
-                btn.clicked.connect(lambda checked, p=page: self._delete_item(p.id))
-                tree.setItemWidget(item, 1, btn)
+            item.setData(0, Qt.ItemDataRole.UserRole + 2, not is_system_folder)
             return item
 
         def add_children(parent_item, parent_id, tree):
@@ -1101,15 +1137,6 @@ class Sidebar(QWidget):
             self._restore_expanded(self.template_tree, template_expanded_ids)
         has_pages = self.tree.topLevelItemCount() > 0
         has_templates = self.template_tree.topLevelItemCount() > 0
-
-        header = self.tree.header()
-        header.setSectionResizeMode(0, header.ResizeMode.Stretch)
-        header.setSectionResizeMode(1, header.ResizeMode.Fixed)
-        header.resizeSection(1, 24)
-        header = self.template_tree.header()
-        header.setSectionResizeMode(0, header.ResizeMode.Stretch)
-        header.setSectionResizeMode(1, header.ResizeMode.Fixed)
-        header.resizeSection(1, 24)
 
         if not has_pages and not has_templates:
             if not self._empty_hint:
