@@ -963,7 +963,9 @@ class Sidebar(QWidget):
         )
 
         self._tree_delegate = DeleteButtonDelegate(self.tree, self)
+        self.tree.setItemDelegate(self._tree_delegate)
         self._template_delegate = DeleteButtonDelegate(self.template_tree, self)
+        self.template_tree.setItemDelegate(self._template_delegate)
 
         self._splitter = QSplitter(Qt.Orientation.Vertical)
         self._splitter.addWidget(self.tree)
