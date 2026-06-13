@@ -1535,3 +1535,176 @@ class TestTableWidget:
         assert table._table.columnCount() == 1
         table._remove_column()
         assert table._table.columnCount() == 1
+
+
+class TestTableResize:
+    def test_detect_edge_right(self, main_window):
+        from src.ui.editor import TableWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        table = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        table.setFixedWidth(400)
+        table.resize(400, 200)
+        from PyQt6.QtCore import QPoint
+
+        pos = QPoint(398, 100)
+        assert table._detect_edge(pos) == "right"
+
+    def test_detect_edge_left(self, main_window):
+        from src.ui.editor import TableWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        table = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        table.setFixedWidth(400)
+        table.resize(400, 200)
+        from PyQt6.QtCore import QPoint
+
+        pos = QPoint(3, 100)
+        assert table._detect_edge(pos) == "left"
+
+    def test_detect_edge_bottom(self, main_window):
+        from src.ui.editor import TableWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        table = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        table.setFixedWidth(400)
+        table._add_row()
+        table.resize(400, 200)
+        from PyQt6.QtCore import QPoint
+
+        pos = QPoint(200, table.height() - 3)
+        assert table._detect_edge(pos) == "bottom"
+
+    def test_detect_edge_bottom_right(self, main_window):
+        from src.ui.editor import TableWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        table = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        table.setFixedWidth(400)
+        table._add_row()
+        table.resize(400, 200)
+        from PyQt6.QtCore import QPoint
+
+        pos = QPoint(398, table.height() - 3)
+        assert table._detect_edge(pos) == "bottom-right"
+
+    def test_detect_edge_none_in_center(self, main_window):
+        from src.ui.editor import TableWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        table = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        table.setFixedWidth(400)
+        table._add_row()
+        table.resize(400, 200)
+        from PyQt6.QtCore import QPoint
+
+        pos = QPoint(200, 100)
+        assert table._detect_edge(pos) is None
+
+    def test_resize_state_initialized(self, main_window):
+        from src.ui.editor import TableWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        table = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        assert table._resizing is False
+        assert table._resize_edge is None
+
+    def test_scale_rows_to_fit(self, main_window):
+        from src.ui.editor import TableWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        table = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        table.setFixedWidth(400)
+        table._add_row()
+        table._add_row()
+        table.resize(400, 200)
+        table._scale_rows_to_fit()
+
+        vh = table._table.verticalHeader()
+        for r in range(table._table.rowCount()):
+            assert vh.sectionSize(r) >= 24
+
+
+class TestTableTab:
+    def test_tab_creates_new_row(self, main_window):
+        from src.ui.editor import TableWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        table = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        table.setFixedWidth(400)
+        table.resize(400, 200)
+
+        initial_rows = table._table.rowCount()
+        table._table.setCurrentCell(initial_rows - 1, table._table.columnCount() - 1)
+        from PyQt6.QtCore import QEvent, Qt
+        from PyQt6.QtGui import QKeyEvent
+
+        event = QKeyEvent(
+            QEvent.Type.KeyPress,
+            Qt.Key.Key_Tab,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        table._handle_tab(event)
+        assert table._table.rowCount() == initial_rows + 1
+
+    def test_tab_moves_to_next_cell(self, main_window):
+        from src.ui.editor import TableWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        table = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        table.setFixedWidth(400)
+        table.resize(400, 200)
+
+        table._table.setCurrentCell(0, 0)
+        from PyQt6.QtCore import QEvent, Qt
+        from PyQt6.QtGui import QKeyEvent
+
+        event = QKeyEvent(
+            QEvent.Type.KeyPress,
+            Qt.Key.Key_Tab,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        table._handle_tab(event)
+        assert table._table.currentRow() == 0
+        assert table._table.currentColumn() == 1
+
+    def test_shift_tab_moves_to_previous_cell(self, main_window):
+        from src.ui.editor import TableWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        table = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        table.setFixedWidth(400)
+        table.resize(400, 200)
+
+        table._table.setCurrentCell(0, 1)
+        from PyQt6.QtCore import QEvent, Qt
+        from PyQt6.QtGui import QKeyEvent
+
+        event = QKeyEvent(
+            QEvent.Type.KeyPress,
+            Qt.Key.Key_Backtab,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        table._handle_tab(event, reverse=True)
+        assert table._table.currentRow() == 0
+        assert table._table.currentColumn() == 0
