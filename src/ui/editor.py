@@ -718,6 +718,8 @@ class TableWidget(QWidget):
         self._table.verticalHeader().setMaximumSectionSize(32)
         self._table.horizontalHeader().sectionDoubleClicked.connect(self._rename_column)
         self._table.setMinimumHeight(0)
+        self._table.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self._table.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         from PyQt6.QtWidgets import QSizePolicy
 
         self._table.setSizePolicy(
@@ -1460,12 +1462,7 @@ class PageEditor(QWidget):
             self._table_btn.show()
             self._add_btn.show()
             self._position_floating_button()
-            content_objects = [
-                o
-                for o in self._objects
-                if o.object_type not in ("checklist_meta", "table_meta")
-            ]
-            if not content_objects:
+            if not self._objects:
                 self._page_empty_hint.show()
                 self._center_empty_hint()
             else:
