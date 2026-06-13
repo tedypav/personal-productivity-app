@@ -826,14 +826,13 @@ class TableWidget(QWidget):
         current_text = current.text() if current else ""
 
         header = self._table.horizontalHeader()
-        section_rect = header.sectionRect(logical_index)
-        header_pos = header.mapTo(self._table.viewport(), section_rect.topLeft())
+        x = header.sectionPosition(logical_index)
+        w = header.sectionSize(logical_index)
+        h = header.height()
 
         edit = QLineEdit(self._table.viewport())
         edit.setText(current_text)
-        edit.setGeometry(
-            header_pos.x(), header_pos.y(), section_rect.width(), section_rect.height()
-        )
+        edit.setGeometry(x, 0, w, h)
         edit.setStyleSheet(
             "QLineEdit { border: 1px solid #CFA6D6; border-radius: 4px;"
             " padding: 2px 4px; font-family: 'Inter', sans-serif;"
