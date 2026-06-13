@@ -870,12 +870,13 @@ class TableWidget(QWidget):
     def _install_border_filter(self):
         self._table.setMouseTracking(True)
         self._table.viewport().installEventFilter(self)
+        self._table.installEventFilter(self)
 
     def eventFilter(self, obj, event):
         from PyQt6.QtCore import QEvent
         from PyQt6.QtGui import QKeyEvent, QMouseEvent
 
-        if obj is not self._table.viewport():
+        if obj not in (self._table, self._table.viewport()):
             return super().eventFilter(obj, event)
 
         if isinstance(event, QKeyEvent):
