@@ -1286,3 +1286,63 @@ class TestSidebarDeleteButton:
 
         assert PageRepo().get_by_id(fid) is None
         assert PageRepo().get_by_id(child_id) is None
+
+
+class TestTableWidget:
+    def test_add_table_creates_widget(self, main_window):
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+        main_window.editor._add_table()
+
+        assert len(main_window.editor._tables) == 1
+
+    def test_add_table_hides_empty_hint(self, main_window):
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+        assert main_window.editor._page_empty_hint.isVisible()
+        main_window.editor._add_table()
+        assert not main_window.editor._page_empty_hint.isVisible()
+
+    def test_table_has_grid(self, main_window):
+        from src.ui.editor import TableWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        table = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        assert table._table.rowCount() == 2
+        assert table._table.columnCount() == 3
+
+    def test_table_add_row(self, main_window):
+        from src.ui.editor import TableWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        table = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        initial_rows = table._table.rowCount()
+        table._add_row()
+        assert table._table.rowCount() == initial_rows + 1
+
+    def test_table_title_editable(self, main_window):
+        from src.ui.editor import TableWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        table = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        table._title_edit.setText("My Table")
+        assert table._title_edit.text() == "My Table"
+
+    def test_table_delete_signal(self, main_window):
+        from src.ui.editor import TableWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        table = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        received = []
+        table.object_delete_requested.connect(lambda tid: received.append(tid))
+
+        table._delete_table()
+        assert received == [0]

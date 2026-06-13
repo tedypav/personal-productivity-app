@@ -74,3 +74,14 @@ class PageObjectRepo:
             (page_id, sort_order),
         ).fetchone()
         return PageObject(**dict(row)) if row else None
+
+    @staticmethod
+    def get_table_meta(page_id: int, table_id: int) -> PageObject | None:
+        conn = get_connection()
+        sort_order = table_id * 100 + 50
+        row = conn.execute(
+            "SELECT * FROM page_objects WHERE page_id=?"
+            " AND object_type='table_meta' AND sort_order=?",
+            (page_id, sort_order),
+        ).fetchone()
+        return PageObject(**dict(row)) if row else None

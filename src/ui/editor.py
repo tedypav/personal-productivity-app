@@ -540,6 +540,230 @@ class ChecklistWidget(QWidget):
         self._refresh_size()
 
 
+class TableWidget(QWidget):
+    """A floating table card with editable cells."""
+
+    object_changed = pyqtSignal(int, str)
+    object_delete_requested = pyqtSignal(int)
+
+    def __init__(self, table_id, page_id=None, parent=None):
+        super().__init__(parent)
+        self.table_id = table_id
+        self.page_id = page_id
+        self._dragging = False
+        self._drag_start = None
+        self._resizing = False
+        self._resize_edge = None
+        self._resize_start = None
+        self._resize_origin = None
+        self._user_width = None
+        self._loaded_pos = None
+        self._MIN_W = 200
+        self._MIN_H = 100
+        self._BORDER = 8
+        self.setObjectName("table_card")
+        self.setStyleSheet(
+            "#table_card {"
+            " background-color: #FFFFFF;"
+            " border: 1px solid #F7D1DC;"
+            " border-radius: 12px;"
+            "}"
+            "#table_card > QWidget {"
+            " background-color: transparent;"
+            "}"
+        )
+        self._layout = QVBoxLayout(self)
+        self._layout.setContentsMargins(0, 0, 0, 0)
+        self._layout.setSpacing(0)
+
+        header = QWidget()
+        header.setFixedHeight(36)
+        header.setObjectName("table_header")
+        header.setCursor(Qt.CursorShape.OpenHandCursor)
+        header.setStyleSheet(
+            "#table_header {"
+            " background-color: #FFF0F3;"
+            " border-top-left-radius: 12px;"
+            " border-bottom: 1px solid #F7D1DC;"
+            "}"
+        )
+        header_layout = QHBoxLayout(header)
+        header_layout.setContentsMargins(12, 4, 12, 4)
+        header_layout.setSpacing(6)
+
+        from PyQt6.QtWidgets import QLineEdit
+
+        title = QLineEdit("Table")
+        title.setPlaceholderText("Table")
+        title.setStyleSheet(
+            "QLineEdit { border: none; background: transparent;"
+            " font-family: 'Inter', sans-serif; font-size: 11px;"
+            " color: #8B6B7B; font-weight: 600; padding: 0; }"
+        )
+        title.returnPressed.connect(self._on_title_changed)
+        title.editingFinished.connect(self._on_title_changed)
+        self._title_edit = title
+        header_layout.addWidget(title)
+        header_layout.addStretch()
+
+        from PyQt6.QtWidgets import QToolButton
+
+        delete_btn = QToolButton()
+        delete_btn.setText("×")
+        delete_btn.setFixedSize(28, 28)
+        delete_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        delete_btn.setStyleSheet(
+            "QToolButton {"
+            " border: none; font-size: 14px;"
+            " color: #4B5563; background: transparent;"
+            " }"
+            " QToolButton:hover {"
+            " color: #EF4444;"
+            " }"
+        )
+        delete_btn.clicked.connect(self._delete_table)
+        header_layout.addWidget(delete_btn)
+
+        self._header = header
+        self._layout.addWidget(header)
+
+        from PyQt6.QtWidgets import QTableWidget
+
+        self._table = QTableWidget(2, 3)
+        self._table.setHorizontalHeaderLabels(["Column 1", "Column 2", "Column 3"])
+        self._table.verticalHeader().setVisible(False)
+        self._table.setSelectionMode(QTableWidget.SelectionMode.ContiguousSelection)
+        self._table.setStyleSheet(
+            "QTableWidget {"
+            " border: none; gridline-color: #F7D1DC;"
+            " font-family: 'Inter', sans-serif; font-size: 13px;"
+            " color: #2E2B2B; background: #FFFFFF;"
+            " selection-background-color: #F3E8F6;"
+            " selection-color: #2E2B2B;"
+            "}"
+            "QTableWidget::item {"
+            " padding: 4px 8px; border: none;"
+            "}"
+            "QTableWidget::item:selected {"
+            " background: #F3E8F6; color: #2E2B2B;"
+            "}"
+            "QHeaderView::section {"
+            " background: #FFF0F3; border: none;"
+            " border-bottom: 1px solid #F7D1DC;"
+            " border-right: 1px solid #F7D1DC;"
+            " padding: 4px 8px;"
+            " font-family: 'Inter', sans-serif; font-size: 11px;"
+            " font-weight: 600; color: #8B6B7B;"
+            "}"
+            "QTableCornerButton::section {"
+            " background: #FFF0F3; border: none;"
+            " border-bottom: 1px solid #F7D1DC;"
+            " border-right: 1px solid #F7D1DC;"
+            "}"
+        )
+        self._table.cellChanged.connect(self._on_cell_changed)
+        self._layout.addWidget(self._table)
+
+        from PyQt6.QtWidgets import QPushButton
+
+        add_row_btn = QPushButton("+ Add row")
+        add_row_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        add_row_btn.setStyleSheet(
+            "QPushButton { border: none; font-size: 12px; color: #CFA6D6;"
+            " padding: 8px 12px; text-align: left;"
+            " font-family: 'Inter', sans-serif;"
+            " background: #FFFFFF; }"
+            " QPushButton:hover { color: #9b59b6; }"
+        )
+        add_row_btn.clicked.connect(self._add_row)
+        self._layout.addWidget(add_row_btn)
+
+    def _on_title_changed(self):
+        self._save_meta()
+
+    def _on_cell_changed(self, row, col):
+        self._save_meta()
+
+    def _add_row(self):
+        self._table.insertRow(self._table.rowCount())
+
+    def _delete_table(self):
+        self.object_delete_requested.emit(self.table_id)
+
+    def _save_meta(self):
+        from src.repositories.page_object_repo import PageObjectRepo
+
+        repo = PageObjectRepo()
+        meta = repo.get_table_meta(self.page_id, self.table_id)
+        rows = self._table.rowCount()
+        cols = self._table.columnCount()
+        headers = [
+            self._table.horizontalHeaderItem(c).text()
+            if self._table.horizontalHeaderItem(c)
+            else ""
+            for c in range(cols)
+        ]
+        data = []
+        for r in range(rows):
+            row_data = []
+            for c in range(cols):
+                item = self._table.item(r, c)
+                row_data.append(item.text() if item else "")
+            data.append(row_data)
+        content = json.dumps(
+            {
+                "x": self.x(),
+                "y": self.y(),
+                "width": self.width(),
+                "title": self._title_edit.text(),
+                "headers": headers,
+                "data": data,
+            }
+        )
+        if meta:
+            meta.content = content
+            repo.update(meta)
+        else:
+            from src.models.page_object import PageObject
+
+            obj = PageObject(
+                page_id=self.page_id,
+                object_type="table_meta",
+                content=content,
+                sort_order=self.table_id * 100 + 50,
+            )
+            repo.create(obj)
+
+    def _load_meta(self):
+        from src.repositories.page_object_repo import PageObjectRepo
+
+        meta = PageObjectRepo().get_table_meta(self.page_id, self.table_id)
+        if meta:
+            data = json.loads(meta.content)
+            self._user_width = data.get("width")
+            title = data.get("title", "Table")
+            self._title_edit.setText(title)
+            headers = data.get("headers", ["Column 1", "Column 2", "Column 3"])
+            rows_data = data.get("data", [["", "", ""], ["", "", ""]])
+            self._table.setColumnCount(len(headers))
+            self._table.setHorizontalHeaderLabels(headers)
+            self._table.setRowCount(len(rows_data))
+            from PyQt6.QtWidgets import QTableWidgetItem
+
+            for r, row in enumerate(rows_data):
+                for c, val in enumerate(row):
+                    self._table.setItem(r, c, QTableWidgetItem(val))
+            x = data.get("x")
+            y = data.get("y")
+            if x is not None and y is not None:
+                self._loaded_pos = (x, y)
+                self.move(x, y)
+            else:
+                self._loaded_pos = None
+        else:
+            self._loaded_pos = None
+
+
 class PageEditor(QWidget):
     navigate_to_page = pyqtSignal(int)
 
@@ -551,6 +775,7 @@ class PageEditor(QWidget):
         self._parent_folder_id = None
         self._objects = []
         self._checklists = {}
+        self._tables = {}
         self._canvas_click_pos = None
         self.setStyleSheet("background: #2a1a35;")
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
@@ -642,9 +867,12 @@ class PageEditor(QWidget):
             "}"
         )
         checkbox_action = menu.addAction("✓  Checklist")
+        table_action = menu.addAction("⊞  Table")
         action = menu.exec(self._add_btn.mapToGlobal(self._add_btn.rect().bottomLeft()))
         if action == checkbox_action:
             self._add_checklist()
+        elif action == table_action:
+            self._add_table()
 
     def _center_welcome_label(self):
         if hasattr(self, "welcome_label") and self.welcome_label.isVisible():
@@ -799,7 +1027,7 @@ class PageEditor(QWidget):
     def _group_objects_into_checklists(self):
         checklists = {}
         for obj in self._objects:
-            if obj.object_type == "checklist_meta":
+            if obj.object_type in ("checklist_meta", "table_meta"):
                 continue
             cid = obj.sort_order // 100
             if cid not in checklists:
@@ -854,6 +1082,55 @@ class PageEditor(QWidget):
         self._page_empty_hint.hide()
         self._position_floating_button()
 
+    def _add_table(self):
+        if not self.current_page_id:
+            return
+
+        table_id = max(self._tables.keys(), default=-1) + 1
+        widget = self._create_table_widget(table_id)
+
+        if self._canvas_click_pos:
+            x, y = self._canvas_click_pos
+            canvas_w = self.content.width()
+            container_w = min(400, canvas_w - 80)
+            widget.move(max(20, x - container_w // 2), max(60, y - 30))
+            self._canvas_click_pos = None
+
+        widget._save_meta()
+        self._page_empty_hint.hide()
+        self._position_floating_button()
+
+    def _create_table_widget(self, table_id):
+        widget = TableWidget(
+            table_id, page_id=self.current_page_id, parent=self.content
+        )
+        widget.object_delete_requested.connect(self._on_table_delete)
+        self._tables[table_id] = widget
+
+        canvas_w = self.content.width()
+        container_w = min(400, canvas_w - 80)
+        widget.setFixedWidth(container_w)
+        widget._load_meta()
+        if not widget._user_width:
+            widget._user_width = container_w
+        x = (canvas_w - container_w) // 2
+        y = 60 + len(self._checklists) * 200 + len(self._tables) * 200
+        widget.move(x, y)
+        widget.show()
+        return widget
+
+    def _on_table_delete(self, table_id):
+        if table_id in self._tables:
+            del self._tables[table_id]
+        self._objects = [
+            o
+            for o in self._objects
+            if not (o.object_type == "table_meta" and o.sort_order // 100 == table_id)
+        ]
+        if not self._objects:
+            self._page_empty_hint.show()
+            self._center_empty_hint()
+
     def _on_object_changed(self, obj_id, checked, text):
         for obj in self._objects:
             if obj.id == obj_id:
@@ -895,6 +1172,9 @@ class PageEditor(QWidget):
         for widget in self._checklists.values():
             widget.deleteLater()
         self._checklists.clear()
+        for widget in self._tables.values():
+            widget.deleteLater()
+        self._tables.clear()
 
     def _show_toc(self, children):
         from PyQt6.QtWidgets import QPushButton
