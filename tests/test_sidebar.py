@@ -480,3 +480,57 @@ class TestBulkCreateSkipsDuplicates:
         assert all_titles.count("2026-01-01") == 1
         assert "2026-01-02" in all_titles
         assert "2026-01-03" in all_titles
+
+
+class TestDelegateSurvivesDeletion:
+    def test_hover_index_cleared_after_delete(self, sidebar):
+        pid = PageRepo().create(Page(title="TestPage"))
+        sidebar.refresh()
+
+        delegate = sidebar.tree.itemDelegate()
+        items = sidebar.tree.findItems(
+            "TestPage",
+            Qt.MatchFlag.MatchExactly | Qt.MatchFlag.MatchRecursive,
+        )
+        assert len(items) == 1
+        index = sidebar.tree.indexFromItem(items[0])
+        delegate._hovered_index = index
+
+        sidebar._delete_item(pid)
+
+        assert delegate._hovered_index is None
+
+    def test_hover_index_cleared_after_clear(self, sidebar):
+        PageRepo().create(Page(title="TestPage"))
+        sidebar.refresh()
+
+        delegate = sidebar.tree.itemDelegate()
+        items = sidebar.tree.findItems(
+            "TestPage",
+            Qt.MatchFlag.MatchExactly | Qt.MatchFlag.MatchRecursive,
+        )
+        assert len(items) == 1
+        index = sidebar.tree.indexFromItem(items[0])
+        delegate._hovered_index = index
+
+        sidebar.tree.clear()
+
+        assert delegate._hovered_index is None
+
+    def test_delegate_handles_scroll_after_delete(self, sidebar):
+        pid = PageRepo().create(Page(title="TestPage"))
+        sidebar.refresh()
+
+        delegate = sidebar.tree.itemDelegate()
+        items = sidebar.tree.findItems(
+            "TestPage",
+            Qt.MatchFlag.MatchExactly | Qt.MatchFlag.MatchRecursive,
+        )
+        assert len(items) == 1
+        index = sidebar.tree.indexFromItem(items[0])
+        delegate._hovered_index = index
+
+        sidebar._delete_item(pid)
+
+        sidebar.tree.verticalScrollBar().setValue(0)
+        assert delegate._hovered_index is None

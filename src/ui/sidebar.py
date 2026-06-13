@@ -42,6 +42,17 @@ class DeleteButtonDelegate(QStyledItemDelegate):
         self._hovered_index = None
         tree.setMouseTracking(True)
         tree.viewport().installEventFilter(self)
+        tree.model().rowsRemoved.connect(self._on_rows_removed)
+        tree.model().modelReset.connect(self._on_model_reset)
+
+    def _on_model_reset(self):
+        self._hovered_index = None
+
+    def _on_rows_removed(self, parent, first, last):
+        if self._hovered_index and self._hovered_index.parent() == parent:
+            row = self._hovered_index.row()
+            if first <= row <= last:
+                self._hovered_index = None
 
     def paint(self, painter, option, index):
         super().paint(painter, option, index)
@@ -71,9 +82,11 @@ class DeleteButtonDelegate(QStyledItemDelegate):
                 old = self._hovered_index
                 self._hovered_index = new_index
                 if old and old.isValid():
-                    self._tree.viewport().update(
-                        self._tree.visualItemRect(self._tree.itemFromIndex(old))
-                    )
+                    old_item = self._tree.itemFromIndex(old)
+                    if old_item:
+                        self._tree.viewport().update(
+                            self._tree.visualItemRect(old_item)
+                        )
                 if new_index and new_index.isValid():
                     self._tree.viewport().update(self._tree.visualItemRect(item))
         elif event.type() == QEvent.Type.MouseButtonPress:
@@ -88,9 +101,9 @@ class DeleteButtonDelegate(QStyledItemDelegate):
             old = self._hovered_index
             self._hovered_index = None
             if old and old.isValid():
-                self._tree.viewport().update(
-                    self._tree.visualItemRect(self._tree.itemFromIndex(old))
-                )
+                old_item = self._tree.itemFromIndex(old)
+                if old_item:
+                    self._tree.viewport().update(self._tree.visualItemRect(old_item))
         return super().editorEvent(event, model, option, index)
 
     def _get_button_rect(self, item_rect):
