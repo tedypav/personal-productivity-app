@@ -755,6 +755,22 @@ class TableWidget(QWidget):
             " border-bottom: 1px solid #F7D1DC;"
             " border-right: 1px solid #F7D1DC;"
             "}"
+            "QScrollBar:vertical {"
+            " background: #FFFFFF; width: 8px; margin: 0; }"
+            "QScrollBar::handle:vertical {"
+            " background: #E8DDE0; border-radius: 4px; min-height: 20px; }"
+            "QScrollBar::handle:vertical:hover {"
+            " background: #CFA6D6; }"
+            "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {"
+            " height: 0; }"
+            "QScrollBar:horizontal {"
+            " background: #FFFFFF; height: 8px; margin: 0; }"
+            "QScrollBar::handle:horizontal {"
+            " background: #E8DDE0; border-radius: 4px; min-width: 20px; }"
+            "QScrollBar::handle:horizontal:hover {"
+            " background: #CFA6D6; }"
+            "QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {"
+            " width: 0; }"
         )
         self._table.cellChanged.connect(self._on_cell_changed)
         self._layout.addWidget(self._table)
@@ -808,9 +824,29 @@ class TableWidget(QWidget):
 
         current = self._table.horizontalHeaderItem(logical_index)
         current_text = current.text() if current else ""
-        new_text, ok = QInputDialog.getText(
-            self, "Rename Column", "Column name:", text=current_text
+        dialog = QInputDialog(self)
+        dialog.setWindowTitle("Rename Column")
+        dialog.setLabelText("Column name:")
+        dialog.setTextValue(current_text)
+        dialog.setStyleSheet(
+            "QInputDialog { background: #FFFFFF; }"
+            "QLabel { font-family: 'Inter', sans-serif; font-size: 13px;"
+            " color: #2E2B2B; }"
+            "QLineEdit { border: 1px solid #F7D1DC; border-radius: 10px;"
+            " padding: 6px 12px; font-family: 'Inter', sans-serif;"
+            " font-size: 13px; color: #2E2B2B; background: #FFFFFF; }"
+            "QLineEdit:focus { border-color: #CFA6D6; }"
+            "QPushButton { font-family: 'Inter', sans-serif; font-size: 13px;"
+            " padding: 6px 16px; border-radius: 8px; }"
+            "QPushButton#okButton { background: #CFA6D6; color: #FFFFFF;"
+            " border: none; }"
+            "QPushButton#okButton:hover { background: #9b59b6; }"
+            "QPushButton#cancelButton { background: #F0E6E8; color: #2E2B2B;"
+            " border: none; }"
+            "QPushButton#cancelButton:hover { background: #E0D6D8; }"
         )
+        ok = dialog.exec()
+        new_text = dialog.textValue()
         if ok and new_text.strip():
             self._table.horizontalHeaderItem(logical_index).setText(new_text.strip())
             self._save_meta()
