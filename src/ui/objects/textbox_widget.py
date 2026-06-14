@@ -470,6 +470,7 @@ class TextboxWidget(ResizableMixin, QWidget):
         self._layout.setSpacing(0)
         self._build_header()
         self._build_content_area()
+        self._build_resize_handles()
         self._install_border_filter()
 
     def _build_header(self):
@@ -561,6 +562,50 @@ class TextboxWidget(ResizableMixin, QWidget):
         self._scroll.setWidget(container)
         self._layout.addWidget(self._scroll, 1)
 
+    def _build_resize_handles(self):
+        self._resize_handles = {}
+        edges = {
+            "left": (0, 0.25, 6, 0.5),
+            "right": (1.0, 0.25, 6, 0.5),
+            "top": (0.25, 0, 0.5, 6),
+            "bottom": (0.25, 1.0, 0.5, 6),
+            "top-left": (0, 0, 10, 10),
+            "top-right": (1.0, 0, 10, 10),
+            "bottom-left": (0, 1.0, 10, 10),
+            "bottom-right": (1.0, 1.0, 10, 10),
+        }
+        cursors = {
+            "left": Qt.CursorShape.SizeHorCursor,
+            "right": Qt.CursorShape.SizeHorCursor,
+            "top": Qt.CursorShape.SizeVerCursor,
+            "bottom": Qt.CursorShape.SizeVerCursor,
+            "top-left": Qt.CursorShape.SizeFDiagCursor,
+            "top-right": Qt.CursorShape.SizeBDiagCursor,
+            "bottom-left": Qt.CursorShape.SizeBDiagCursor,
+            "bottom-right": Qt.CursorShape.SizeFDiagCursor,
+        }
+        for edge_name in edges:
+            handle = QWidget(self)
+            handle.setObjectName("textboxResizeHandle")
+            handle.setCursor(cursors[edge_name])
+            handle.installEventFilter(self)
+            self._resize_handles[edge_name] = handle
+
+    def _layout_resize_handles(self):
+        w, h = self.width(), self.height()
+        for edge_name, handle in self._resize_handles.items():
+            rx, ry, rw, rh = {
+                "left": (0, 40, 6, h - 80),
+                "right": (w - 6, 40, 6, h - 80),
+                "top": (40, 0, w - 80, 6),
+                "bottom": (40, h - 6, w - 80, 6),
+                "top-left": (0, 0, 12, 12),
+                "top-right": (w - 12, 0, 12, 12),
+                "bottom-left": (0, h - 12, 12, 12),
+                "bottom-right": (w - 12, h - 12, 12, 12),
+            }[edge_name]
+            handle.setGeometry(rx, ry, rw, rh)
+
     def _install_border_filter(self):
         self._header.installEventFilter(self)
         self.installEventFilter(self)
@@ -572,7 +617,35 @@ class TextboxWidget(ResizableMixin, QWidget):
         if not isinstance(event, QMouseEvent):
             return super().eventFilter(obj, event)
 
-        pos = obj.mapTo(self, event.position().toPoint())
+        is_handle = obj in self._resize_handles.values()
+
+        if event.type() == QEvent.Type.MouseButtonPress:
+            if event.button() == Qt.MouseButton.LeftButton:
+                if is_handle:
+                    edge = [k for k, v in self._resize_handles.items() if v is obj][0]
+                    self._resizing = True
+                    self._resize_edge = edge
+                    self._resize_start = event.globalPosition().toPoint()
+                    self._resize_origin = (
+                        self.x(),
+                        self.y(),
+                        self.width(),
+                        self.height(),
+                    )
+                    event.accept()
+                    return True
+                if obj is self._header:
+                    pos = obj.mapTo(self, event.position().toPoint())
+                    child = self._header.childAt(pos)
+                    if child is self._title_edit:
+                        return False
+                    if isinstance(child, QPushButton | QToolButton):
+                        return False
+                    self._dragging = True
+                    self._drag_start = event.globalPosition().toPoint() - self.pos()
+                    self._header.setCursor(Qt.CursorShape.ClosedHandCursor)
+                    event.accept()
+                    return True
 
         if event.type() == QEvent.Type.MouseMove:
             if self._resizing and self._resize_start is not None:
@@ -603,41 +676,6 @@ class TextboxWidget(ResizableMixin, QWidget):
                 event.accept()
                 return True
 
-            if obj is self and not self._dragging:
-                edge = self._detect_edge(pos)
-                if edge:
-                    self.setCursor(self._edge_cursor(edge))
-                else:
-                    self.setCursor(Qt.CursorShape.ArrowCursor)
-
-        if event.type() == QEvent.Type.MouseButtonPress:
-            if event.button() == Qt.MouseButton.LeftButton:
-                if obj is self._header:
-                    child = self._header.childAt(pos)
-                    if child is self._title_edit:
-                        return False
-                    if isinstance(child, QPushButton | QToolButton):
-                        return False
-                    self._dragging = True
-                    self._drag_start = event.globalPosition().toPoint() - self.pos()
-                    self._header.setCursor(Qt.CursorShape.ClosedHandCursor)
-                    event.accept()
-                    return True
-                if obj is self:
-                    edge = self._detect_edge(pos)
-                    if edge:
-                        self._resizing = True
-                        self._resize_edge = edge
-                        self._resize_start = event.globalPosition().toPoint()
-                        self._resize_origin = (
-                            self.x(),
-                            self.y(),
-                            self.width(),
-                            self.height(),
-                        )
-                        event.accept()
-                        return True
-
         if event.type() == QEvent.Type.MouseButtonRelease:
             if self._resizing:
                 self._resizing = False
@@ -658,6 +696,10 @@ class TextboxWidget(ResizableMixin, QWidget):
                 return True
 
         return super().eventFilter(obj, event)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._layout_resize_handles()
 
     def _add_text_block(self, html: str = ""):
         block = TextboxTextBlock(html=html)
