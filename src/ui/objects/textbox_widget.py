@@ -199,26 +199,23 @@ class TextboxTextBlock(QWidget):
     def _code(self):
         self._ensure_editing()
         cursor = self._editor.textCursor()
+        style = (
+            "background:#F0F0F0; padding:4px 8px; margin:0;"
+            " border-radius:4px; font-family:monospace;"
+            " font-size:13px; display:block; width:100%;"
+        )
         if cursor.hasSelection():
             text = cursor.selectedText()
-            cursor.insertHtml(
-                f'<pre style="background:#F0F0F0; padding:4px 8px;'
-                f" border-radius:4px; font-family:monospace;"
-                f' font-size:13px;">{text}</pre>'
-            )
+            cursor.insertHtml(f'<pre style="{style}">{text}</pre>')
         else:
-            cursor.insertHtml(
-                '<pre style="background:#F0F0F0; padding:4px 8px;'
-                " border-radius:4px; font-family:monospace;"
-                ' font-size:13px;">code</pre>'
-            )
+            cursor.insertHtml(f'<pre style="{style}code</pre>')
             cursor.movePosition(
                 QTextCursor.MoveOperation.Left,
                 QTextCursor.MoveMode.MoveAnchor,
                 4,
             )
             cursor.movePosition(
-                QTextCursor.MoveOperation.KeepAnchor,
+                QTextCursor.MoveOperation.Left,
                 QTextCursor.MoveMode.KeepAnchor,
                 4,
             )
