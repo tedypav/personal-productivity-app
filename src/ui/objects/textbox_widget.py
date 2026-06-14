@@ -280,7 +280,8 @@ class TextboxTextBlock(QWidget):
                 action.setText("✓ " + label.lstrip())
             action.setData(flag)
 
-        action = menu.exec(self._header.mapToGlobal(self._header.rect().bottomLeft()))
+        pos = self._align_btn.mapToGlobal(self._align_btn.rect().bottomLeft())
+        action = menu.exec(pos)
         if action:
             flag = action.data()
             h = flag & (
