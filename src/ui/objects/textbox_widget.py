@@ -46,7 +46,7 @@ class TextboxTextBlock(QWidget):
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum
         )
         self._editor.textChanged.connect(self._on_text_changed)
-        self._editor.installEventFilter(self)
+        self._editor.viewport().installEventFilter(self)
         self._layout.addWidget(self._editor)
 
         self._apply_view_mode()
@@ -55,7 +55,7 @@ class TextboxTextBlock(QWidget):
         from PyQt6.QtCore import QEvent
 
         if (
-            obj is self._editor
+            obj is self._editor.viewport()
             and event.type() == QEvent.Type.MouseButtonPress
             and event.button() == Qt.MouseButton.LeftButton
             and not self._editing
