@@ -434,7 +434,7 @@ class Sidebar(QWidget):
         page_icon = QIcon(_get_icon_path("page"))
         template_page_icon = QIcon(_get_icon_path("page_template"))
         archive_icon = QIcon(_get_icon_path("folder_archive"))
-        fun_icon = QIcon(_get_icon_path("folder_fun"))
+        fun_icon = QIcon(_get_icon_path("palette"))
         template_icon = QIcon(_get_icon_path("folder_template"))
 
         children_map = {}

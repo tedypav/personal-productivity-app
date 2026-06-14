@@ -1,5 +1,5 @@
 from PyQt6.QtCore import Qt, QUrl, pyqtSignal
-from PyQt6.QtGui import QDesktopServices, QImage, QPixmap
+from PyQt6.QtGui import QDesktopServices, QIcon, QImage, QPixmap
 from PyQt6.QtWidgets import (
     QFileDialog,
     QHBoxLayout,
@@ -515,9 +515,22 @@ class TextboxWidget(ResizableMixin, QWidget):
         insert_img_btn.clicked.connect(lambda: self._add_image_block())
         header_layout.addWidget(insert_img_btn)
 
-        fun_btn = QPushButton("🎨 Fun")
+        fun_btn = QPushButton(" Fun")
         fun_btn.setObjectName("textboxAddBtn")
         fun_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        import os
+
+        icon_path = os.path.join(
+            os.path.dirname(__file__),
+            "..",
+            "..",
+            "..",
+            "assets",
+            "icons",
+            "palette.svg",
+        )
+        if os.path.exists(icon_path):
+            fun_btn.setIcon(QIcon(icon_path))
         fun_btn.clicked.connect(self._open_fun_imports)
         header_layout.addWidget(fun_btn)
 
