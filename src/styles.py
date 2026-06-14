@@ -840,7 +840,6 @@ QMessageBox {
 /* Checkbox Widget */
 #checkboxWidget {
     background-color: #FFFFFF;
-    border-radius: 8px;
 }
 #checkboxText {
     border: none;
