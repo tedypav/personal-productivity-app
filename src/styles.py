@@ -997,4 +997,135 @@ QMessageBox {
     background: #FFF0F3;
     color: #2E2B2B;
 }
+
+/* Textbox Widget */
+#textbox {
+    background-color: #FFFFFF;
+    border: 1px solid #F7D1DC;
+    border-radius: 12px;
+}
+#textboxHeader {
+    background-color: #FFF0F3;
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
+    border-bottom: 1px solid #F7D1DC;
+}
+#textboxTitle {
+    border: none;
+    background: transparent;
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    color: #8B6B7B;
+    font-weight: 600;
+    padding: 0;
+}
+#textboxDeleteBtn {
+    border: none;
+    font-size: 16px;
+    color: #9CA3AF;
+    background: transparent;
+}
+#textboxDeleteBtn:hover {
+    color: #EF4444;
+}
+#textboxAddBtn {
+    font-size: 10px;
+    color: #CFA6D6;
+    background: transparent;
+    border: 1px solid #F0E6E8;
+    border-radius: 10px;
+    padding: 2px 8px;
+    font-family: 'Inter', sans-serif;
+}
+#textboxAddBtn:hover {
+    background: #FFF0F3;
+    border-color: #CFA6D6;
+    color: #9b59b6;
+}
+#textboxScroll {
+    border: none;
+    background: transparent;
+}
+#textboxContainer {
+    background: transparent;
+}
+#textboxViewer {
+    border: none;
+    background: transparent;
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    color: #2E2B2B;
+    padding: 8px;
+}
+#textboxEditor {
+    border: 1px solid #F0E6E8;
+    border-radius: 6px;
+    background: #FFFFFF;
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    color: #2E2B2B;
+    padding: 8px;
+}
+#textboxChecklistText {
+    border: none;
+    background: transparent;
+    font-size: 13px;
+    color: #2E2B2B;
+    font-family: 'Inter', sans-serif;
+    padding: 2px 0;
+}
+#textboxChecklistAddBtn {
+    border: none;
+    font-size: 11px;
+    color: #8B6B7B;
+    background: transparent;
+}
+#textboxChecklistAddBtn:hover {
+    color: #2E2B2B;
+}
+#textboxTableBtn {
+    font-size: 10px;
+    color: #CFA6D6;
+    background: transparent;
+    border: 1px solid #F0E6E8;
+    border-radius: 10px;
+    padding: 2px 8px;
+    font-family: 'Inter', sans-serif;
+}
+#textboxTableBtn:hover {
+    background: #FFF0F3;
+    border-color: #CFA6D6;
+    color: #9b59b6;
+}
+#textboxTableGrid {
+    border: none;
+    gridline-color: #F7D1DC;
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    color: #2E2B2B;
+    background: #FFFFFF;
+}
+#textboxTableGrid::item {
+    padding: 4px 8px;
+    border: none;
+}
+#textboxTableGrid QHeaderView::section {
+    background: #FFF0F3;
+    border: none;
+    border-bottom: 1px solid #F7D1DC;
+    border-right: 1px solid #F7D1DC;
+    padding: 4px 8px;
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    color: #8B6B7B;
+}
+#textboxImageLabel {
+    border: 1px dashed #F0E6E8;
+    border-radius: 6px;
+    padding: 8px;
+    color: #9CA3AF;
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+}
 """

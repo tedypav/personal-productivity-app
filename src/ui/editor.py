@@ -14,9 +14,11 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from src.controllers.editor_controller import EditorController
 from src.repositories.page_object_repo import PageObjectRepo
 from src.ui.objects.checklist_widget import ChecklistWidget
 from src.ui.objects.table_widget import TableWidget
+from src.ui.objects.textbox_widget import TextboxWidget
 
 
 class Canvas(QWidget):
@@ -90,8 +92,10 @@ class PageEditor(QWidget):
         self._objects = []
         self._checklists = {}
         self._tables = {}
+        self._textboxes = {}
         self._canvas_click_pos = None
-        self.setStyleSheet("background: #2a1a35;")
+        self._editor_controller = EditorController()
+        self.setObjectName("pageEditor")
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
 
         main_layout = QVBoxLayout(self)
@@ -100,11 +104,11 @@ class PageEditor(QWidget):
         self._build_toolbar(main_layout)
 
         self.scroll = QScrollArea()
+        self.scroll.setObjectName("editorScroll")
         self.scroll.setWidgetResizable(False)
         self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.scroll.setFrameShape(QFrame.Shape.NoFrame)
-        self.scroll.setStyleSheet("QScrollArea { border: none; background: #2a1a35; }")
 
         self.content = Canvas()
         self.content.clicked_at.connect(self._on_canvas_clicked)
@@ -115,15 +119,8 @@ class PageEditor(QWidget):
 
         self.welcome_label = QLabel()
         self.welcome_label.setWordWrap(True)
-        self.welcome_label.setObjectName("welcome_title")
+        self.welcome_label.setObjectName("welcome_label")
         self.welcome_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.welcome_label.setStyleSheet("""
-            font-family: 'Magnolia', cursive;
-            font-size: 80px;
-            color: #F0E4F5;
-            background: transparent;
-            padding: 40px;
-        """)
         self.welcome_label.setTextFormat(Qt.TextFormat.RichText)
         self.welcome_label.setText(
             "Hello, lovely!<br>Let's make it a productive day!"
@@ -134,13 +131,8 @@ class PageEditor(QWidget):
         self.welcome_label.show()
 
         self._page_empty_hint = QLabel("Click + buttons to add your first object")
+        self._page_empty_hint.setObjectName("editorEmptyHint")
         self._page_empty_hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._page_empty_hint.setStyleSheet(
-            "font-family: 'Inter', sans-serif;"
-            " font-size: 14px; color: #9CA3AF;"
-            " font-style: italic;"
-            " background: transparent;"
-        )
         self._page_empty_hint.setParent(self.content)
         self._page_empty_hint.hide()
 
@@ -150,43 +142,25 @@ class PageEditor(QWidget):
 
     def _build_floating_add_button(self):
         self._add_btn = QPushButton("+", self.content)
+        self._add_btn.setObjectName("editorAddBtn")
         self._add_btn.setFixedSize(48, 48)
         self._add_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._add_btn.setStyleSheet(
-            "QPushButton {"
-            " font-size: 24px; font-weight: 300;"
-            " color: #FFFFFF; background: #CFA6D6;"
-            " border: none; border-radius: 24px;"
-            "}"
-            "QPushButton:hover {"
-            " background: #B894C0;"
-            "}"
-        )
         self._add_btn.clicked.connect(self._show_add_menu)
         self._add_btn.hide()
 
     def _show_add_menu(self):
         menu = QMenu(self)
-        menu.setStyleSheet(
-            "QMenu {"
-            " background: #FFFFFF; border: 1px solid #F7D1DC;"
-            " border-radius: 8px; padding: 4px;"
-            " font-family: 'Inter', sans-serif; font-size: 13px;"
-            "}"
-            "QMenu::item {"
-            " padding: 8px 20px; border-radius: 6px;"
-            "}"
-            "QMenu::item:selected {"
-            " background: #FFF0F3; color: #2E2B2B;"
-            "}"
-        )
+        menu.setObjectName("editorMenu")
         checkbox_action = menu.addAction("✓  Checklist")
         table_action = menu.addAction("⊞  Table")
+        textbox_action = menu.addAction("T  Text Box")
         action = menu.exec(self._add_btn.mapToGlobal(self._add_btn.rect().bottomLeft()))
         if action == checkbox_action:
             self._add_checklist()
         elif action == table_action:
             self._add_table()
+        elif action == textbox_action:
+            self._add_textbox()
 
     def _center_welcome_label(self):
         if hasattr(self, "welcome_label") and self.welcome_label.isVisible():
@@ -211,72 +185,43 @@ class PageEditor(QWidget):
 
     def _build_toolbar(self, parent_layout):
         toolbar_widget = QWidget()
-        toolbar_widget.setStyleSheet(
-            "background: #FFF8F5; border-bottom: 1px solid #F0E6E8;"
-        )
+        toolbar_widget.setObjectName("editorToolbar")
 
         toolbar = QHBoxLayout(toolbar_widget)
         toolbar.setContentsMargins(12, 6, 12, 6)
 
         self.page_title = QLabel("Select a page")
-        self.page_title.setObjectName("page_title")
-        self.page_title.setStyleSheet(
-            "font-size: 18px; font-weight: 600; padding: 4px 8px;"
-            " color: #2E2B2B; font-family: 'Playfair Display', serif;"
-        )
+        self.page_title.setObjectName("editorPageTitle")
         toolbar.addWidget(self.page_title)
         toolbar.addStretch()
 
         self._back_btn = QPushButton("← Back to folder")
+        self._back_btn.setObjectName("editorBackBtn")
         self._back_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._back_btn.setStyleSheet(
-            "QPushButton {"
-            " font-size: 12px; color: #CFA6D6; background: transparent;"
-            " border: 1px solid #F0E6E8; border-radius: 14px;"
-            " padding: 4px 14px; font-family: 'Inter', sans-serif;"
-            "}"
-            "QPushButton:hover {"
-            " background: #FFF0F3; border-color: #CFA6D6;"
-            " color: #9b59b6;"
-            "}"
-        )
         self._back_btn.clicked.connect(self._on_back_clicked)
         self._back_btn.hide()
         toolbar.addWidget(self._back_btn)
 
         self._checkbox_btn = QPushButton("✓ + Checklist")
+        self._checkbox_btn.setObjectName("editorChecklistBtn")
         self._checkbox_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._checkbox_btn.setStyleSheet(
-            "QPushButton {"
-            " font-size: 12px; color: #CFA6D6; background: transparent;"
-            " border: 1px solid #F0E6E8; border-radius: 14px;"
-            " padding: 4px 14px; font-family: 'Inter', sans-serif;"
-            "}"
-            "QPushButton:hover {"
-            " background: #FFF0F3; border-color: #CFA6D6;"
-            " color: #9b59b6;"
-            "}"
-        )
         self._checkbox_btn.clicked.connect(self._add_checklist)
         self._checkbox_btn.hide()
         toolbar.addWidget(self._checkbox_btn)
 
         self._table_btn = QPushButton("⊞ + Table")
+        self._table_btn.setObjectName("editorTableBtn")
         self._table_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._table_btn.setStyleSheet(
-            "QPushButton {"
-            " font-size: 12px; color: #CFA6D6; background: transparent;"
-            " border: 1px solid #F0E6E8; border-radius: 14px;"
-            " padding: 4px 14px; font-family: 'Inter', sans-serif;"
-            "}"
-            "QPushButton:hover {"
-            " background: #FFF0F3; border-color: #CFA6D6;"
-            " color: #9b59b6;"
-            "}"
-        )
         self._table_btn.clicked.connect(self._add_table)
         self._table_btn.hide()
         toolbar.addWidget(self._table_btn)
+
+        self._textbox_btn = QPushButton("T + Text Box")
+        self._textbox_btn.setObjectName("editorTextboxBtn")
+        self._textbox_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._textbox_btn.clicked.connect(self._add_textbox)
+        self._textbox_btn.hide()
+        toolbar.addWidget(self._textbox_btn)
 
         parent_layout.addWidget(toolbar_widget)
 
@@ -333,11 +278,13 @@ class PageEditor(QWidget):
                 self._page_empty_hint.hide()
             self._checkbox_btn.hide()
             self._table_btn.hide()
+            self._textbox_btn.hide()
             self._add_btn.hide()
         else:
             self._load_objects()
             self._checkbox_btn.show()
             self._table_btn.show()
+            self._textbox_btn.show()
             self._add_btn.show()
             self._position_floating_button()
             if not self._objects:
@@ -354,11 +301,12 @@ class PageEditor(QWidget):
             return
         self._group_objects_into_checklists()
         self._group_objects_into_tables()
+        self._group_objects_into_textboxes()
 
     def _group_objects_into_checklists(self):
         checklists = {}
         for obj in self._objects:
-            if obj.object_type in ("checklist_meta", "table_meta"):
+            if obj.object_type in ("checklist_meta", "table_meta", "textbox_meta"):
                 continue
             cid = obj.sort_order // 100
             if cid not in checklists:
@@ -460,6 +408,80 @@ class PageEditor(QWidget):
         widget.show()
         return widget
 
+    def _group_objects_into_textboxes(self):
+        textbox_ids = set()
+        for obj in self._objects:
+            if obj.object_type == "textbox_meta":
+                textbox_id = obj.sort_order // 100
+                textbox_ids.add(textbox_id)
+
+        for textbox_id in sorted(textbox_ids):
+            self._create_textbox_widget(textbox_id)
+
+    def _create_textbox_widget(self, textbox_id):
+        widget = TextboxWidget(
+            textbox_id, page_id=self.current_page_id, parent=self.content
+        )
+        widget.object_delete_requested.connect(self._on_textbox_delete)
+        self._textboxes[textbox_id] = widget
+
+        canvas_w = self.content.width()
+        container_w = min(500, canvas_w - 80)
+        widget.setFixedWidth(container_w)
+        widget._load_meta()
+        if not widget._user_width:
+            widget._user_width = container_w
+        x = (canvas_w - container_w) // 2
+        y = (
+            60
+            + len(self._checklists) * 200
+            + len(self._tables) * 200
+            + len(self._textboxes) * 200
+        )
+        widget.move(x, y)
+        widget.show()
+        return widget
+
+    def _add_textbox(self):
+        if not self.current_page_id:
+            return
+
+        textbox_id = max(self._textboxes.keys(), default=-1) + 1
+        widget = self._create_textbox_widget(textbox_id)
+
+        if self._canvas_click_pos:
+            x, y = self._canvas_click_pos
+            canvas_w = self.content.width()
+            container_w = min(500, canvas_w - 80)
+            widget.move(max(20, x - container_w // 2), max(60, y - 30))
+            self._canvas_click_pos = None
+
+        widget._add_text_block()
+        widget._save_meta()
+        self._page_empty_hint.hide()
+        self._position_floating_button()
+
+    def _on_textbox_delete(self, textbox_id):
+        if textbox_id in self._textboxes:
+            widget = self._textboxes[textbox_id]
+            widget.exit_all_edit_modes()
+            widget.hide()
+            widget.deleteLater()
+            del self._textboxes[textbox_id]
+        meta = PageObjectRepo().get_textbox_meta(self.current_page_id, textbox_id)
+        if meta:
+            PageObjectRepo().delete(meta.id)
+        self._objects = [
+            o
+            for o in self._objects
+            if not (
+                o.object_type == "textbox_meta" and o.sort_order // 100 == textbox_id
+            )
+        ]
+        if not self._objects:
+            self._page_empty_hint.show()
+            self._center_empty_hint()
+
     def _on_table_delete(self, table_id):
         if table_id in self._tables:
             widget = self._tables[table_id]
@@ -525,48 +547,36 @@ class PageEditor(QWidget):
             widget.hide()
             widget.deleteLater()
         self._tables.clear()
+        for widget in self._textboxes.values():
+            widget.exit_all_edit_modes()
+            widget.hide()
+            widget.deleteLater()
+        self._textboxes.clear()
 
     def _show_toc(self, children):
         from PyQt6.QtWidgets import QPushButton
 
         toc_container = QWidget(self.content)
-        toc_container.setStyleSheet("background: transparent;")
+        toc_container.setObjectName("editorTocContainer")
         toc_layout = QVBoxLayout(toc_container)
         toc_layout.setContentsMargins(40, 40, 40, 40)
         toc_layout.setSpacing(6)
 
         folder_label = QLabel("Pages in this folder")
+        folder_label.setObjectName("editorTocLabel")
         folder_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        folder_label.setStyleSheet(
-            "font-family: 'Playfair Display', serif;"
-            " font-size: 24px; font-weight: 600;"
-            " color: #9b59b6; background: transparent;"
-            " padding: 8px 0 16px 0;"
-        )
         toc_layout.addWidget(folder_label)
 
         separator = QWidget()
+        separator.setObjectName("editorTocSeparator")
         separator.setFixedHeight(1)
-        separator.setStyleSheet("background: #F0E6E8;")
         toc_layout.addWidget(separator)
         toc_layout.addSpacing(8)
 
         for child in children:
             btn = QPushButton(f"  {child.title}")
+            btn.setObjectName("editorTocItem")
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            btn.setStyleSheet(
-                "QPushButton {"
-                " text-align: left; font-size: 15px;"
-                " color: #CFA6D6; background: transparent;"
-                " border: 1px solid transparent; padding: 10px 16px;"
-                " border-radius: 8px;"
-                " font-family: 'Inter', sans-serif;"
-                "}"
-                "QPushButton:hover {"
-                " background: #FFF0F3; border-color: #F7D1DC;"
-                " color: #9b59b6;"
-                "}"
-            )
             btn.clicked.connect(
                 lambda checked, pid=child.id: self.navigate_to_page.emit(pid)
             )

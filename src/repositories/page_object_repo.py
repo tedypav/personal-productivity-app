@@ -85,3 +85,29 @@ class PageObjectRepo:
             (page_id, sort_order),
         ).fetchone()
         return PageObject(**dict(row)) if row else None
+
+    @staticmethod
+    def get_textbox_meta(page_id: int, textbox_id: int) -> PageObject | None:
+        conn = get_connection()
+        sort_order = textbox_id * 100 + 50
+        row = conn.execute(
+            "SELECT * FROM page_objects WHERE page_id=?"
+            " AND object_type='textbox_meta' AND sort_order=?",
+            (page_id, sort_order),
+        ).fetchone()
+        return PageObject(**dict(row)) if row else None
+
+    @staticmethod
+    def copy_objects(source_page_id: int, dest_page_id: int) -> int:
+        """Copy all objects from source to destination page."""
+        objects = PageObjectRepo.get_by_page(source_page_id)
+        for obj in objects:
+            new_obj = PageObject(
+                page_id=dest_page_id,
+                object_type=obj.object_type,
+                content=obj.content,
+                is_checked=obj.is_checked,
+                sort_order=obj.sort_order,
+            )
+            PageObjectRepo.create(new_obj)
+        return len(objects)
