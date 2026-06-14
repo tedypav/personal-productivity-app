@@ -255,6 +255,7 @@ class PageEditor(QWidget):
         from src.repositories.page_repo import PageRepo
 
         self.current_page_id = page_id
+        self.scroll.verticalScrollBar().setValue(0)
         self._clear_toc()
         self._clear_objects()
         page = PageRepo().get_by_id(page_id)

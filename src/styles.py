@@ -463,7 +463,7 @@ QMessageBox {
 }
 #editorScroll {
     border: none;
-    background: #2a1a35;
+    background: #FFF8F5;
 }
 #welcome_label {
     font-family: 'Magnolia', cursive;
