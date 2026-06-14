@@ -46,14 +46,22 @@ class TextboxTextBlock(QWidget):
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum
         )
         self._editor.textChanged.connect(self._on_text_changed)
+        self._editor.installEventFilter(self)
         self._layout.addWidget(self._editor)
 
         self._apply_view_mode()
 
-    def mouseDoubleClickEvent(self, event):
-        if not self._editing:
+    def eventFilter(self, obj, event):
+        from PyQt6.QtCore import QEvent
+
+        if (
+            obj is self._editor
+            and event.type() == QEvent.Type.MouseButtonDblClick
+            and not self._editing
+        ):
             self._enter_edit_mode()
-        super().mouseDoubleClickEvent(event)
+            return True
+        return super().eventFilter(obj, event)
 
     def _enter_edit_mode(self):
         self._editing = True
@@ -416,11 +424,12 @@ class TextboxWidget(ResizableMixin, QWidget):
         self.textbox_id = textbox_id
         self.page_id = page_id
         self._init_resizable_state()
-        self._MIN_H = 150
+        self._MIN_H = 200
         self._textbox_controller = TextboxController()
         self._blocks: list[tuple[str, QWidget]] = []
         self.setObjectName("textbox")
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self.setMinimumHeight(self._MIN_H)
         self._layout = QVBoxLayout(self)
         self._layout.setContentsMargins(0, 0, 0, 0)
         self._layout.setSpacing(0)
@@ -487,6 +496,7 @@ class TextboxWidget(ResizableMixin, QWidget):
         self._scroll.setWidgetResizable(True)
         self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self._scroll.setObjectName("textboxScroll")
+        self._scroll.viewport().installEventFilter(self)
 
         container = QWidget()
         container.setObjectName("textboxContainer")
@@ -506,6 +516,81 @@ class TextboxWidget(ResizableMixin, QWidget):
         from PyQt6.QtGui import QMouseEvent
 
         if isinstance(event, QMouseEvent):
+            if obj is self._scroll.viewport():
+                pos = obj.mapTo(self, event.position().toPoint())
+                if event.type() == QEvent.Type.MouseButtonPress:
+                    if event.button() == Qt.MouseButton.LeftButton:
+                        edge = self._detect_edge(pos)
+                        if edge:
+                            self._resizing = True
+                            self._resize_edge = edge
+                            self._resize_start = event.globalPosition().toPoint()
+                            self._resize_origin = (
+                                self.x(),
+                                self.y(),
+                                self.width(),
+                                self.height(),
+                            )
+                            event.accept()
+                            return True
+                if event.type() == QEvent.Type.MouseMove:
+                    if self._resizing and self._resize_start is not None:
+                        curr = event.globalPosition().toPoint()
+                        dx = curr.x() - self._resize_start.x()
+                        dy = curr.y() - self._resize_start.y()
+                        ox, oy, ow, oh = self._resize_origin
+                        edge = self._resize_edge
+                        new_x, new_y, new_w, new_h = (
+                            ox,
+                            oy,
+                            ow,
+                            oh,
+                        )
+                        if "right" in edge:
+                            new_w = max(self._MIN_W, ow + dx)
+                        if "bottom" in edge:
+                            new_h = max(self._min_height(), oh + dy)
+                        if "left" in edge:
+                            new_w = max(self._MIN_W, ow - dx)
+                            new_x = ox + ow - new_w
+                        if "top" in edge:
+                            new_h = max(self._min_height(), oh - dy)
+                            new_y = oy + oh - new_h
+                        parent = self.parent()
+                        if parent:
+                            new_x = max(
+                                0,
+                                min(new_x, parent.width() - new_w),
+                            )
+                            new_y = max(
+                                0,
+                                min(new_y, parent.height() - new_h),
+                            )
+                        self._user_width = new_w
+                        self.setMinimumWidth(0)
+                        self.setMaximumWidth(16777215)
+                        self.setGeometry(new_x, new_y, new_w, new_h)
+                        event.accept()
+                        return True
+                if event.type() == QEvent.Type.MouseButtonRelease:
+                    if self._resizing:
+                        self._resizing = False
+                        self._resize_edge = None
+                        self._resize_start = None
+                        self._resize_origin = None
+                        self.setCursor(Qt.CursorShape.ArrowCursor)
+                        self._on_resize_complete()
+                        self._save_meta()
+                        event.accept()
+                        return True
+                if event.type() == QEvent.Type.MouseMove:
+                    if not self._resizing and not self._dragging:
+                        edge = self._detect_edge(pos)
+                        if edge:
+                            obj.setCursor(self._edge_cursor(edge))
+                        else:
+                            obj.setCursor(Qt.CursorShape.ArrowCursor)
+                return False
             pos = obj.mapTo(self, event.position().toPoint())
             if event.type() == QEvent.Type.MouseButtonPress:
                 if event.button() == Qt.MouseButton.LeftButton:
