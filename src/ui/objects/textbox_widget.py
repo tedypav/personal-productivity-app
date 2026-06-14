@@ -84,9 +84,9 @@ class TextboxTextBlock(QWidget):
                 if self._resizing and self._resize_start is not None:
                     curr = event.globalPosition().toPoint()
                     dy = curr.y() - self._resize_start.y()
-                    new_h = max(60, self.height() + dy)
+                    new_h = max(30, self.height() + dy)
                     self._resize_start = curr
-                    self._editor.setMinimumHeight(max(60, new_h - 6))
+                    self._editor.setMinimumHeight(max(30, new_h - 6))
                     event.accept()
                     return True
             if event.type() == QEvent.Type.MouseButtonRelease:
@@ -122,7 +122,7 @@ class TextboxTextBlock(QWidget):
                 "Double-click to start typing...</p>"
             )
         doc_size = self._editor.document().size()
-        h = max(60, int(doc_size.height()) + 16)
+        h = max(30, int(doc_size.height()) + 16)
         self._editor.setMinimumHeight(h)
 
     def _on_text_changed(self):
