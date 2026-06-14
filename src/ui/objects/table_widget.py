@@ -412,6 +412,7 @@ class TableWidget(ResizableMixin, QWidget):
                 row += 1
                 if row >= rows:
                     self._table.insertRow(rows)
+                    self._scale_rows_to_fit()
                     self._save_meta()
 
         self._table.setCurrentCell(row, col)
