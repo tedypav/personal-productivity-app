@@ -537,6 +537,8 @@ class TextboxWidget(ResizableMixin, QWidget):
                         child = self._header.childAt(pos)
                         if child is self._title_edit:
                             return False
+                        if isinstance(child, QPushButton | QToolButton):
+                            return False
                         self.setFocus()
                         self._dragging = True
                         self._drag_start = event.globalPosition().toPoint() - self.pos()
