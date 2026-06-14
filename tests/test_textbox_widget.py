@@ -191,32 +191,22 @@ class TestTextboxTextBlock:
         block = TextboxTextBlock()
         block.show()
         block._enter_edit_mode()
-        block._editor.setAlignment(
-            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
-        )
+        block._align_left()
         assert int(block._editor.alignment()) & int(Qt.AlignmentFlag.AlignLeft)
 
     def test_align_center(self, app_instance):
         block = TextboxTextBlock()
         block.show()
         block._enter_edit_mode()
-        block._editor.setAlignment(
-            Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter
-        )
+        block._align_center()
         assert int(block._editor.alignment()) & int(Qt.AlignmentFlag.AlignHCenter)
 
     def test_align_right(self, app_instance):
         block = TextboxTextBlock()
         block.show()
         block._enter_edit_mode()
-        block._editor.setAlignment(
-            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
-        )
+        block._align_right()
         assert int(block._editor.alignment()) & int(Qt.AlignmentFlag.AlignRight)
-
-    def test_align_menu_button_exists(self, app_instance):
-        block = TextboxTextBlock()
-        assert block._align_btn is not None
 
     def test_set_font_size(self, app_instance):
         block = TextboxTextBlock()
