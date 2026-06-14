@@ -21,6 +21,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from src.controllers.page_controller import PageController
 from src.models.page import Page
 from src.repositories.page_object_repo import PageObjectRepo
 from src.repositories.page_repo import PageRepo
@@ -216,59 +217,13 @@ class Sidebar(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.repo = PageRepo()
+        self._page_controller = PageController(page_repo=self.repo)
         self.settings = load_settings()
         self.setMinimumWidth(180)
         self._empty_hint = None
-        self.setStyleSheet("""
-            Sidebar {
-                background: linear-gradient(#FFF8F5, #FFF0F5);
-            }
-            QTreeWidget {
-                background: #FFFFFF;
-                border: 1px solid #F7D1DC;
-                border-radius: 12px;
-                font-size: 13px;
-                color: #2E2B2B;
-                outline: none;
-                padding: 4px;
-            }
-            QTreeWidget::item {
-                padding: 7px 6px;
-                border-radius: 8px;
-                margin: 1px 2px;
-                color: #2E2B2B;
-            }
-            QTreeWidget::item:selected {
-                background-color: #F3E8F6;
-                color: #2E2B2B;
-            }
-            QTreeWidget::item:hover {
-                background-color: #FFF0F3;
-            }
-            QPushButton {
-                padding: 6px 12px;
-                border: 1px solid #F7D1DC;
-                border-radius: 16px;
-                background: qlineargradient(
-                    x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #FFFFFF, stop:1 #FFF5F7
-                );
-                font-size: 11px;
-                font-weight: 500;
-                color: #2E2B2B;
-            }
-            QPushButton:hover {
-                background: qlineargradient(
-                    x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #FFF5F7, stop:1 #FFE4EC
-                );
-                border: 1px solid #F7AEC4;
-            }
-            QPushButton:pressed {
-                background: #F7D1DC;
-                border: 1px solid #CFA6D6;
-            }
-        """)
+        self.setObjectName("sidebar")
+
+        self._page_controller.tree_changed.connect(self._load_pages)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(4, 4, 4, 4)
@@ -293,10 +248,13 @@ class Sidebar(QWidget):
         btn_layout.setSpacing(3)
 
         self.btn_new_folder = QPushButton("New Folder")
+        self.btn_new_folder.setObjectName("sidebarBtn")
         self.btn_new_folder.setIcon(folder_icon)
         self.btn_new = QPushButton("New Page")
+        self.btn_new.setObjectName("sidebarBtn")
         self.btn_new.setIcon(page_icon)
         self.btn_new_page = QPushButton("Time Pages")
+        self.btn_new_page.setObjectName("sidebarBtn")
         self.btn_new_page.setIcon(page_icon)
 
         btn_layout.addWidget(self.btn_new_folder)
@@ -309,10 +267,13 @@ class Sidebar(QWidget):
         btn_layout2.setSpacing(3)
 
         self.btn_bulk_named = QPushButton("Name Pages")
+        self.btn_bulk_named.setObjectName("sidebarBtn")
         self.btn_bulk_named.setIcon(page_icon)
         self.btn_archive = QPushButton("Archive")
+        self.btn_archive.setObjectName("sidebarBtn")
         self.btn_archive.setIcon(archive_icon)
         self.btn_template = QPushButton("Set as Template")
+        self.btn_template.setObjectName("sidebarBtn")
         self.btn_template.setIcon(template_icon)
 
         btn_layout2.addWidget(self.btn_bulk_named)
@@ -345,6 +306,7 @@ class Sidebar(QWidget):
 
     def _build_trees(self, layout):
         self.tree = PageTreeWidget()
+        self.tree.setObjectName("sidebarTree")
         self.tree.set_sidebar(self)
         self.tree.setHeaderHidden(True)
         self.tree.setIndentation(16)
@@ -696,39 +658,9 @@ class Sidebar(QWidget):
 
         layout.addWidget(QLabel("Number of pages:"))
         count_spin = QSpinBox()
+        count_spin.setObjectName("sidebarSpinBox")
         count_spin.setRange(1, 999)
         count_spin.setValue(5)
-        count_spin.setStyleSheet("""
-            QSpinBox {
-                padding: 6px 12px;
-                border: 1px solid #F7D1DC;
-                border-radius: 10px;
-                background: #FFFFFF;
-                font-size: 13px;
-                color: #2E2B2B;
-                min-width: 120px;
-                font-family: 'Inter', 'Poppins', sans-serif;
-            }
-            QSpinBox::up-button, QSpinBox::down-button {
-                border: none;
-                width: 22px;
-                border-radius: 11px;
-                background: #FFF0F3;
-            }
-            QSpinBox::up-button:hover, QSpinBox::down-button:hover {
-                background: #FFE4EC;
-            }
-            QSpinBox::up-arrow {
-                image: url(assets/icons/chevron_up.svg);
-                width: 10px;
-                height: 10px;
-            }
-            QSpinBox::down-arrow {
-                image: url(assets/icons/chevron_down.svg);
-                width: 10px;
-                height: 10px;
-            }
-        """)
         layout.addWidget(count_spin)
 
         buttons = QDialogButtonBox(

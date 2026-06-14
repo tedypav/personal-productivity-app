@@ -13,130 +13,6 @@ from PyQt6.QtWidgets import (
 
 from src.ui.dialogs import create_dialog_header
 
-CALENDAR_STYLE = """
-    QDateEdit {
-        padding: 6px 12px;
-        border: 1px solid #F0E6E8;
-        border-radius: 10px;
-        background: #FFFFFF;
-        font-size: 13px;
-        color: #2E2B2B;
-        min-width: 120px;
-        font-family: 'Inter', 'Poppins', sans-serif;
-    }
-    QDateEdit::drop-down {
-        border: none;
-        width: 26px;
-        subcontrol-origin: padding;
-        subcontrol-position: top right;
-        border-radius: 13px;
-        background: #FFF0F3;
-    }
-    QDateEdit::drop-down:hover {
-        background: #FFE4EC;
-    }
-    QDateEdit::down-arrow {
-        image: url(assets/icons/chevron_down.svg);
-        width: 12px;
-        height: 12px;
-    }
-    QCalendarWidget {
-        background: #FFFFFF;
-        border: 1px solid #F0E6E8;
-        border-radius: 12px;
-        font-family: 'Inter', 'Poppins', sans-serif;
-        font-size: 10px;
-    }
-    QCalendarWidget QToolButton {
-        color: #2E2B2B;
-        background: transparent;
-        border: none;
-        border-radius: 6px;
-        padding: 3px 6px;
-        font-size: 11px;
-        font-family: 'Inter', 'Poppins', sans-serif;
-    }
-    QCalendarWidget QToolButton:hover {
-        background: #FFF0F3;
-    }
-    QCalendarWidget QToolButton:pressed {
-        background: #F7D1DC;
-    }
-    QCalendarWidget QToolButton#qt_calendar_prevmonth,
-    QCalendarWidget QToolButton#qt_calendar_nextmonth {
-        qproperty-icon: none;
-        min-width: 22px;
-        font-size: 11px;
-        color: #CFA6D6;
-    }
-    QCalendarWidget QToolButton#qt_calendar_prevmonth { qproperty-text: "<"; }
-    QCalendarWidget QToolButton#qt_calendar_nextmonth { qproperty-text: ">"; }
-    QCalendarWidget QToolButton#qt_calendar_prevmonth:hover,
-    QCalendarWidget QToolButton#qt_calendar_nextmonth:hover {
-        color: #2E2B2B;
-        background: #FFF0F3;
-    }
-    QCalendarWidget QToolButton#qt_calendar_monthbutton,
-    QCalendarWidget QToolButton#qt_calendar_yearbutton {
-        font-size: 11px;
-        font-weight: 600;
-        min-width: 60px;
-        color: #2E2B2B;
-    }
-    QCalendarWidget QWidget#qt_calendar_calendarview {
-        background: #FFFFFF;
-        border: none;
-    }
-    QCalendarWidget QAbstractItemView:enabled {
-        color: #2E2B2B;
-        background: #FFFFFF;
-        selection-background-color: #CFA6D6;
-        selection-color: #FFFFFF;
-        font-family: 'Inter', 'Poppins', sans-serif;
-        font-size: 10px;
-        gridline-color: transparent;
-    }
-    QCalendarWidget QAbstractItemView:disabled {
-        color: #D1D5DB;
-    }
-    QCalendarWidget QAbstractItemView:focus {
-        outline: none;
-    }
-    QCalendarWidget QTableView {
-        selection-background-color: #CFA6D6;
-        selection-color: #FFFFFF;
-    }
-    QCalendarWidget QTableView QHeaderView::section {
-        background: #FFF8F5;
-        color: #6B6770;
-        border: none;
-        border-bottom: 1px solid #F0E6E8;
-        padding: 2px;
-        font-size: 9px;
-        font-weight: 600;
-        font-family: 'Inter', 'Poppins', sans-serif;
-    }
-    QCalendarWidget QWidget#qt_calendar_navigationbar {
-        background: #FFF8F5;
-        border-top: 1px solid #F0E6E8;
-        border-radius: 0 0 12px 12px;
-        padding: 2px;
-    }
-    QCalendarWidget QCalendarDayWidget {
-        padding: 0px;
-        min-width: 24px;
-        max-width: 28px;
-        min-height: 18px;
-        max-height: 22px;
-    }
-    QCalendarWidget QToolButton#qt_calendar_calendarbutton {
-        qproperty-icon: none;
-        min-width: 18px;
-        font-size: 10px;
-        color: #CFA6D6;
-    }
-"""
-
 WEEK_DAYS = {
     "Monday": 0,
     "Tuesday": 1,
@@ -201,20 +77,22 @@ class BulkCreateDialog(QDialog):
         layout.addWidget(self._mode_combo)
 
         self._start_date = QDateEdit()
+        self._start_date.setObjectName("bulkDateEdit")
         self._start_date.setCalendarPopup(True)
         self._start_date.setDate(QDate.currentDate())
         self._start_date.setDisplayFormat("yyyy-MM-dd")
-        self._start_date.setStyleSheet(CALENDAR_STYLE)
+        self._start_date.calendarWidget().setObjectName("bulkCalendar")
         _style_calendar_dates(self._start_date)
         layout.addWidget(QLabel("Start date:"))
         layout.addWidget(self._start_date)
 
         self._end_label = QLabel("End date:")
         self._end_date = QDateEdit()
+        self._end_date.setObjectName("bulkDateEdit")
         self._end_date.setCalendarPopup(True)
         self._end_date.setDate(QDate.currentDate())
         self._end_date.setDisplayFormat("yyyy-MM-dd")
-        self._end_date.setStyleSheet(CALENDAR_STYLE)
+        self._end_date.calendarWidget().setObjectName("bulkCalendar")
         _style_calendar_dates(self._end_date)
         layout.addWidget(self._end_label)
         layout.addWidget(self._end_date)

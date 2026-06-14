@@ -18,6 +18,7 @@ class ResizableMixin:
         self._resize_start = None
         self._resize_origin = None
         self._user_width = None
+        self._user_height = None
         self._loaded_pos = None
         self._MIN_W = 200
         self._BORDER = 8

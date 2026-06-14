@@ -73,6 +73,25 @@ git commit -m "your message"
    ```
 4. **Manual regression** — Run affected steps from the `instructions` checklist
 
+## Debugging workflow
+
+When the user reports a bug, follow this process strictly:
+
+1. **REPRODUCE** — Run the app or a test that demonstrates the bug. Never guess at a fix without seeing the problem first.
+2. **UNDERSTAND** — Read the relevant source files and trace the execution path. Explain your understanding of the bug back to the user before writing any code.
+3. **PLAN** — Describe what you think the fix should be. Get confirmation before implementing.
+4. **ONE CHANGE** — Make exactly one small, targeted change.
+5. **VERIFY** — Run the affected tests immediately after that one change.
+6. **REPEAT** — If not fixed, go back to step 2. Do not make multiple unrelated changes hoping something sticks.
+
+### Rules for debugging:
+- NEVER make more than one change before testing
+- NEVER skip running tests after a change
+- NEVER guess at a fix — understand the root cause first
+- If a fix doesn't work after 2 attempts, STOP and explain what you tried to the user
+- ALWAYS run `py -m pytest` before starting (confirm baseline)
+- ALWAYS run `py -m pytest` after each individual change
+
 ## Using the Instructions File
 
 The `instructions` file is your comprehensive testing guide. Use it to:

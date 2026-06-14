@@ -1,9 +1,10 @@
-"""Pre-commit check: warns about code health issues.
+"""Pre-commit check: warns about code health issues and common bug patterns.
 
 Always exits with code 0 (never blocks the commit).
 """
 
 import ast
+import re
 import sys
 from pathlib import Path
 
@@ -116,6 +117,51 @@ def check_test_coverage(src_files):
     return warnings
 
 
+def check_bug_patterns(src_files):
+    """Warn about common bug patterns in source code."""
+    warnings = []
+    for src_file in src_files:
+        try:
+            content = src_file.read_text(encoding="utf-8")
+            lines = content.splitlines()
+        except Exception:
+            continue
+
+        rel_path = src_file.relative_to(ROOT)
+
+        # Check for bare except or except Exception with pass
+        for i, line in enumerate(lines, 1):
+            stripped = line.strip()
+            if stripped in ("except:", "except Exception:"):
+                # Check if next non-empty line is pass
+                for j in range(i, min(i + 3, len(lines))):
+                    if lines[j].strip() == "pass":
+                        warnings.append(f"  {rel_path}:{i} silently swallows exception")
+                        break
+
+        # Check for json.loads without try/except
+        for i, line in enumerate(lines, 1):
+            if "json.loads(" in line:
+                # Look backwards for try/except
+                in_try = False
+                for j in range(max(0, i - 10), i - 1):
+                    if lines[j].strip().startswith("try"):
+                        in_try = True
+                        break
+                if not in_try:
+                    warnings.append(f"  {rel_path}:{i} json.loads() without try/except")
+
+        # Check for f-string or % formatting in SQL
+        for i, line in enumerate(lines, 1):
+            if "execute(" in line:
+                if re.search(r'execute\(f["\']', line) or re.search(
+                    r'execute\(["\'].*%', line
+                ):
+                    warnings.append(f"  {rel_path}:{i} possible SQL injection")
+
+    return warnings
+
+
 def main():
     src_files = find_src_files()
 
@@ -163,6 +209,16 @@ def main():
             print(w)
     else:
         print("\n[4] Test coverage: all files have tests")
+
+    # Check for bug patterns
+    bug_warnings = check_bug_patterns(src_files)
+    if bug_warnings:
+        print(f"\n[5] Potential bugs ({len(bug_warnings)} found):")
+        all_warnings.extend(bug_warnings)
+        for w in bug_warnings:
+            print(w)
+    else:
+        print("\n[5] Bug patterns: none found")
 
     print()
     if all_warnings:

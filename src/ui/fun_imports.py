@@ -413,23 +413,10 @@ class FunImportsDialog(QDialog):
         layout.setSpacing(0)
 
         self.tabs = QTabWidget()
+        self.tabs.setObjectName("funImportsTabs")
         emoji_tab_font = QFont("Segoe UI Emoji", 13)
+        self.tabs.tabBar().setObjectName("funImportsTabBar")
         self.tabs.tabBar().setFont(emoji_tab_font)
-        self.tabs.setStyleSheet("""
-            QTabWidget::pane { border: none; }
-            QTabBar::tab {
-                padding: 8px 20px;
-                font-size: 13px;
-                font-weight: 500;
-                color: #9ca3af;
-                border-bottom: 2px solid transparent;
-            }
-            QTabBar::tab:selected {
-                color: #CFA6D6;
-                border-bottom: 2px solid #CFA6D6;
-            }
-            QTabBar::tab:hover { color: #7c3aed; }
-        """)
 
         self.tabs.addTab(self._build_emoji_tab(), "😀 Emojis")
         self.tabs.addTab(self._build_gif_tab(), "🎬 GIFs")
@@ -459,14 +446,11 @@ class FunImportsDialog(QDialog):
         emoji_font = QFont("Segoe UI Emoji", 16)
         for cat in categories:
             btn = QLabel(cat_labels.get(cat, "😀"))
+            btn.setObjectName("funImportsCatBtn")
             btn.setFixedSize(36, 36)
             btn.setAlignment(Qt.AlignmentFlag.AlignCenter)
             btn.setToolTip(cat)
             btn.setFont(emoji_font)
-            btn.setStyleSheet(
-                "QLabel { border: none; border-radius: 6px; }"
-                " QLabel:hover { background: #F3E8F6; }"
-            )
             btn.mousePressEvent = lambda checked, c=cat: self._scroll_to_category(c)
             cat_bar.addWidget(btn)
             self._cat_buttons[cat] = btn
@@ -515,13 +499,10 @@ class FunImportsDialog(QDialog):
             grid.setContentsMargins(0, 0, 0, 0)
             for i, emoji in enumerate(emojis):
                 btn = QLabel(emoji)
+                btn.setObjectName("funImportsEmojiBtn")
                 btn.setFixedSize(40, 40)
                 btn.setAlignment(Qt.AlignmentFlag.AlignCenter)
                 btn.setFont(emoji_font)
-                btn.setStyleSheet(
-                    "QLabel { border: none; border-radius: 6px; }"
-                    " QLabel:hover { background: #F3E8F6; }"
-                )
                 btn.mousePressEvent = lambda checked, e=emoji: self._insert_emoji(e)
                 btn.setCursor(Qt.CursorShape.PointingHandCursor)
                 grid.addWidget(btn, i // 8, i % 8)
@@ -592,24 +573,17 @@ class FunImportsDialog(QDialog):
 
         for cat_name, emojis in gif_categories.items():
             cat_label = QLabel(cat_name)
-            cat_label.setStyleSheet(
-                "font-size: 12px; font-weight: 600; color: #6b7280; padding: 4px 0px;"
-            )
+            cat_label.setObjectName("funImportsCatLabel")
             gif_layout.addWidget(cat_label)
 
             grid = QGridLayout()
             grid.setSpacing(4)
             for i, em in enumerate(emojis):
                 btn = QLabel(em)
+                btn.setObjectName("funImportsGifBtn")
                 btn.setFixedSize(80, 80)
                 btn.setAlignment(Qt.AlignmentFlag.AlignCenter)
                 btn.setFont(QFont("Segoe UI Emoji", 24))
-                btn.setStyleSheet(
-                    "QLabel { border: 1px solid #e5e7eb;"
-                    " border-radius: 8px; background: #f9fafb; }"
-                    " QLabel:hover { background: #F3E8F6;"
-                    " border: 1px solid #CFA6D6; }"
-                )
                 btn.mousePressEvent = lambda checked, e=em: self._insert_gif(e)
                 btn.setCursor(Qt.CursorShape.PointingHandCursor)
                 grid.addWidget(btn, i // 4, i % 4)

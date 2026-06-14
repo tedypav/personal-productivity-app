@@ -303,6 +303,93 @@ class TestSetAsTemplate:
         icon = item.icon(0)
         assert not icon.isNull()
 
+    def test_set_as_template_copies_objects(self, sidebar):
+        import json
+
+        from src.models.page_object import PageObject
+        from src.repositories.page_object_repo import PageObjectRepo
+
+        pid = PageRepo().create(Page(title="MyPage", page_type="page"))
+        PageObjectRepo().create(
+            PageObject(
+                page_id=pid,
+                object_type="checkbox",
+                content=json.dumps({"text": "task1", "checked": False}),
+            )
+        )
+        PageObjectRepo().create(
+            PageObject(
+                page_id=pid,
+                object_type="checkbox",
+                content=json.dumps({"text": "task2", "checked": True}),
+            )
+        )
+
+        sidebar._set_as_template(pid)
+
+        templates = [
+            p
+            for p in PageRepo().get_all()
+            if p.title == "MyPage" and p.page_type == "template_page"
+        ]
+        assert len(templates) == 1
+        template_objects = PageObjectRepo().get_by_page(templates[0].id)
+        assert len(template_objects) == 2
+        assert template_objects[0].object_type == "checkbox"
+        assert template_objects[1].object_type == "checkbox"
+
+    def test_set_as_template_preserves_object_content(self, sidebar):
+        import json
+
+        from src.models.page_object import PageObject
+        from src.repositories.page_object_repo import PageObjectRepo
+
+        pid = PageRepo().create(Page(title="MyPage", page_type="page"))
+        content = json.dumps({"text": "Buy milk", "checked": False})
+        PageObjectRepo().create(
+            PageObject(page_id=pid, object_type="checkbox", content=content)
+        )
+
+        sidebar._set_as_template(pid)
+
+        templates = [
+            p
+            for p in PageRepo().get_all()
+            if p.title == "MyPage" and p.page_type == "template_page"
+        ]
+        template_objects = PageObjectRepo().get_by_page(templates[0].id)
+        assert len(template_objects) == 1
+        assert json.loads(template_objects[0].content) == json.loads(content)
+
+    def test_set_as_template_creates_independent_copy(self, sidebar):
+        import json
+
+        from src.models.page_object import PageObject
+        from src.repositories.page_object_repo import PageObjectRepo
+
+        pid = PageRepo().create(Page(title="MyPage", page_type="page"))
+        obj = PageObject(
+            page_id=pid,
+            object_type="checkbox",
+            content=json.dumps({"text": "original"}),
+        )
+        obj_id = PageObjectRepo().create(obj)
+
+        sidebar._set_as_template(pid)
+
+        original_obj = PageObjectRepo().get_by_id(obj_id)
+        original_obj.content = json.dumps({"text": "modified"})
+        PageObjectRepo().update(original_obj)
+
+        templates = [
+            p
+            for p in PageRepo().get_all()
+            if p.title == "MyPage" and p.page_type == "template_page"
+        ]
+        template_objects = PageObjectRepo().get_by_page(templates[0].id)
+        assert len(template_objects) == 1
+        assert json.loads(template_objects[0].content)["text"] == "original"
+
 
 class TestUniqueNames:
     def test_unique_name_adds_suffix(self, sidebar):

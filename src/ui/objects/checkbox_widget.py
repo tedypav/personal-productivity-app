@@ -103,6 +103,7 @@ class CheckboxWidget(QWidget):
         self._text = text
         self._checked = checked
         self.setObjectName("checkboxWidget")
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self._setup_ui()
 
     def _setup_ui(self):
