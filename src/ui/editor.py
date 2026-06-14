@@ -202,6 +202,13 @@ class PageEditor(QWidget):
         self._textbox_btn.hide()
         toolbar.addWidget(self._textbox_btn)
 
+        self._import_template_btn = QPushButton("📋 Import Template")
+        self._import_template_btn.setObjectName("editorTextboxBtn")
+        self._import_template_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._import_template_btn.clicked.connect(self._import_template)
+        self._import_template_btn.hide()
+        toolbar.addWidget(self._import_template_btn)
+
         parent_layout.addWidget(toolbar_widget)
 
     def _on_canvas_clicked(self, x, y):
@@ -253,11 +260,13 @@ class PageEditor(QWidget):
             self._checkbox_btn.hide()
             self._table_btn.hide()
             self._textbox_btn.hide()
+            self._import_template_btn.hide()
         else:
             self._load_objects()
             self._checkbox_btn.show()
             self._table_btn.show()
             self._textbox_btn.show()
+            self._import_template_btn.show()
             if not self._objects:
                 self._page_empty_hint.show()
                 self._center_empty_hint()
@@ -431,6 +440,42 @@ class PageEditor(QWidget):
         widget._save_meta()
         self._page_empty_hint.hide()
 
+    def _import_template(self):
+        if not self.current_page_id:
+            return
+
+        from PyQt6.QtWidgets import QInputDialog
+
+        from src.repositories.page_repo import PageRepo as _PageRepo
+
+        pages = _PageRepo().get_all()
+        template_pages = [p for p in pages if p.page_type == "template_page"]
+        if not template_pages:
+            from PyQt6.QtWidgets import QMessageBox
+
+            QMessageBox.information(self, "Import Template", "No templates saved yet.")
+            return
+
+        names = [p.title for p in template_pages]
+        name, ok = QInputDialog.getItem(
+            self, "Import Template", "Select a template:", names, 0, False
+        )
+        if not ok:
+            return
+
+        template_page = next(p for p in template_pages if p.title == name)
+        count = PageObjectRepo.copy_objects(template_page.id, self.current_page_id)
+        self._clear_objects()
+        self._load_objects()
+        self._page_empty_hint.hide()
+        from PyQt6.QtWidgets import QMessageBox
+
+        QMessageBox.information(
+            self,
+            "Import Template",
+            f"Imported {count} object(s) from '{name}'.",
+        )
+
     def _on_textbox_delete(self, textbox_id):
         if textbox_id in self._textboxes:
             widget = self._textboxes[textbox_id]
@@ -596,6 +641,7 @@ class PageEditor(QWidget):
         self._checkbox_btn.hide()
         self._table_btn.hide()
         self._textbox_btn.hide()
+        self._import_template_btn.hide()
         self._parent_folder_id = None
         self._canvas_click_pos = None
         self.content.setPhotoBackground(True)

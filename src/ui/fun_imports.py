@@ -886,5 +886,10 @@ class FunImportsDialog(QDialog):
 
     def _insert_gif(self, gif):
         if self.target_edit:
-            self.target_edit.insertPlainText(f"[GIF: {gif}]")
+            from PyQt6.QtCore import QUrl
+
+            self.target_edit.insertHtml(
+                f'<img src="{QUrl.fromLocalFile(gif).toString()}" '
+                f'width="150" height="150" />'
+            )
         self.accept()
