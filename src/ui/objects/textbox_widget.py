@@ -27,7 +27,7 @@ __all__ = ["TextboxWidget"]
 
 
 class TextboxTextBlock(QWidget):
-    """A rich-text block: read-only view, double-click to edit."""
+    """A rich-text block: click to edit, drag bottom handle to resize."""
 
     content_changed = pyqtSignal()
 
@@ -35,6 +35,8 @@ class TextboxTextBlock(QWidget):
         super().__init__(parent)
         self._html = html
         self._editing = False
+        self._resizing = False
+        self._resize_start = None
         self._layout = QVBoxLayout(self)
         self._layout.setContentsMargins(0, 0, 0, 0)
         self._layout.setSpacing(0)
@@ -49,18 +51,51 @@ class TextboxTextBlock(QWidget):
         self._editor.viewport().installEventFilter(self)
         self._layout.addWidget(self._editor)
 
+        self._handle = QWidget()
+        self._handle.setFixedHeight(6)
+        self._handle.setCursor(Qt.CursorShape.SizeVerCursor)
+        self._handle.setObjectName("textboxResizeHandle")
+        self._handle.installEventFilter(self)
+        self._layout.addWidget(self._handle)
+
         self._apply_view_mode()
 
     def eventFilter(self, obj, event):
         from PyQt6.QtCore import QEvent
+        from PyQt6.QtGui import QMouseEvent
 
-        if (
-            obj is self._editor.viewport()
-            and event.type() == QEvent.Type.MouseButtonPress
-            and event.button() == Qt.MouseButton.LeftButton
-            and not self._editing
-        ):
-            self._enter_edit_mode()
+        if obj is self._editor.viewport():
+            if (
+                event.type() == QEvent.Type.MouseButtonPress
+                and event.button() == Qt.MouseButton.LeftButton
+                and not self._editing
+            ):
+                self._enter_edit_mode()
+            return super().eventFilter(obj, event)
+
+        if obj is self._handle and isinstance(event, QMouseEvent):
+            if event.type() == QEvent.Type.MouseButtonPress:
+                if event.button() == Qt.MouseButton.LeftButton:
+                    self._resizing = True
+                    self._resize_start = event.globalPosition().toPoint()
+                    event.accept()
+                    return True
+            if event.type() == QEvent.Type.MouseMove:
+                if self._resizing and self._resize_start is not None:
+                    curr = event.globalPosition().toPoint()
+                    dy = curr.y() - self._resize_start.y()
+                    new_h = max(60, self.height() + dy)
+                    self._resize_start = curr
+                    self._editor.setMinimumHeight(max(60, new_h - 6))
+                    event.accept()
+                    return True
+            if event.type() == QEvent.Type.MouseButtonRelease:
+                if self._resizing:
+                    self._resizing = False
+                    self._resize_start = None
+                    event.accept()
+                    return True
+
         return super().eventFilter(obj, event)
 
     def _enter_edit_mode(self):
@@ -498,7 +533,6 @@ class TextboxWidget(ResizableMixin, QWidget):
         self._scroll.setWidgetResizable(True)
         self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self._scroll.setObjectName("textboxScroll")
-        self._scroll.viewport().installEventFilter(self)
 
         container = QWidget()
         container.setObjectName("textboxContainer")
@@ -512,101 +546,100 @@ class TextboxWidget(ResizableMixin, QWidget):
 
     def _install_border_filter(self):
         self._header.installEventFilter(self)
+        self.installEventFilter(self)
 
     def eventFilter(self, obj, event):
         from PyQt6.QtCore import QEvent
         from PyQt6.QtGui import QMouseEvent
 
-        if isinstance(event, QMouseEvent):
-            if obj is self._scroll.viewport():
-                pos = obj.mapTo(self, event.position().toPoint())
-                if event.type() == QEvent.Type.MouseButtonPress:
-                    if event.button() == Qt.MouseButton.LeftButton:
-                        edge = self._detect_edge(pos)
-                        if edge:
-                            self._resizing = True
-                            self._resize_edge = edge
-                            self._resize_start = event.globalPosition().toPoint()
-                            self._resize_origin = (
-                                self.x(),
-                                self.y(),
-                                self.width(),
-                                self.height(),
-                            )
-                            event.accept()
-                            return True
-                if event.type() == QEvent.Type.MouseMove:
-                    if self._resizing and self._resize_start is not None:
-                        curr = event.globalPosition().toPoint()
-                        dx = curr.x() - self._resize_start.x()
-                        dy = curr.y() - self._resize_start.y()
-                        ox, oy, ow, oh = self._resize_origin
-                        edge = self._resize_edge
-                        new_x, new_y, new_w, new_h = (
-                            ox,
-                            oy,
-                            ow,
-                            oh,
+        if not isinstance(event, QMouseEvent):
+            return super().eventFilter(obj, event)
+
+        pos = obj.mapTo(self, event.position().toPoint())
+
+        if event.type() == QEvent.Type.MouseMove:
+            if self._resizing and self._resize_start is not None:
+                curr = event.globalPosition().toPoint()
+                dx = curr.x() - self._resize_start.x()
+                dy = curr.y() - self._resize_start.y()
+                ox, oy, ow, oh = self._resize_origin
+                edge = self._resize_edge
+                new_x, new_y, new_w, new_h = ox, oy, ow, oh
+                if "right" in edge:
+                    new_w = max(self._MIN_W, ow + dx)
+                if "bottom" in edge:
+                    new_h = max(self._min_height(), oh + dy)
+                if "left" in edge:
+                    new_w = max(self._MIN_W, ow - dx)
+                    new_x = ox + ow - new_w
+                if "top" in edge:
+                    new_h = max(self._min_height(), oh - dy)
+                    new_y = oy + oh - new_h
+                parent = self.parent()
+                if parent:
+                    new_x = max(0, min(new_x, parent.width() - new_w))
+                    new_y = max(0, min(new_y, parent.height() - new_h))
+                self._user_width = new_w
+                self.setMinimumWidth(0)
+                self.setMaximumWidth(16777215)
+                self.setGeometry(new_x, new_y, new_w, new_h)
+                event.accept()
+                return True
+
+            if obj is self and not self._dragging:
+                edge = self._detect_edge(pos)
+                if edge:
+                    self.setCursor(self._edge_cursor(edge))
+                else:
+                    self.setCursor(Qt.CursorShape.ArrowCursor)
+
+        if event.type() == QEvent.Type.MouseButtonPress:
+            if event.button() == Qt.MouseButton.LeftButton:
+                if obj is self._header:
+                    child = self._header.childAt(pos)
+                    if child is self._title_edit:
+                        return False
+                    if isinstance(child, QPushButton | QToolButton):
+                        return False
+                    self._dragging = True
+                    self._drag_start = event.globalPosition().toPoint() - self.pos()
+                    self._header.setCursor(Qt.CursorShape.ClosedHandCursor)
+                    event.accept()
+                    return True
+                if obj is self:
+                    edge = self._detect_edge(pos)
+                    if edge:
+                        self._resizing = True
+                        self._resize_edge = edge
+                        self._resize_start = event.globalPosition().toPoint()
+                        self._resize_origin = (
+                            self.x(),
+                            self.y(),
+                            self.width(),
+                            self.height(),
                         )
-                        if "right" in edge:
-                            new_w = max(self._MIN_W, ow + dx)
-                        if "bottom" in edge:
-                            new_h = max(self._min_height(), oh + dy)
-                        if "left" in edge:
-                            new_w = max(self._MIN_W, ow - dx)
-                            new_x = ox + ow - new_w
-                        if "top" in edge:
-                            new_h = max(self._min_height(), oh - dy)
-                            new_y = oy + oh - new_h
-                        parent = self.parent()
-                        if parent:
-                            new_x = max(
-                                0,
-                                min(new_x, parent.width() - new_w),
-                            )
-                            new_y = max(
-                                0,
-                                min(new_y, parent.height() - new_h),
-                            )
-                        self._user_width = new_w
-                        self.setMinimumWidth(0)
-                        self.setMaximumWidth(16777215)
-                        self.setGeometry(new_x, new_y, new_w, new_h)
                         event.accept()
                         return True
-                if event.type() == QEvent.Type.MouseButtonRelease:
-                    if self._resizing:
-                        self._resizing = False
-                        self._resize_edge = None
-                        self._resize_start = None
-                        self._resize_origin = None
-                        self.setCursor(Qt.CursorShape.ArrowCursor)
-                        self._on_resize_complete()
-                        self._save_meta()
-                        event.accept()
-                        return True
-                if event.type() == QEvent.Type.MouseMove:
-                    if not self._resizing and not self._dragging:
-                        edge = self._detect_edge(pos)
-                        if edge:
-                            obj.setCursor(self._edge_cursor(edge))
-                        else:
-                            obj.setCursor(Qt.CursorShape.ArrowCursor)
-                return False
-            pos = obj.mapTo(self, event.position().toPoint())
-            if event.type() == QEvent.Type.MouseButtonPress:
-                if event.button() == Qt.MouseButton.LeftButton:
-                    if obj is self._header:
-                        child = self._header.childAt(pos)
-                        if child is self._title_edit:
-                            return False
-                        if isinstance(child, QPushButton | QToolButton):
-                            return False
-                        self._dragging = True
-                        self._drag_start = event.globalPosition().toPoint() - self.pos()
-                        self._header.setCursor(Qt.CursorShape.ClosedHandCursor)
-                        event.accept()
-                        return True
+
+        if event.type() == QEvent.Type.MouseButtonRelease:
+            if self._resizing:
+                self._resizing = False
+                self._resize_edge = None
+                self._resize_start = None
+                self._resize_origin = None
+                self.setCursor(Qt.CursorShape.ArrowCursor)
+                self._on_resize_complete()
+                self._save_meta()
+                event.accept()
+                return True
+            if self._dragging:
+                self._dragging = False
+                self._drag_start = None
+                self._header.setCursor(Qt.CursorShape.OpenHandCursor)
+                self._save_meta()
+                event.accept()
+                return True
+
         return super().eventFilter(obj, event)
 
     def _add_text_block(self, html: str = ""):
