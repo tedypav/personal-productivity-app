@@ -515,6 +515,12 @@ class TextboxWidget(ResizableMixin, QWidget):
         insert_img_btn.clicked.connect(lambda: self._add_image_block())
         header_layout.addWidget(insert_img_btn)
 
+        fun_btn = QPushButton("🎨 Fun")
+        fun_btn.setObjectName("textboxAddBtn")
+        fun_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        fun_btn.clicked.connect(self._open_fun_imports)
+        header_layout.addWidget(fun_btn)
+
         delete_btn = QToolButton()
         delete_btn.setObjectName("textboxDeleteBtn")
         delete_btn.setText("×")
@@ -675,6 +681,28 @@ class TextboxWidget(ResizableMixin, QWidget):
 
     def _on_title_changed(self):
         self._save_meta()
+
+    def _open_fun_imports(self):
+        from src.ui.fun_imports import FunImportsDialog
+
+        target = None
+        for block_type, widget in self._blocks:
+            if block_type == "text" and isinstance(widget, TextboxTextBlock):
+                if widget._editing:
+                    target = widget._editor
+                    break
+        if target is None:
+            for block_type, widget in self._blocks:
+                if block_type == "text" and isinstance(widget, TextboxTextBlock):
+                    widget._enter_edit_mode()
+                    target = widget._editor
+                    break
+        if target is None:
+            block = self._add_text_block()
+            block._enter_edit_mode()
+            target = block._editor
+        dialog = FunImportsDialog(self, target_edit=target)
+        dialog.exec()
 
     def _delete_textbox(self):
         self.object_delete_requested.emit(self.textbox_id)
