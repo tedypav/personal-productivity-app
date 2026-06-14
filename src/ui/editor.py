@@ -595,6 +595,7 @@ class PageEditor(QWidget):
         self._back_btn.hide()
         self._checkbox_btn.hide()
         self._table_btn.hide()
+        self._textbox_btn.hide()
         self._parent_folder_id = None
         self._canvas_click_pos = None
         self.content.setPhotoBackground(True)
