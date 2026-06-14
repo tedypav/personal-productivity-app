@@ -10,7 +10,6 @@ from PyQt6.QtWidgets import (
     QSizePolicy,
     QTableWidget,
     QTableWidgetItem,
-    QTextBrowser,
     QTextEdit,
     QToolButton,
     QVBoxLayout,
@@ -28,7 +27,7 @@ __all__ = ["TextboxWidget"]
 
 
 class TextboxTextBlock(QWidget):
-    """A rich-text block with edit/render toggle."""
+    """A rich-text block: read-only view, double-click to edit."""
 
     content_changed = pyqtSignal()
 
@@ -40,81 +39,57 @@ class TextboxTextBlock(QWidget):
         self._layout.setContentsMargins(0, 0, 0, 0)
         self._layout.setSpacing(0)
 
-        self._viewer = QTextBrowser()
-        self._viewer.setObjectName("textboxViewer")
-        self._viewer.setOpenExternalLinks(True)
-        self._viewer.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self._viewer.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self._viewer.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum
-        )
-        self._viewer.installEventFilter(self)
-        self._layout.addWidget(self._viewer)
-
         self._editor = QTextEdit()
         self._editor.setObjectName("textboxEditor")
         self._editor.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self._editor.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum
         )
         self._editor.textChanged.connect(self._on_text_changed)
-        self._editor.hide()
         self._layout.addWidget(self._editor)
 
-        self._render()
+        self._apply_view_mode()
 
-    def eventFilter(self, obj, event):
-        from PyQt6.QtCore import QEvent
-
-        if obj is self._viewer and event.type() == QEvent.Type.MouseButtonDblClick:
+    def mouseDoubleClickEvent(self, event):
+        if not self._editing:
             self._enter_edit_mode()
-            return True
-        return super().eventFilter(obj, event)
+        super().mouseDoubleClickEvent(event)
 
     def _enter_edit_mode(self):
         self._editing = True
-        self._editor.setHtml(self._html)
-        self._viewer.hide()
-        self._editor.show()
+        self._editor.setReadOnly(False)
         self._editor.setFocus()
 
     def exit_edit_mode(self):
         if self._editing:
             self._editing = False
             self._html = self._editor.toHtml()
-            self._editor.hide()
-            self._viewer.show()
-            self._render()
+            self._apply_view_mode()
             self.content_changed.emit()
 
-    def _render(self):
+    def _apply_view_mode(self):
+        self._editor.setReadOnly(True)
         if self._html.strip():
-            self._viewer.setHtml(self._html)
+            self._editor.setHtml(self._html)
         else:
-            self._viewer.setHtml(
+            self._editor.setHtml(
                 '<p style="color:#9CA3AF; font-style:italic;">'
                 "Double-click to start typing...</p>"
             )
-        doc_size = self._viewer.document().size()
+        doc_size = self._editor.document().size()
         h = max(60, int(doc_size.height()) + 16)
-        self._viewer.setMinimumHeight(h)
         self._editor.setMinimumHeight(h)
 
     def _on_text_changed(self):
-        self._html = self._editor.toHtml()
-        self._render()
+        if self._editing:
+            self._html = self._editor.toHtml()
 
     def get_content(self) -> str:
-        if self._editing:
-            return self._editor.toHtml()
         return self._html
 
     def set_content(self, html: str):
         self._html = html
-        if self._editing:
-            self._editor.setHtml(html)
-        else:
-            self._render()
+        self._apply_view_mode()
 
     def text_cursor(self):
         if self._editing:

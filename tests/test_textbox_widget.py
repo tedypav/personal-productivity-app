@@ -62,11 +62,11 @@ class TestTextboxController:
 class TestTextboxTextBlock:
     def test_renders_html(self, app_instance):
         block = TextboxTextBlock(html="<p>Hello</p>")
-        assert "Hello" in block._viewer.toPlainText()
+        assert "Hello" in block._editor.toPlainText()
 
     def test_shows_placeholder_when_empty(self, app_instance):
         block = TextboxTextBlock()
-        text = block._viewer.toPlainText()
+        text = block._editor.toPlainText()
         assert "Double-click" in text or "start typing" in text
 
     def test_enter_edit_mode(self, app_instance):
@@ -74,8 +74,7 @@ class TestTextboxTextBlock:
         block.show()
         block._enter_edit_mode()
         assert block._editing is True
-        assert block._editor.isVisible()
-        assert not block._viewer.isVisible()
+        assert not block._editor.isReadOnly()
 
     def test_exit_edit_mode(self, app_instance):
         block = TextboxTextBlock(html="<p>Test</p>")
@@ -83,17 +82,16 @@ class TestTextboxTextBlock:
         block._enter_edit_mode()
         block.exit_edit_mode()
         assert block._editing is False
-        assert block._viewer.isVisible()
-        assert not block._editor.isVisible()
+        assert block._editor.isReadOnly()
 
     def test_get_content_returns_html(self, app_instance):
         block = TextboxTextBlock(html="<p>Hi</p>")
         assert block.get_content() == "<p>Hi</p>"
 
-    def test_set_content_updates_viewer(self, app_instance):
+    def test_set_content_updates_editor(self, app_instance):
         block = TextboxTextBlock()
         block.set_content("<p>New</p>")
-        assert "New" in block._viewer.toPlainText()
+        assert "New" in block._editor.toPlainText()
 
     def test_content_changed_signal(self, app_instance, qtbot):
         block = TextboxTextBlock()
