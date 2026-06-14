@@ -447,8 +447,16 @@ class Sidebar(QWidget):
             "Templates": template_icon,
         }
 
-        def _page_icon(page):
+        templates_id = None
+        for p in pages:
+            if p.title == "Templates" and p.page_type == "folder":
+                templates_id = p.id
+                break
+
+        def _page_icon(page, parent_id=None):
             if page.page_type == "folder":
+                if parent_id == templates_id:
+                    return template_icon
                 return folder_icons.get(page.title, folder_icon)
             if page.page_type == "template_page":
                 return template_page_icon
@@ -456,9 +464,9 @@ class Sidebar(QWidget):
 
         special_titles = {"Fun Imports", "Archive", "Templates"}
 
-        def _make_item(parent, page, tree):
+        def _make_item(parent, page, tree, parent_id=None):
             item = QTreeWidgetItem(parent)
-            item.setIcon(0, _page_icon(page))
+            item.setIcon(0, _page_icon(page, parent_id))
             item.setText(0, page.title)
             if page.page_type == "folder":
                 font = item.font(0)
@@ -477,7 +485,7 @@ class Sidebar(QWidget):
         def add_children(parent_item, parent_id, tree):
             children = children_map.get(parent_id, [])
             for page in sorted(children, key=lambda x: x.title.lower()):
-                _make_item(parent_item, page, tree)
+                _make_item(parent_item, page, tree, parent_id)
                 child_item = parent_item.child(parent_item.childCount() - 1)
                 add_children(child_item, page.id, tree)
 

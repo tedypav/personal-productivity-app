@@ -420,6 +420,7 @@ class FunImportsDialog(QDialog):
 
         self.tabs.addTab(self._build_emoji_tab(), "😀 Emojis")
         self.tabs.addTab(self._build_gif_tab(), "🎬 GIFs")
+        self.tabs.addTab(self._build_upload_tab(), "📤 Upload")
         layout.addWidget(self.tabs)
 
     def _build_emoji_tab(self):
@@ -600,3 +601,140 @@ class FunImportsDialog(QDialog):
         if self.target_edit:
             self.target_edit.insertPlainText(f"[GIF: {gif}]")
         self.accept()
+
+    def _get_upload_dir(self, kind):
+        import os
+
+        base = os.path.join(
+            os.path.dirname(__file__), "..", "..", "assets", "custom", kind
+        )
+        os.makedirs(base, exist_ok=True)
+        return base
+
+    def _build_upload_tab(self):
+        widget = QWidget()
+        main_layout = QVBoxLayout(widget)
+        main_layout.setContentsMargins(8, 8, 8, 8)
+        main_layout.setSpacing(8)
+
+        emoji_label = QLabel("Custom Emojis")
+        emoji_label.setObjectName("funImportsCatLabel")
+        main_layout.addWidget(emoji_label)
+
+        from PyQt6.QtWidgets import QPushButton
+
+        upload_emoji_btn = QPushButton("+ Upload Emoji Image")
+        upload_emoji_btn.setObjectName("funImportsCatBtn")
+        upload_emoji_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        upload_emoji_btn.clicked.connect(self._upload_emoji)
+        main_layout.addWidget(upload_emoji_btn)
+
+        emoji_scroll = QScrollArea()
+        emoji_scroll.setWidgetResizable(True)
+        emoji_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        emoji_container = QWidget()
+        self._custom_emoji_layout = QGridLayout(emoji_container)
+        self._custom_emoji_layout.setSpacing(4)
+        self._custom_emoji_layout.setContentsMargins(0, 0, 0, 0)
+        emoji_scroll.setWidget(emoji_container)
+        main_layout.addWidget(emoji_scroll, 1)
+
+        gif_label = QLabel("Custom GIFs")
+        gif_label.setObjectName("funImportsCatLabel")
+        main_layout.addWidget(gif_label)
+
+        upload_gif_btn = QPushButton("+ Upload GIF")
+        upload_gif_btn.setObjectName("funImportsCatBtn")
+        upload_gif_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        upload_gif_btn.clicked.connect(self._upload_gif)
+        main_layout.addWidget(upload_gif_btn)
+
+        gif_scroll = QScrollArea()
+        gif_scroll.setWidgetResizable(True)
+        gif_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        gif_container = QWidget()
+        self._custom_gif_layout = QGridLayout(gif_container)
+        self._custom_gif_layout.setSpacing(4)
+        self._custom_gif_layout.setContentsMargins(0, 0, 0, 0)
+        gif_scroll.setWidget(gif_container)
+        main_layout.addWidget(gif_scroll, 1)
+
+        self._refresh_custom_items()
+        return widget
+
+    def _refresh_custom_items(self):
+        import os
+
+        from PyQt6.QtGui import QPixmap
+
+        for layout in [self._custom_emoji_layout, self._custom_gif_layout]:
+            while layout.count():
+                w = layout.takeAt(0).widget()
+                if w:
+                    w.deleteLater()
+
+        for kind, layout, size in [
+            ("emojis", self._custom_emoji_layout, (60, 60)),
+            ("gifs", self._custom_gif_layout, (80, 80)),
+        ]:
+            upload_dir = self._get_upload_dir(kind)
+            files = [
+                f
+                for f in os.listdir(upload_dir)
+                if f.lower().endswith((".png", ".jpg", ".jpeg", ".gif", ".svg"))
+            ]
+            for i, fname in enumerate(sorted(files)):
+                path = os.path.join(upload_dir, fname)
+                btn = QLabel()
+                btn.setObjectName("funImportsGifBtn")
+                btn.setFixedSize(*size)
+                btn.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                pixmap = QPixmap(path)
+                if not pixmap.isNull():
+                    btn.setPixmap(
+                        pixmap.scaled(
+                            *size,
+                            Qt.AspectRatioMode.KeepAspectRatio,
+                            Qt.TransformationMode.SmoothTransformation,
+                        )
+                    )
+                btn.setCursor(Qt.CursorShape.PointingHandCursor)
+                btn.setToolTip(fname)
+                btn.mousePressEvent = lambda checked, p=path, k=kind: (
+                    self._insert_emoji(p) if k == "emojis" else self._insert_gif(p)
+                )
+                layout.addWidget(btn, i // 4, i % 4)
+
+    def _upload_emoji(self):
+        from PyQt6.QtWidgets import QFileDialog
+
+        paths, _ = QFileDialog.getOpenFileNames(
+            self,
+            "Select Emoji Images",
+            "",
+            "Images (*.png *.jpg *.jpeg *.gif *.svg)",
+        )
+        if paths:
+            import shutil
+
+            upload_dir = self._get_upload_dir("emojis")
+            for path in paths:
+                shutil.copy2(path, upload_dir)
+            self._refresh_custom_items()
+
+    def _upload_gif(self):
+        from PyQt6.QtWidgets import QFileDialog
+
+        paths, _ = QFileDialog.getOpenFileNames(
+            self,
+            "Select GIF Files",
+            "",
+            "GIFs (*.gif)",
+        )
+        if paths:
+            import shutil
+
+            upload_dir = self._get_upload_dir("gifs")
+            for path in paths:
+                shutil.copy2(path, upload_dir)
+            self._refresh_custom_items()
