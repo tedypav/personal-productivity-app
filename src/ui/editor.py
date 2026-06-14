@@ -174,13 +174,18 @@ class PageEditor(QWidget):
 
     def eventFilter(self, obj, event):
         if obj is self.scroll.viewport() and event.type() == QEvent.Type.Resize:
+            vp = self.scroll.viewport()
+            self.content.setFixedWidth(vp.width())
             if self.current_page_id is None:
-                vp = self.scroll.viewport()
-                self.content.setFixedWidth(vp.width())
                 self.content.resize(vp.width(), vp.height())
             self._center_welcome_label()
             self._center_empty_hint()
             self._position_floating_button()
+        if obj is self.scroll.viewport() and event.type() == QEvent.Type.Wheel:
+            sb = self.scroll.verticalScrollBar()
+            if sb.value() >= sb.maximum() - 300:
+                new_h = self.content.height() + 500
+                self.content.resize(self.content.width(), new_h)
         return super().eventFilter(obj, event)
 
     def _build_toolbar(self, parent_layout):
