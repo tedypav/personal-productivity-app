@@ -1,6 +1,7 @@
 from PyQt6.QtCore import Qt
 
 from src.ui.objects.checkbox_widget import CheckboxWidget, CustomCheckBox
+from src.ui.objects.checklist_widget import ChecklistWidget
 
 
 class TestCustomCheckBox:
@@ -154,3 +155,37 @@ class TestCheckboxWidget:
     def test_focus_text_sets_focus_policy(self, app_instance):
         w = CheckboxWidget(obj_id=1)
         assert w._text_edit.focusPolicy() != Qt.FocusPolicy.NoFocus
+
+
+class TestChecklistDeleteButton:
+    def test_delete_button_exists(self, app_instance):
+        cl = ChecklistWidget(checklist_id=1, page_id=1)
+        assert cl._delete_btn is not None
+        assert cl._delete_btn.text() == "×"
+
+    def test_delete_button_click_passes_event_filter(self, app_instance, qtbot):
+        cl = ChecklistWidget(checklist_id=1, page_id=1)
+        with qtbot.waitSignal(cl.object_delete_requested, raising=False) as blocker:
+            cl._delete_btn.click()
+        assert blocker.signal_triggered is True
+        assert blocker.args == [1]
+
+    def test_delete_button_not_consumed_by_drag(self, app_instance):
+        from PyQt6.QtCore import QEvent, QPoint, QPointF
+        from PyQt6.QtGui import QMouseEvent
+
+        cl = ChecklistWidget(checklist_id=5, page_id=1)
+        btn = cl._delete_btn
+        pos = btn.mapTo(cl, QPoint(btn.width() // 2, btn.height() // 2))
+        event = QMouseEvent(
+            QEvent.Type.MouseButtonPress,
+            QPointF(pos),
+            QPointF(pos),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        result = cl.eventFilter(btn, event)
+        assert (
+            result is False
+        ), "Delete button click should not be consumed by drag logic"
