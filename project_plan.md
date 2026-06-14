@@ -216,7 +216,7 @@ Core features for initial delivery:
 - **Auto-save** on all content changes (timer-based, configurable interval; applied immediately on settings change)
 - **Collapsible sidebar** via View → Toggle Sidebar
 - **Resizable splitter** panels between sidebar and editor (stretch factor 1:3; initial sizes from `sidebar_width` setting)
-- **Page title display** in editor toolbar (bold label; "Select a page" when no page loaded)
+- **Page title display** in editor toolbar (click-to-edit QLineEdit styled as label; "Select a page" when no page loaded; saves on Enter/focus lost, reverts on Escape/empty; sidebar renames sync to editor)
 - **Keyboard shortcuts:**
 
   | Shortcut | Context | Action |

@@ -189,13 +189,25 @@ class TextboxTextBlock(QWidget):
     def _apply_view_mode(self):
         self._editor.setReadOnly(True)
         if self._html.strip():
-            self._editor.setHtml(self._html)
+            self._editor.setHtml(self._convert_gif_markers(self._html))
         else:
             self._editor.setHtml(
                 '<p style="color:#9CA3AF; font-style:italic;">'
                 "Double-click to start typing...</p>"
             )
         self._editor.setMinimumHeight(0)
+
+    def _convert_gif_markers(self, html: str) -> str:
+        import re
+
+        from PyQt6.QtCore import QUrl
+
+        def _replace_gif(m):
+            path = m.group(1).strip()
+            url = QUrl.fromLocalFile(path).toString()
+            return f'<img src="{url}" width="150" height="150" />'
+
+        return re.sub(r"\[GIF:\s*(.*?)\]", _replace_gif, html)
 
     def _ensure_editing(self):
         if not self._editing:

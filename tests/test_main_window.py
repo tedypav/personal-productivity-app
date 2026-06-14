@@ -255,6 +255,84 @@ class TestFolderTableOfContents:
         assert len(buttons) == 3
 
 
+class TestEditablePageTitle:
+    def test_title_is_readonly_by_default(self, main_window):
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+        assert main_window.editor.page_title.isReadOnly()
+
+    def test_title_is_qlineedit(self, main_window):
+        from PyQt6.QtWidgets import QLineEdit
+
+        assert isinstance(main_window.editor.page_title, QLineEdit)
+
+    def test_enter_title_edit_sets_readonly_false(self, main_window):
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+        main_window.editor._enter_title_edit()
+        assert not main_window.editor.page_title.isReadOnly()
+
+    def test_enter_title_edit_no_page_does_nothing(self, main_window):
+        main_window.editor.clear_editor()
+        main_window.editor._enter_title_edit()
+        assert main_window.editor.page_title.isReadOnly()
+
+    def test_on_title_edited_saves_to_database(self, main_window):
+        pid = PageRepo().create(Page(title="OldTitle"))
+        main_window.editor.load_page(pid)
+        main_window.editor.page_title.setText("NewTitle")
+        main_window.editor._on_title_edited()
+        page = PageRepo().get_by_id(pid)
+        assert page.title == "NewTitle"
+
+    def test_on_title_edited_reverts_empty_to_previous(self, main_window):
+        pid = PageRepo().create(Page(title="Original"))
+        main_window.editor.load_page(pid)
+        main_window.editor.page_title.setText("")
+        main_window.editor._on_title_edited()
+        assert main_window.editor.page_title.text() == "Original"
+        page = PageRepo().get_by_id(pid)
+        assert page.title == "Original"
+
+    def test_on_title_edited_deduplicates_sibling_name(self, main_window):
+        folder_id = PageRepo().create(Page(title="Folder", page_type="folder"))
+        PageRepo().create(Page(title="Existing", parent_id=folder_id))
+        pid = PageRepo().create(Page(title="MyPage", parent_id=folder_id))
+        main_window.editor.load_page(pid)
+        main_window.editor.page_title.setText("Existing")
+        main_window.editor._on_title_edited()
+        assert main_window.editor.page_title.text() != "Existing"
+        page = PageRepo().get_by_id(pid)
+        assert page.title != "Existing"
+
+    def test_on_title_edited_sets_readonly(self, main_window):
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+        main_window.editor.page_title.setReadOnly(False)
+        main_window.editor.page_title.setText("NewTitle")
+        main_window.editor._on_title_edited()
+        assert main_window.editor.page_title.isReadOnly()
+
+    def test_on_title_edited_no_page_does_nothing(self, main_window):
+        main_window.editor.clear_editor()
+        main_window.editor._on_title_edited()
+        assert main_window.editor.page_title.isReadOnly()
+
+    def test_refresh_title_updates_from_database(self, main_window):
+        pid = PageRepo().create(Page(title="Before"))
+        main_window.editor.load_page(pid)
+        page = PageRepo().get_by_id(pid)
+        page.title = "After"
+        PageRepo().update(page)
+        main_window.editor.refresh_title()
+        assert main_window.editor.page_title.text() == "After"
+
+    def test_refresh_title_no_page_does_nothing(self, main_window):
+        main_window.editor.clear_editor()
+        main_window.editor.refresh_title()
+        assert main_window.editor.page_title.text() == "Select a page"
+
+
 class TestBackToFolderButton:
     def test_back_button_hidden_initially(self, main_window):
         assert not main_window.editor._back_btn.isVisible()

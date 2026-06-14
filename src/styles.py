@@ -505,6 +505,13 @@ QMessageBox {
     padding: 4px 8px;
     color: #2E2B2B;
     font-family: 'Playfair Display', serif;
+    background: transparent;
+    border: none;
+    selection-background-color: #E8D5E0;
+}
+#editorPageTitle:focus {
+    border-bottom: 2px solid #CFA6D6;
+    background: #FFFBF9;
 }
 #editorBackBtn {
     font-size: 12px;

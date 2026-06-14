@@ -229,6 +229,40 @@ class TestTextboxTextBlock:
         assert not block._resizing
         assert block._resize_start is None
 
+    def test_convert_gif_markers_single(self, app_instance):
+        block = TextboxTextBlock()
+        result = block._convert_gif_markers("<p>[GIF: C:\\Users\\test.gif]</p>")
+        assert "<img" in result
+        assert "file:///" in result
+        assert "[GIF:" not in result
+
+    def test_convert_gif_markers_multiple(self, app_instance):
+        block = TextboxTextBlock()
+        result = block._convert_gif_markers("<p>[GIF: a.gif] text [GIF: b.gif]</p>")
+        assert result.count("<img") == 2
+        assert "[GIF:" not in result
+
+    def test_convert_gif_markers_none_found(self, app_instance):
+        block = TextboxTextBlock()
+        html = "<p>No markers here</p>"
+        result = block._convert_gif_markers(html)
+        assert result == html
+
+    def test_convert_gif_markers_preserves_surrounding_html(self, app_instance):
+        block = TextboxTextBlock()
+        result = block._convert_gif_markers(
+            "<p>Before</p><p>[GIF: x.gif]</p><p>After</p>"
+        )
+        assert "<p>Before</p>" in result
+        assert "<p>After</p>" in result
+        assert "<img" in result
+
+    def test_apply_view_mode_converts_gif_markers(self, app_instance):
+        block = TextboxTextBlock(html="<p>[GIF: C:\\Users\\test.gif]</p>")
+        block.show()
+        html = block._editor.toHtml()
+        assert "<img" in html or "test.gif" not in html
+
 
 class TestTextboxChecklistItem:
     def test_initially_unchecked(self, app_instance):

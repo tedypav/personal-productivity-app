@@ -68,6 +68,7 @@ class MainWindow(QMainWindow):
         self.sidebar.page_selected.connect(self.editor.load_page)
         self.editor.navigate_to_page.connect(self._navigate_to_page)
         self.sidebar.set_editor(self.editor)
+        self.sidebar.pages_changed.connect(self.editor.refresh_title)
 
         self._setup_menu()
         self._setup_shortcuts()

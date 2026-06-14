@@ -7,6 +7,7 @@ from PyQt6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QPushButton,
     QScrollArea,
     QVBoxLayout,
@@ -76,6 +77,15 @@ class Canvas(QWidget):
         if event.button() == Qt.MouseButton.LeftButton:
             self.clicked_at.emit(int(event.position().x()), int(event.position().y()))
         event.accept()
+        super().mousePressEvent(event)
+
+
+class _TitleEdit(QLineEdit):
+    clicked = pyqtSignal()
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.clicked.emit()
         super().mousePressEvent(event)
 
 
@@ -169,8 +179,13 @@ class PageEditor(QWidget):
         toolbar = QHBoxLayout(toolbar_widget)
         toolbar.setContentsMargins(12, 6, 12, 6)
 
-        self.page_title = QLabel("Select a page")
+        self.page_title = _TitleEdit("Select a page")
         self.page_title.setObjectName("editorPageTitle")
+        self.page_title.setReadOnly(True)
+        self.page_title.clicked.connect(self._enter_title_edit)
+        self.page_title.editingFinished.connect(self._on_title_edited)
+        self.page_title.returnPressed.connect(self.page_title.clearFocus)
+        self.page_title.setPlaceholderText("Select a page")
         toolbar.addWidget(self.page_title)
         toolbar.addStretch()
 
@@ -202,6 +217,13 @@ class PageEditor(QWidget):
         self._textbox_btn.hide()
         toolbar.addWidget(self._textbox_btn)
 
+        self._import_template_btn = QPushButton("📋 Import Template")
+        self._import_template_btn.setObjectName("editorTextboxBtn")
+        self._import_template_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._import_template_btn.clicked.connect(self._import_template)
+        self._import_template_btn.hide()
+        toolbar.addWidget(self._import_template_btn)
+
         parent_layout.addWidget(toolbar_widget)
 
     def _on_canvas_clicked(self, x, y):
@@ -210,6 +232,55 @@ class PageEditor(QWidget):
     def _on_back_clicked(self):
         if self._parent_folder_id is not None:
             self.navigate_to_page.emit(self._parent_folder_id)
+
+    def _enter_title_edit(self):
+        if self.current_page_id is None:
+            return
+        self.page_title.setReadOnly(False)
+        self.page_title.selectAll()
+        self.page_title.setFocus()
+
+    def _on_title_edited(self):
+        if self.current_page_id is None:
+            return
+        self.page_title.setReadOnly(True)
+        new_title = self.page_title.text().strip()
+        if not new_title:
+            from src.repositories.page_repo import PageRepo
+
+            page = PageRepo().get_by_id(self.current_page_id)
+            if page:
+                self.page_title.setText(page.title)
+            return
+        from src.repositories.page_repo import PageRepo
+
+        repo = PageRepo()
+        page = repo.get_by_id(self.current_page_id)
+        if page and page.title != new_title:
+            if repo.has_sibling_with_name(
+                page.parent_id, new_title, exclude_id=self.current_page_id
+            ):
+                counter = 2
+                base = new_title
+                while repo.has_sibling_with_name(
+                    page.parent_id, new_title, exclude_id=self.current_page_id
+                ):
+                    new_title = f"{base} {counter}"
+                    counter += 1
+            page.title = new_title
+            repo.update(page)
+            self.page_title.setText(new_title)
+            if hasattr(self, "_sidebar_ref") and self._sidebar_ref:
+                self._sidebar_ref._load_pages()
+
+    def refresh_title(self):
+        if self.current_page_id is None:
+            return
+        from src.repositories.page_repo import PageRepo
+
+        page = PageRepo().get_by_id(self.current_page_id)
+        if page:
+            self.page_title.setText(page.title)
 
     def _center_empty_hint(self):
         if self._page_empty_hint.isVisible():
@@ -229,6 +300,7 @@ class PageEditor(QWidget):
         page = PageRepo().get_by_id(page_id)
         if page:
             self.page_title.setText(page.title)
+            self.page_title.setReadOnly(True)
             if page.parent_id is not None:
                 self._parent_folder_id = page.parent_id
                 self._back_btn.show()
@@ -253,11 +325,13 @@ class PageEditor(QWidget):
             self._checkbox_btn.hide()
             self._table_btn.hide()
             self._textbox_btn.hide()
+            self._import_template_btn.hide()
         else:
             self._load_objects()
             self._checkbox_btn.show()
             self._table_btn.show()
             self._textbox_btn.show()
+            self._import_template_btn.show()
             if not self._objects:
                 self._page_empty_hint.show()
                 self._center_empty_hint()
@@ -431,6 +505,42 @@ class PageEditor(QWidget):
         widget._save_meta()
         self._page_empty_hint.hide()
 
+    def _import_template(self):
+        if not self.current_page_id:
+            return
+
+        from PyQt6.QtWidgets import QInputDialog
+
+        from src.repositories.page_repo import PageRepo as _PageRepo
+
+        pages = _PageRepo().get_all()
+        template_pages = [p for p in pages if p.page_type == "template_page"]
+        if not template_pages:
+            from PyQt6.QtWidgets import QMessageBox
+
+            QMessageBox.information(self, "Import Template", "No templates saved yet.")
+            return
+
+        names = [p.title for p in template_pages]
+        name, ok = QInputDialog.getItem(
+            self, "Import Template", "Select a template:", names, 0, False
+        )
+        if not ok:
+            return
+
+        template_page = next(p for p in template_pages if p.title == name)
+        count = PageObjectRepo.copy_objects(template_page.id, self.current_page_id)
+        self._clear_objects()
+        self._load_objects()
+        self._page_empty_hint.hide()
+        from PyQt6.QtWidgets import QMessageBox
+
+        QMessageBox.information(
+            self,
+            "Import Template",
+            f"Imported {count} object(s) from '{name}'.",
+        )
+
     def _on_textbox_delete(self, textbox_id):
         if textbox_id in self._textboxes:
             widget = self._textboxes[textbox_id]
@@ -588,6 +698,7 @@ class PageEditor(QWidget):
     def clear_editor(self):
         self.current_page_id = None
         self.page_title.setText("Select a page")
+        self.page_title.setReadOnly(True)
         self.welcome_label.show()
         self._page_empty_hint.hide()
         self._clear_toc()
@@ -596,6 +707,7 @@ class PageEditor(QWidget):
         self._checkbox_btn.hide()
         self._table_btn.hide()
         self._textbox_btn.hide()
+        self._import_template_btn.hide()
         self._parent_folder_id = None
         self._canvas_click_pos = None
         self.content.setPhotoBackground(True)
