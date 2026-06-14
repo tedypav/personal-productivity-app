@@ -1,3 +1,6 @@
+from PyQt6.QtCore import QEvent, QPointF, Qt
+from PyQt6.QtGui import QMouseEvent
+
 from src.controllers.textbox_controller import TextboxController
 from src.models.page import Page
 from src.models.page_object import PageObject
@@ -76,6 +79,13 @@ class TestTextboxTextBlock:
         assert block._editing is True
         assert not block._editor.isReadOnly()
 
+    def test_enter_edit_mode_clears_placeholder(self, app_instance):
+        block = TextboxTextBlock()
+        block.show()
+        block._enter_edit_mode()
+        assert block._editing is True
+        assert block._editor.toPlainText() == ""
+
     def test_exit_edit_mode(self, app_instance):
         block = TextboxTextBlock(html="<p>Test</p>")
         block.show()
@@ -97,6 +107,43 @@ class TestTextboxTextBlock:
         block = TextboxTextBlock()
         with qtbot.waitSignal(block.content_changed, raising=False):
             block.set_content("<p>Changed</p>")
+
+    def test_resize_handle_exists(self, app_instance):
+        block = TextboxTextBlock()
+        assert block._handle is not None
+        assert block._handle.height() == 6
+
+    def test_resize_handle_cursor(self, app_instance):
+        block = TextboxTextBlock()
+        assert block._handle.cursor().shape() == Qt.CursorShape.SizeVerCursor
+
+    def test_event_filter_enters_edit_on_click(self, app_instance):
+        block = TextboxTextBlock()
+        block.show()
+        event = QMouseEvent(
+            QEvent.Type.MouseButtonPress,
+            QPointF(10, 10),
+            QPointF(10, 10),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        block.eventFilter(block._editor.viewport(), event)
+        assert block._editing is True
+
+    def test_event_filter_ignores_right_click(self, app_instance):
+        block = TextboxTextBlock()
+        block.show()
+        event = QMouseEvent(
+            QEvent.Type.MouseButtonPress,
+            QPointF(10, 10),
+            QPointF(10, 10),
+            Qt.MouseButton.RightButton,
+            Qt.MouseButton.RightButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        block.eventFilter(block._editor.viewport(), event)
+        assert block._editing is False
 
 
 class TestTextboxChecklistItem:
@@ -213,6 +260,11 @@ class TestTextboxWidget:
         assert w._header is not None
         assert w._title_edit.text() == "Text Box"
 
+    def test_minimum_height(self, app_instance):
+        pid = PageRepo().create(Page(title="Test"))
+        w = TextboxWidget(textbox_id=1, page_id=pid)
+        assert w.minimumHeight() == 200
+
     def test_add_text_block(self, app_instance):
         pid = PageRepo().create(Page(title="Test"))
         w = TextboxWidget(textbox_id=1, page_id=pid)
@@ -278,6 +330,61 @@ class TestTextboxWidget:
         assert len(w2._blocks) == 2
         assert w2._blocks[0][0] == "text"
         assert w2._blocks[1][0] == "checklist"
+
+    def test_detect_edge_bottom(self, app_instance):
+        pid = PageRepo().create(Page(title="Test"))
+        w = TextboxWidget(textbox_id=1, page_id=pid)
+        w.resize(400, 300)
+        from PyQt6.QtCore import QPoint
+
+        pos = QPoint(200, 296)
+        assert w._detect_edge(pos) == "bottom"
+
+    def test_detect_edge_right(self, app_instance):
+        pid = PageRepo().create(Page(title="Test"))
+        w = TextboxWidget(textbox_id=1, page_id=pid)
+        w.resize(400, 300)
+        from PyQt6.QtCore import QPoint
+
+        pos = QPoint(396, 200)
+        assert w._detect_edge(pos) == "right"
+
+    def test_detect_edge_bottom_right(self, app_instance):
+        pid = PageRepo().create(Page(title="Test"))
+        w = TextboxWidget(textbox_id=1, page_id=pid)
+        w.resize(400, 300)
+        from PyQt6.QtCore import QPoint
+
+        pos = QPoint(396, 296)
+        assert w._detect_edge(pos) == "bottom-right"
+
+    def test_detect_edge_none_in_center(self, app_instance):
+        pid = PageRepo().create(Page(title="Test"))
+        w = TextboxWidget(textbox_id=1, page_id=pid)
+        w.resize(400, 300)
+        from PyQt6.QtCore import QPoint
+
+        pos = QPoint(200, 200)
+        assert w._detect_edge(pos) is None
+
+    def test_insert_block_appends_before_stretch(self, app_instance):
+        pid = PageRepo().create(Page(title="Test"))
+        w = TextboxWidget(textbox_id=1, page_id=pid)
+        w._add_text_block(html="<p>A</p>")
+        w._add_text_block(html="<p>B</p>")
+        assert len(w._blocks) == 2
+        assert w._blocks[0][1].get_content() == "<p>A</p>"
+        assert w._blocks[1][1].get_content() == "<p>B</p>"
+
+    def test_multiple_block_types(self, app_instance):
+        pid = PageRepo().create(Page(title="Test"))
+        w = TextboxWidget(textbox_id=1, page_id=pid)
+        w._add_text_block(html="<p>T</p>")
+        w._add_checklist_block()
+        w._add_table_block()
+        w._add_image_block()
+        types = [b[0] for b in w._blocks]
+        assert types == ["text", "checklist", "table", "image"]
 
 
 class TestTextboxRepo:
