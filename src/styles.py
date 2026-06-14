@@ -485,7 +485,7 @@ QMessageBox {
     color: #FFFFFF;
     background: #CFA6D6;
     border: none;
-    border-radius: 24px;
+    border-radius: 18px;
 }
 #editorAddBtn:hover {
     background: #B894C0;

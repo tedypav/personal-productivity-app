@@ -143,7 +143,7 @@ class PageEditor(QWidget):
     def _build_floating_add_button(self):
         self._add_btn = QPushButton("+", self.content)
         self._add_btn.setObjectName("editorAddBtn")
-        self._add_btn.setFixedSize(48, 48)
+        self._add_btn.setFixedSize(36, 36)
         self._add_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._add_btn.clicked.connect(self._show_add_menu)
         self._add_btn.hide()
@@ -247,9 +247,7 @@ class PageEditor(QWidget):
 
     def _position_floating_button(self):
         if hasattr(self, "_add_btn") and self._add_btn.isVisible():
-            canvas_w = self.content.width()
-            canvas_h = self.content.height()
-            self._add_btn.move(canvas_w - 70, canvas_h - 70)
+            self._add_btn.move(16, 16)
 
     def load_page(self, page_id: int):
         from src.repositories.page_repo import PageRepo
