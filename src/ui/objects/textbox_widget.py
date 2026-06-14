@@ -30,6 +30,7 @@ class TextboxTextBlock(QWidget):
     """A rich-text block: click to edit, drag bottom handle to resize."""
 
     content_changed = pyqtSignal()
+    delete_requested = pyqtSignal()
 
     def __init__(self, html: str = "", parent=None):
         super().__init__(parent)
@@ -40,6 +41,18 @@ class TextboxTextBlock(QWidget):
         self._layout = QVBoxLayout(self)
         self._layout.setContentsMargins(0, 0, 0, 0)
         self._layout.setSpacing(0)
+
+        header_row = QHBoxLayout()
+        header_row.setContentsMargins(0, 0, 4, 0)
+        header_row.addStretch()
+        del_btn = QToolButton()
+        del_btn.setText("×")
+        del_btn.setObjectName("textboxDeleteBtn")
+        del_btn.setFixedSize(20, 20)
+        del_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        del_btn.clicked.connect(self.delete_requested.emit)
+        header_row.addWidget(del_btn)
+        self._layout.addLayout(header_row)
 
         self._editor = QTextEdit()
         self._editor.setObjectName("textboxEditor")
@@ -190,12 +203,25 @@ class TextboxChecklistBlock(QWidget):
     """An inline checklist block with checkboxes."""
 
     content_changed = pyqtSignal()
+    delete_requested = pyqtSignal()
 
     def __init__(self, items: list | None = None, parent=None):
         super().__init__(parent)
         self._layout = QVBoxLayout(self)
         self._layout.setContentsMargins(0, 0, 0, 0)
         self._layout.setSpacing(2)
+
+        header_row = QHBoxLayout()
+        header_row.setContentsMargins(8, 4, 4, 0)
+        header_row.addStretch()
+        del_btn = QToolButton()
+        del_btn.setText("×")
+        del_btn.setObjectName("textboxDeleteBtn")
+        del_btn.setFixedSize(20, 20)
+        del_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        del_btn.clicked.connect(self.delete_requested.emit)
+        header_row.addWidget(del_btn)
+        self._layout.addLayout(header_row)
 
         self._items_layout = QVBoxLayout()
         self._items_layout.setContentsMargins(8, 4, 8, 4)
@@ -254,6 +280,7 @@ class TextboxTableBlock(QWidget):
     """An inline table block."""
 
     content_changed = pyqtSignal()
+    delete_requested = pyqtSignal()
 
     def __init__(self, data: dict | None = None, parent=None):
         super().__init__(parent)
@@ -273,6 +300,13 @@ class TextboxTableBlock(QWidget):
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
             btn.clicked.connect(handler)
             btn_row.addWidget(btn)
+        del_btn = QToolButton()
+        del_btn.setText("×")
+        del_btn.setObjectName("textboxDeleteBtn")
+        del_btn.setFixedSize(20, 20)
+        del_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        del_btn.clicked.connect(self.delete_requested.emit)
+        btn_row.addWidget(del_btn)
         btn_row.addStretch()
         self._layout.addLayout(btn_row)
 
@@ -348,6 +382,7 @@ class TextboxImageBlock(QWidget):
     """An image block that displays an image from file or URL."""
 
     content_changed = pyqtSignal()
+    delete_requested = pyqtSignal()
 
     def __init__(self, data: dict | None = None, parent=None):
         super().__init__(parent)
@@ -371,7 +406,7 @@ class TextboxImageBlock(QWidget):
         remove_btn = QPushButton("✕ Remove")
         remove_btn.setObjectName("textboxTableBtn")
         remove_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        remove_btn.clicked.connect(self._remove_image)
+        remove_btn.clicked.connect(self.delete_requested.emit)
         btn_row.addWidget(remove_btn)
         btn_row.addStretch()
         self._layout.addLayout(btn_row)
@@ -729,6 +764,13 @@ class TextboxWidget(ResizableMixin, QWidget):
         idx = self._blocks_layout.count() - 1
         self._blocks_layout.insertWidget(idx, widget)
         self._blocks.append((block_type, widget))
+        widget.delete_requested.connect(lambda w=widget: self._remove_block(w))
+        self._on_content_changed()
+
+    def _remove_block(self, widget):
+        self._blocks_layout.removeWidget(widget)
+        widget.deleteLater()
+        self._blocks = [(bt, w) for bt, w in self._blocks if w is not widget]
         self._on_content_changed()
 
     def _on_content_changed(self):
