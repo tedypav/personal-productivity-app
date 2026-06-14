@@ -1006,6 +1006,7 @@ QMessageBox {
     background-color: #FFFFFF;
     border: 1px solid #F7D1DC;
     border-radius: 12px;
+    overflow: hidden;
 }
 #textboxHeader {
     background-color: #FFF0F3;

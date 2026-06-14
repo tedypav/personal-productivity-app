@@ -371,9 +371,10 @@ class PageEditor(QWidget):
         widget._load_meta()
         if not widget._user_width:
             widget._user_width = container_w
-        x = (canvas_w - container_w) // 2
-        y = 60 + len(self._checklists) * 200 + len(self._tables) * 200
-        widget.move(x, y)
+        if not widget._loaded_pos:
+            x = (canvas_w - container_w) // 2
+            y = 60 + len(self._checklists) * 200 + len(self._tables) * 200
+            widget.move(x, y)
         widget.show()
         return widget
 
@@ -400,14 +401,15 @@ class PageEditor(QWidget):
         widget._load_meta()
         if not widget._user_width:
             widget._user_width = container_w
-        x = (canvas_w - container_w) // 2
-        y = (
-            60
-            + len(self._checklists) * 200
-            + len(self._tables) * 200
-            + len(self._textboxes) * 200
-        )
-        widget.move(x, y)
+        if not widget._loaded_pos:
+            x = (canvas_w - container_w) // 2
+            y = (
+                60
+                + len(self._checklists) * 200
+                + len(self._tables) * 200
+                + len(self._textboxes) * 200
+            )
+            widget.move(x, y)
         widget.show()
         return widget
 
