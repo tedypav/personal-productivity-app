@@ -1,11 +1,93 @@
 from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtGui import QBrush, QColor, QPainter, QPainterPath, QPen
 from PyQt6.QtWidgets import (
-    QCheckBox,
     QHBoxLayout,
     QLineEdit,
     QToolButton,
     QWidget,
 )
+
+
+class CustomCheckBox(QWidget):
+    """A custom-painted checkbox indicator that replaces the native QCheckBox."""
+
+    stateChanged = pyqtSignal(int)
+
+    _SIZE = 16
+    _BORDER_RADIUS = 3
+    _BORDER_WIDTH = 2
+    _UNCHECKED_BORDER = QColor("#E0D6D8")
+    _UNCHECKED_BG = QColor("#FFFFFF")
+    _CHECKED_BG = QColor("#CFA6D6")
+    _CHECKED_BORDER = QColor("#CFA6D6")
+    _CHECKMARK_COLOR = QColor("#FFFFFF")
+
+    def __init__(self, checked: bool = False, parent=None):
+        super().__init__(parent)
+        self._checked = checked
+        self.setFixedSize(self._SIZE, self._SIZE)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+
+    def isChecked(self) -> bool:
+        return self._checked
+
+    def setChecked(self, checked: bool) -> None:
+        if self._checked != checked:
+            self._checked = checked
+            self.update()
+            if checked:
+                val = Qt.CheckState.Checked.value
+            else:
+                val = Qt.CheckState.Unchecked.value
+            self.stateChanged.emit(val)
+
+    def toggle(self) -> None:
+        self.setChecked(not self._checked)
+
+    def mousePressEvent(self, event) -> None:
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.toggle()
+        super().mousePressEvent(event)
+
+    def paintEvent(self, event) -> None:
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        if self._checked:
+            brush = QBrush(self._CHECKED_BG)
+            pen = QPen(self._CHECKED_BORDER, self._BORDER_WIDTH)
+        else:
+            brush = QBrush(self._UNCHECKED_BG)
+            pen = QPen(self._UNCHECKED_BORDER, self._BORDER_WIDTH)
+
+        painter.setBrush(brush)
+        painter.setPen(pen)
+        painter.drawRoundedRect(
+            self._BORDER_WIDTH // 2,
+            self._BORDER_WIDTH // 2,
+            self._SIZE - self._BORDER_WIDTH,
+            self._SIZE - self._BORDER_WIDTH,
+            self._BORDER_RADIUS,
+            self._BORDER_RADIUS,
+        )
+
+        if self._checked:
+            check_pen = QPen(
+                self._CHECKMARK_COLOR,
+                2.2,
+                Qt.PenStyle.SolidLine,
+                Qt.PenCapStyle.RoundCap,
+                Qt.PenJoinStyle.RoundJoin,
+            )
+            painter.setPen(check_pen)
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            path = QPainterPath()
+            path.moveTo(3.5, 8.5)
+            path.lineTo(7, 12.5)
+            path.lineTo(12.5, 4)
+            painter.drawPath(path)
+
+        painter.end()
 
 
 class CheckboxWidget(QWidget):
@@ -20,7 +102,7 @@ class CheckboxWidget(QWidget):
         self.obj_id = obj_id
         self._text = text
         self._checked = checked
-        self.setStyleSheet("background: transparent;")
+        self.setObjectName("checkboxWidget")
         self._setup_ui()
 
     def _setup_ui(self):
@@ -28,28 +110,13 @@ class CheckboxWidget(QWidget):
         layout.setContentsMargins(8, 8, 8, 8)
         layout.setSpacing(8)
 
-        self._checkbox = QCheckBox()
-        self._checkbox.setChecked(self._checked)
+        self._checkbox = CustomCheckBox(checked=self._checked)
         self._checkbox.stateChanged.connect(self._on_check_changed)
-        self._checkbox.setStyleSheet(
-            "QCheckBox { spacing: 6px; background: transparent; }"
-            "QCheckBox::indicator {"
-            " width: 18px; height: 18px;"
-            " border: 2px solid #F7D1DC; border-radius: 9px;"
-            " background: #FFFFFF; }"
-            "QCheckBox::indicator:checked {"
-            " background: #CFA6D6; border: 2px solid #CFA6D6; }"
-            "QCheckBox::indicator:hover { border-color: #CFA6D6; }"
-        )
         layout.addWidget(self._checkbox)
 
         self._text_edit = QLineEdit(self._text)
+        self._text_edit.setObjectName("checkboxText")
         self._text_edit.setPlaceholderText("Type something...")
-        self._text_edit.setStyleSheet(
-            "QLineEdit { border: none; background: transparent;"
-            " font-size: 13px; color: #2E2B2B;"
-            " font-family: 'Inter', sans-serif; padding: 2px 0; }"
-        )
         self._text_edit.textChanged.connect(self._on_text_changed)
         self._text_edit.returnPressed.connect(
             lambda: self.enter_pressed.emit(self.obj_id)
@@ -57,14 +124,10 @@ class CheckboxWidget(QWidget):
         layout.addWidget(self._text_edit, 1)
 
         self._delete_btn = QToolButton()
+        self._delete_btn.setObjectName("checkboxDeleteBtn")
         self._delete_btn.setText("×")
         self._delete_btn.setFixedSize(26, 26)
         self._delete_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._delete_btn.setStyleSheet(
-            "QToolButton { border: none; font-size: 16px;"
-            " color: #9CA3AF; background: transparent; }"
-            " QToolButton:hover { color: #EF4444; }"
-        )
         self._delete_btn.clicked.connect(
             lambda: self.delete_requested.emit(self.obj_id)
         )
