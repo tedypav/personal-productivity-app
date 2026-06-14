@@ -145,15 +145,17 @@ class TextboxTextBlock(QWidget):
                 if event.button() == Qt.MouseButton.LeftButton:
                     self._resizing = True
                     self._resize_start = event.globalPosition().toPoint()
+                    self._resize_origin_h = self._editor.height()
                     event.accept()
                     return True
             if event.type() == QEvent.Type.MouseMove:
                 if self._resizing and self._resize_start is not None:
                     curr = event.globalPosition().toPoint()
                     dy = curr.y() - self._resize_start.y()
-                    new_h = max(30, self.height() + dy)
-                    self._resize_start = curr
-                    self._editor.setFixedHeight(max(30, new_h - 6))
+                    new_h = max(30, self._resize_origin_h + dy)
+                    self._editor.setFixedHeight(new_h)
+                    event.accept()
+                    return True
                     event.accept()
                     return True
             if event.type() == QEvent.Type.MouseButtonRelease:
