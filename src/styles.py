@@ -479,17 +479,6 @@ QMessageBox {
     font-style: italic;
     background: transparent;
 }
-#editorAddBtn {
-    font-size: 24px;
-    font-weight: 300;
-    color: #FFFFFF;
-    background: #CFA6D6;
-    border: none;
-    border-radius: 18px;
-}
-#editorAddBtn:hover {
-    background: #B894C0;
-}
 #editorMenu {
     background: #FFFFFF;
     border: 1px solid #F7D1DC;

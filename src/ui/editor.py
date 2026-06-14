@@ -7,7 +7,6 @@ from PyQt6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
-    QMenu,
     QPushButton,
     QScrollArea,
     QVBoxLayout,
@@ -136,31 +135,7 @@ class PageEditor(QWidget):
         self._page_empty_hint.setParent(self.content)
         self._page_empty_hint.hide()
 
-        self._build_floating_add_button()
-
         main_layout.addWidget(self.scroll, 1)
-
-    def _build_floating_add_button(self):
-        self._add_btn = QPushButton("+", self.content)
-        self._add_btn.setObjectName("editorAddBtn")
-        self._add_btn.setFixedSize(36, 36)
-        self._add_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._add_btn.clicked.connect(self._show_add_menu)
-        self._add_btn.hide()
-
-    def _show_add_menu(self):
-        menu = QMenu(self)
-        menu.setObjectName("editorMenu")
-        checkbox_action = menu.addAction("✓  Checklist")
-        table_action = menu.addAction("⊞  Table")
-        textbox_action = menu.addAction("T  Text Box")
-        action = menu.exec(self._add_btn.mapToGlobal(self._add_btn.rect().bottomLeft()))
-        if action == checkbox_action:
-            self._add_checklist()
-        elif action == table_action:
-            self._add_table()
-        elif action == textbox_action:
-            self._add_textbox()
 
     def _center_welcome_label(self):
         if hasattr(self, "welcome_label") and self.welcome_label.isVisible():
@@ -180,7 +155,6 @@ class PageEditor(QWidget):
                 self.content.resize(vp.width(), vp.height())
             self._center_welcome_label()
             self._center_empty_hint()
-            self._position_floating_button()
         if obj is self.scroll.viewport() and event.type() == QEvent.Type.Wheel:
             sb = self.scroll.verticalScrollBar()
             if sb.value() >= sb.maximum() - 300:
@@ -245,10 +219,6 @@ class PageEditor(QWidget):
             y = 120
             self._page_empty_hint.move(x, y)
 
-    def _position_floating_button(self):
-        if hasattr(self, "_add_btn") and self._add_btn.isVisible():
-            self._add_btn.move(16, 16)
-
     def load_page(self, page_id: int):
         from src.repositories.page_repo import PageRepo
 
@@ -283,14 +253,11 @@ class PageEditor(QWidget):
             self._checkbox_btn.hide()
             self._table_btn.hide()
             self._textbox_btn.hide()
-            self._add_btn.hide()
         else:
             self._load_objects()
             self._checkbox_btn.show()
             self._table_btn.show()
             self._textbox_btn.show()
-            self._add_btn.show()
-            self._position_floating_button()
             if not self._objects:
                 self._page_empty_hint.show()
                 self._center_empty_hint()
@@ -373,7 +340,6 @@ class PageEditor(QWidget):
         obj = PageObjectRepo().get_by_id(item_widget.obj_id)
         self._objects.append(obj)
         self._page_empty_hint.hide()
-        self._position_floating_button()
 
     def _add_table(self):
         if not self.current_page_id:
@@ -391,7 +357,6 @@ class PageEditor(QWidget):
 
         widget._save_meta()
         self._page_empty_hint.hide()
-        self._position_floating_button()
 
     def _create_table_widget(self, table_id):
         widget = TableWidget(
@@ -463,7 +428,6 @@ class PageEditor(QWidget):
         widget._add_text_block()
         widget._save_meta()
         self._page_empty_hint.hide()
-        self._position_floating_button()
 
     def _on_textbox_delete(self, textbox_id):
         if textbox_id in self._textboxes:
@@ -629,7 +593,6 @@ class PageEditor(QWidget):
         self._back_btn.hide()
         self._checkbox_btn.hide()
         self._table_btn.hide()
-        self._add_btn.hide()
         self._parent_folder_id = None
         self._canvas_click_pos = None
         self.content.setPhotoBackground(True)

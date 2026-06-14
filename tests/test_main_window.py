@@ -341,9 +341,6 @@ class TestCheckboxFeature:
         objects = PageObjectRepo().get_by_page(pid)
         assert objects[0].is_checked
 
-    def test_floating_add_button_exists(self, main_window):
-        assert main_window.editor._add_btn is not None
-
     def test_multiple_checklists(self, main_window):
         pid = PageRepo().create(Page(title="TestPage"))
         main_window.editor.load_page(pid)
