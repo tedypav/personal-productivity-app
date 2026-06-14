@@ -10,6 +10,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from src.controllers.table_controller import TableController
 from src.models.page_object import PageObject
 from src.repositories.page_object_repo import PageObjectRepo
 from src.ui.objects.resizable_mixin import ResizableMixin
@@ -29,17 +30,8 @@ class TableWidget(ResizableMixin, QWidget):
         self.page_id = page_id
         self._init_resizable_state()
         self._MIN_H = 100
-        self.setObjectName("table_card")
-        self.setStyleSheet(
-            "#table_card {"
-            " background-color: #FFFFFF;"
-            " border: 1px solid #F7D1DC;"
-            " border-radius: 12px;"
-            "}"
-            "#table_card > QWidget {"
-            " background-color: transparent;"
-            "}"
-        )
+        self._table_controller = TableController()
+        self.setObjectName("tableCard")
         self._layout = QVBoxLayout(self)
         self._layout.setContentsMargins(0, 0, 0, 0)
         self._layout.setSpacing(0)
@@ -50,26 +42,15 @@ class TableWidget(ResizableMixin, QWidget):
     def _build_header(self):
         header = QWidget()
         header.setFixedHeight(36)
-        header.setObjectName("table_header")
+        header.setObjectName("tableHeader")
         header.setCursor(Qt.CursorShape.OpenHandCursor)
-        header.setStyleSheet(
-            "#table_header {"
-            " background-color: #FFF0F3;"
-            " border-top-left-radius: 12px;"
-            " border-bottom: 1px solid #F7D1DC;"
-            "}"
-        )
         header_layout = QHBoxLayout(header)
         header_layout.setContentsMargins(12, 4, 12, 4)
         header_layout.setSpacing(6)
 
         title = QLineEdit("Table")
+        title.setObjectName("tableTitle")
         title.setPlaceholderText("Table")
-        title.setStyleSheet(
-            "QLineEdit { border: none; background: transparent;"
-            " font-family: 'Inter', sans-serif; font-size: 11px;"
-            " color: #8B6B7B; font-weight: 600; padding: 0; }"
-        )
         title.returnPressed.connect(self._on_title_changed)
         title.editingFinished.connect(self._on_title_changed)
         self._title_edit = title
@@ -77,97 +58,41 @@ class TableWidget(ResizableMixin, QWidget):
         header_layout.addStretch()
 
         add_row_btn = QPushButton("+ Row")
+        add_row_btn.setObjectName("tableAddBtn")
         add_row_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        add_row_btn.setStyleSheet(
-            "QPushButton {"
-            " font-size: 10px; color: #CFA6D6; background: transparent;"
-            " border: 1px solid #F0E6E8; border-radius: 10px;"
-            " padding: 2px 8px; font-family: 'Inter', sans-serif;"
-            "}"
-            "QPushButton:hover {"
-            " background: #FFF0F3; border-color: #CFA6D6; color: #9b59b6;"
-            "}"
-        )
         add_row_btn.clicked.connect(self._add_row)
         header_layout.addWidget(add_row_btn)
 
         add_col_btn = QPushButton("+ Col")
+        add_col_btn.setObjectName("tableAddBtn")
         add_col_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        add_col_btn.setStyleSheet(
-            "QPushButton {"
-            " font-size: 10px; color: #CFA6D6; background: transparent;"
-            " border: 1px solid #F0E6E8; border-radius: 10px;"
-            " padding: 2px 8px; font-family: 'Inter', sans-serif;"
-            "}"
-            "QPushButton:hover {"
-            " background: #FFF0F3; border-color: #CFA6D6; color: #9b59b6;"
-            "}"
-        )
         add_col_btn.clicked.connect(self._add_column)
         header_layout.addWidget(add_col_btn)
 
         remove_row_btn = QPushButton("- Row")
+        remove_row_btn.setObjectName("tableRemoveBtn")
         remove_row_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        remove_row_btn.setStyleSheet(
-            "QPushButton {"
-            " font-size: 10px; color: #9CA3AF; background: transparent;"
-            " border: 1px solid #F0E6E8; border-radius: 10px;"
-            " padding: 2px 8px; font-family: 'Inter', sans-serif;"
-            "}"
-            "QPushButton:hover {"
-            " background: #FFF0F3; border-color: #EF4444; color: #EF4444;"
-            "}"
-        )
         remove_row_btn.clicked.connect(self._remove_row)
         header_layout.addWidget(remove_row_btn)
 
         remove_col_btn = QPushButton("- Col")
+        remove_col_btn.setObjectName("tableRemoveBtn")
         remove_col_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        remove_col_btn.setStyleSheet(
-            "QPushButton {"
-            " font-size: 10px; color: #9CA3AF; background: transparent;"
-            " border: 1px solid #F0E6E8; border-radius: 10px;"
-            " padding: 2px 8px; font-family: 'Inter', sans-serif;"
-            "}"
-            "QPushButton:hover {"
-            " background: #FFF0F3; border-color: #EF4444; color: #EF4444;"
-            "}"
-        )
         remove_col_btn.clicked.connect(self._remove_column)
         header_layout.addWidget(remove_col_btn)
 
         self._row_num_btn = QPushButton("#")
+        self._row_num_btn.setObjectName("tableRowNumBtn")
         self._row_num_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._row_num_btn.setCheckable(True)
-        self._row_num_btn.setStyleSheet(
-            "QPushButton {"
-            " font-size: 10px; color: #9CA3AF; background: transparent;"
-            " border: 1px solid #F0E6E8; border-radius: 10px;"
-            " padding: 2px 8px; font-family: 'Inter', sans-serif;"
-            "}"
-            "QPushButton:hover {"
-            " background: #FFF0F3; border-color: #CFA6D6; color: #CFA6D6;"
-            "}"
-            "QPushButton:checked {"
-            " background: #F3E8F6; border-color: #CFA6D6; color: #CFA6D6;"
-            "}"
-        )
         self._row_num_btn.clicked.connect(self._toggle_row_numbers)
         header_layout.addWidget(self._row_num_btn)
 
         delete_btn = QToolButton()
+        delete_btn.setObjectName("tableDeleteBtn")
         delete_btn.setText("×")
         delete_btn.setFixedSize(28, 28)
         delete_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        delete_btn.setStyleSheet(
-            "QToolButton {"
-            " border: none; font-size: 14px;"
-            " color: #4B5563; background: transparent;"
-            " }"
-            " QToolButton:hover {"
-            " color: #EF4444;"
-            " }"
-        )
         delete_btn.clicked.connect(self._delete_table)
         header_layout.addWidget(delete_btn)
 
@@ -178,6 +103,7 @@ class TableWidget(ResizableMixin, QWidget):
         from PyQt6.QtWidgets import QSizePolicy, QTableWidget
 
         self._table = QTableWidget(2, 3)
+        self._table.setObjectName("tableGrid")
         self._table.setHorizontalHeaderLabels(["Column 1", "Column 2", "Column 3"])
         self._table.verticalHeader().setVisible(False)
         self._table.setSelectionMode(QTableWidget.SelectionMode.ContiguousSelection)
@@ -190,65 +116,12 @@ class TableWidget(ResizableMixin, QWidget):
         self._table.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self._table.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self._table.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
         )
         for c in range(self._table.columnCount()):
             self._table.horizontalHeader().setSectionResizeMode(
                 c, self._table.horizontalHeader().ResizeMode.Stretch
             )
-        self._table.setStyleSheet(
-            "QTableWidget {"
-            " border: none; gridline-color: #F7D1DC;"
-            " font-family: 'Inter', sans-serif; font-size: 13px;"
-            " color: #2E2B2B; background: #FFFFFF;"
-            " selection-background-color: #F3E8F6;"
-            " selection-color: #2E2B2B;"
-            "}"
-            "QTableWidget::item {"
-            " padding: 4px 8px; border: none;"
-            " border-radius: 6px;"
-            "}"
-            "QTableWidget::item:selected {"
-            " background: #F3E8F6; color: #2E2B2B;"
-            "}"
-            "QTableWidget QHeaderView::section {"
-            " background: #FFF0F3; border: none;"
-            " border-bottom: 1px solid #F7D1DC;"
-            " border-right: 1px solid #F7D1DC;"
-            " padding: 4px 8px;"
-            " font-family: 'Inter', sans-serif; font-size: 11px;"
-            " font-weight: 600; color: #8B6B7B;"
-            "}"
-            "QTableWidget QTableCornerButton::section {"
-            " background: #FFF0F3; border: none;"
-            " border-bottom: 1px solid #F7D1DC;"
-            " border-right: 1px solid #F7D1DC;"
-            "}"
-            "QTableWidget QLineEdit {"
-            " border: 1px solid #CFA6D6; border-radius: 6px;"
-            " padding: 4px 8px; font-family: 'Inter', sans-serif;"
-            " font-size: 13px; color: #2E2B2B; background: #FFFFFF;"
-            "}"
-            "QTableWidget QLineEdit:focus {"
-            " border-color: #9b59b6;"
-            "}"
-            "QScrollBar:vertical {"
-            " background: #FFFFFF; width: 8px; margin: 0; }"
-            "QScrollBar::handle:vertical {"
-            " background: #E8DDE0; border-radius: 4px; min-height: 20px; }"
-            "QScrollBar::handle:vertical:hover {"
-            " background: #CFA6D6; }"
-            "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {"
-            " height: 0; }"
-            "QScrollBar:horizontal {"
-            " background: #FFFFFF; height: 8px; margin: 0; }"
-            "QScrollBar::handle:horizontal {"
-            " background: #E8DDE0; border-radius: 4px; min-width: 20px; }"
-            "QScrollBar::handle:horizontal:hover {"
-            " background: #CFA6D6; }"
-            "QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {"
-            " width: 0; }"
-        )
         self._table.cellChanged.connect(self._on_cell_changed)
         self._layout.addWidget(self._table)
 
@@ -261,14 +134,21 @@ class TableWidget(ResizableMixin, QWidget):
         return QSize(self.width(), total_h)
 
     def _scale_rows_to_fit(self):
-        table_header_h = 28
+        table_header_h = self._table.horizontalHeader().height()
         rows = self._table.rowCount()
         if rows == 0:
             return
-        available_h = self.height() - 36 - table_header_h
+        available_h = self.height() - self._header.height() - table_header_h
+        available_h = max(0, available_h)
         row_h = max(24, available_h // rows)
         for r in range(rows):
             self._table.verticalHeader().resizeSection(r, row_h)
+
+    def mouseMoveEvent(self, event):
+        was_resizing = self._resizing
+        super().mouseMoveEvent(event)
+        if was_resizing:
+            self._scale_rows_to_fit()
 
     def _on_title_changed(self):
         self._save_meta()
@@ -353,27 +233,133 @@ class TableWidget(ResizableMixin, QWidget):
     def _install_border_filter(self):
         self._table.setMouseTracking(True)
         self._table.viewport().installEventFilter(self)
+        self._header.installEventFilter(self)
 
     def eventFilter(self, obj, event):
         from PyQt6.QtCore import QEvent
         from PyQt6.QtGui import QKeyEvent, QMouseEvent
 
-        is_viewport_child = self._table.viewport().isAncestorOf(obj)
-        if obj is not self._table.viewport() and not is_viewport_child:
-            return super().eventFilter(obj, event)
-
         if isinstance(event, QKeyEvent):
+            is_viewport_child = self._table.viewport().isAncestorOf(obj)
+            if obj is not self._table.viewport() and not is_viewport_child:
+                return super().eventFilter(obj, event)
             if event.type() == QEvent.Type.KeyPress:
                 if event.key() == Qt.Key.Key_Tab:
                     self._handle_tab(event)
+                    event.accept()
                     return True
                 if event.key() == Qt.Key.Key_Backtab:
                     self._handle_tab(event, reverse=True)
+                    event.accept()
                     return True
 
-        if isinstance(event, QMouseEvent) and obj is self._table.viewport():
+        if isinstance(event, QMouseEvent):
+            pos = obj.mapTo(self, event.position().toPoint())
+            if event.type() == QEvent.Type.MouseButtonPress:
+                if event.button() == Qt.MouseButton.LeftButton:
+                    if pos.y() <= self._header.height():
+                        child = self._header.childAt(pos)
+                        if child is self._title_edit:
+                            return False
+                        self.setFocus()
+                        self._dragging = True
+                        self._drag_start = event.globalPosition().toPoint() - self.pos()
+                        self._header.setCursor(Qt.CursorShape.ClosedHandCursor)
+                        event.accept()
+                        return True
+                    edge = self._detect_edge(pos)
+                    if edge:
+                        self._resizing = True
+                        self._resize_edge = edge
+                        self._resize_start = event.globalPosition().toPoint()
+                        self._resize_origin = (
+                            self.x(),
+                            self.y(),
+                            self.width(),
+                            self.height(),
+                        )
+                        event.accept()
+                        return True
+            if event.type() == QEvent.Type.MouseButtonRelease:
+                if self._dragging:
+                    self._dragging = False
+                    self._drag_start = None
+                    self._header.setCursor(Qt.CursorShape.OpenHandCursor)
+                    self._save_meta()
+                    event.accept()
+                    return True
+                if self._resizing:
+                    self._resizing = False
+                    self._resize_edge = None
+                    self._resize_start = None
+                    self._resize_origin = None
+                    self.setCursor(Qt.CursorShape.ArrowCursor)
+                    self._on_resize_complete()
+                    self._save_meta()
+                    event.accept()
+                    return True
             if event.type() == QEvent.Type.MouseMove:
-                pos = event.position().toPoint()
+                if self._dragging and self._drag_start is not None:
+                    curr = event.globalPosition().toPoint()
+                    new_pos = curr - self._drag_start
+                    parent = self.parent()
+                    if parent:
+                        new_x = max(
+                            0,
+                            min(
+                                new_pos.x(),
+                                parent.width() - self.width(),
+                            ),
+                        )
+                        new_y = max(
+                            0,
+                            min(
+                                new_pos.y(),
+                                parent.height() - self.height(),
+                            ),
+                        )
+                        self.move(new_x, new_y)
+                    event.accept()
+                    return True
+                if self._resizing and self._resize_start is not None:
+                    curr = event.globalPosition().toPoint()
+                    dx = curr.x() - self._resize_start.x()
+                    dy = curr.y() - self._resize_start.y()
+                    ox, oy, ow, oh = self._resize_origin
+                    edge = self._resize_edge
+                    new_x, new_y, new_w, new_h = (
+                        ox,
+                        oy,
+                        ow,
+                        oh,
+                    )
+                    if "right" in edge:
+                        new_w = max(self._MIN_W, ow + dx)
+                    if "bottom" in edge:
+                        new_h = max(self._min_height(), oh + dy)
+                    if "left" in edge:
+                        new_w = max(self._MIN_W, ow - dx)
+                        new_x = ox + ow - new_w
+                    if "top" in edge:
+                        new_h = max(self._min_height(), oh - dy)
+                        new_y = oy + oh - new_h
+                    parent = self.parent()
+                    if parent:
+                        new_x = max(
+                            0,
+                            min(new_x, parent.width() - new_w),
+                        )
+                        new_y = max(
+                            0,
+                            min(new_y, parent.height() - new_h),
+                        )
+                    self._user_width = new_w
+                    self.setMinimumWidth(0)
+                    self.setMaximumWidth(16777215)
+                    self.setGeometry(new_x, new_y, new_w, new_h)
+                    self._scale_rows_to_fit()
+                    event.accept()
+                    return True
                 edge = self._detect_edge(pos)
                 if edge and not self._resizing and not self._dragging:
                     self.setCursor(self._edge_cursor(edge))
@@ -429,6 +415,7 @@ class TableWidget(ResizableMixin, QWidget):
                 "x": self.x(),
                 "y": self.y(),
                 "width": self.width(),
+                "height": self.height(),
                 "title": self._title_edit.text(),
                 "headers": headers,
                 "data": data,
@@ -450,8 +437,13 @@ class TableWidget(ResizableMixin, QWidget):
     def _load_meta(self):
         meta = PageObjectRepo().get_table_meta(self.page_id, self.table_id)
         if meta:
-            data = json.loads(meta.content)
+            try:
+                data = json.loads(meta.content)
+            except (json.JSONDecodeError, ValueError):
+                self._loaded_pos = None
+                return
             self._user_width = data.get("width")
+            self._user_height = data.get("height")
             title = data.get("title", "Table")
             self._title_edit.setText(title)
             headers = data.get("headers", ["Column 1", "Column 2", "Column 3"])
@@ -474,6 +466,8 @@ class TableWidget(ResizableMixin, QWidget):
                 self.move(x, y)
             else:
                 self._loaded_pos = None
+            if self._user_width:
+                self.resize(self._user_width, self._user_height or self.height())
         else:
             self._loaded_pos = None
 

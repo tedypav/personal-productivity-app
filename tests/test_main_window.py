@@ -136,8 +136,7 @@ class TestPageEmptyHint:
         assert "first object" in main_window.editor._page_empty_hint.text()
 
     def test_empty_hint_is_italic(self, main_window):
-        style = main_window.editor._page_empty_hint.styleSheet()
-        assert "italic" in style
+        assert main_window.editor._page_empty_hint.objectName() == "editorEmptyHint"
 
 
 class TestCanvasBackground:
@@ -1370,7 +1369,7 @@ class TestTableWidget:
         assert vh.minimumSectionSize() == 24
         assert vh.defaultSectionSize() == 32
 
-    def test_table_vertical_size_policy_is_maximum(self, main_window):
+    def test_table_vertical_size_policy_is_expanding(self, main_window):
         from PyQt6.QtWidgets import QSizePolicy
 
         from src.ui.editor import TableWidget
@@ -1380,7 +1379,7 @@ class TestTableWidget:
 
         table = TableWidget(0, page_id=pid, parent=main_window.editor.content)
         policy = table._table.sizePolicy()
-        assert policy.verticalPolicy() == QSizePolicy.Policy.Maximum
+        assert policy.verticalPolicy() == QSizePolicy.Policy.Expanding
 
     def test_new_table_has_fresh_defaults(self, main_window):
         from src.ui.editor import TableWidget
@@ -1662,6 +1661,8 @@ class TestTableTab:
         )
         table._handle_tab(event)
         assert table._table.rowCount() == initial_rows + 1
+        assert table._table.currentRow() == initial_rows
+        assert table._table.currentColumn() == 0
 
     def test_tab_moves_to_next_cell(self, main_window):
         from src.ui.editor import TableWidget
@@ -1708,3 +1709,1590 @@ class TestTableTab:
         table._handle_tab(event, reverse=True)
         assert table._table.currentRow() == 0
         assert table._table.currentColumn() == 0
+
+
+class TestResizableMixinState:
+    def test_user_height_initialized_none(self, main_window):
+        from src.ui.editor import ChecklistWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        checklist = ChecklistWidget(0, page_id=pid, parent=main_window.editor.content)
+        assert checklist._user_height is None
+
+    def test_user_height_initialized_none_table(self, main_window):
+        from src.ui.editor import TableWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        table = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        assert table._user_height is None
+
+    def test_on_resize_complete_noop(self, main_window):
+        from src.ui.editor import ChecklistWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        checklist = ChecklistWidget(0, page_id=pid, parent=main_window.editor.content)
+        checklist.setFixedWidth(400)
+        checklist._add_item()
+        checklist._refresh_size()
+        h = checklist.height()
+        checklist._on_resize_complete()
+        assert checklist.height() == h
+
+    def test_edge_cursor_map(self, main_window):
+        from src.ui.editor import ChecklistWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        checklist = ChecklistWidget(0, page_id=pid, parent=main_window.editor.content)
+        from PyQt6.QtCore import Qt
+
+        assert checklist._edge_cursor("left") == Qt.CursorShape.SizeHorCursor
+        assert checklist._edge_cursor("right") == Qt.CursorShape.SizeHorCursor
+        assert checklist._edge_cursor("top") == Qt.CursorShape.SizeVerCursor
+        assert checklist._edge_cursor("bottom") == Qt.CursorShape.SizeVerCursor
+        assert checklist._edge_cursor("top-left") == Qt.CursorShape.SizeFDiagCursor
+        assert checklist._edge_cursor("bottom-right") == Qt.CursorShape.SizeFDiagCursor
+        assert checklist._edge_cursor("top-right") == Qt.CursorShape.SizeBDiagCursor
+        assert checklist._edge_cursor("bottom-left") == Qt.CursorShape.SizeBDiagCursor
+        assert checklist._edge_cursor(None) == Qt.CursorShape.ArrowCursor
+
+
+class TestChecklistResizeEdgeDetection:
+    def test_detect_edge_top(self, main_window):
+        from src.ui.editor import ChecklistWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        checklist = ChecklistWidget(0, page_id=pid, parent=main_window.editor.content)
+        checklist.setFixedWidth(400)
+        checklist._add_item()
+        checklist._refresh_size()
+        from PyQt6.QtCore import QPoint
+
+        mid_x = checklist.width() // 2
+        header_h = checklist._header.height()
+        pos = QPoint(mid_x, header_h + 3)
+        assert checklist._detect_edge(pos) == "top"
+
+    def test_detect_edge_top_left(self, main_window):
+        from src.ui.editor import ChecklistWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        checklist = ChecklistWidget(0, page_id=pid, parent=main_window.editor.content)
+        checklist.setFixedWidth(400)
+        checklist._add_item()
+        checklist._refresh_size()
+        from PyQt6.QtCore import QPoint
+
+        header_h = checklist._header.height()
+        pos = QPoint(3, header_h + 3)
+        assert checklist._detect_edge(pos) == "top-left"
+
+    def test_detect_edge_top_right(self, main_window):
+        from src.ui.editor import ChecklistWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        checklist = ChecklistWidget(0, page_id=pid, parent=main_window.editor.content)
+        checklist.setFixedWidth(400)
+        checklist._add_item()
+        checklist._refresh_size()
+        from PyQt6.QtCore import QPoint
+
+        header_h = checklist._header.height()
+        pos = QPoint(398, header_h + 3)
+        assert checklist._detect_edge(pos) == "top-right"
+
+    def test_detect_edge_bottom_left(self, main_window):
+        from src.ui.editor import ChecklistWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        checklist = ChecklistWidget(0, page_id=pid, parent=main_window.editor.content)
+        checklist.setFixedWidth(400)
+        checklist._add_item()
+        checklist._refresh_size()
+        from PyQt6.QtCore import QPoint
+
+        pos = QPoint(3, checklist.height() - 3)
+        assert checklist._detect_edge(pos) == "bottom-left"
+
+
+class TestChecklistResizeComplete:
+    def test_resize_complete_does_not_crash(self, main_window):
+        from src.ui.editor import ChecklistWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        checklist = ChecklistWidget(0, page_id=pid, parent=main_window.editor.content)
+        checklist.setFixedWidth(400)
+        checklist._add_item()
+        checklist._add_item()
+        checklist._refresh_size()
+        checklist._on_resize_complete()
+
+    def test_resize_complete_preserves_items(self, main_window):
+        from src.ui.editor import ChecklistWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        checklist = ChecklistWidget(0, page_id=pid, parent=main_window.editor.content)
+        checklist.setFixedWidth(400)
+        checklist._add_item()
+        checklist._add_item()
+        checklist._refresh_size()
+        count = checklist._checkboxes_layout.count()
+        checklist._on_resize_complete()
+        assert checklist._checkboxes_layout.count() == count
+
+
+class TestTableResizeEventFilter:
+    def test_viewport_click_initiates_resize(self, main_window):
+        from src.ui.editor import TableWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        table = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        table.setFixedWidth(400)
+        table.resize(400, 200)
+
+        from PyQt6.QtCore import QEvent, QPoint, Qt
+        from PyQt6.QtGui import QMouseEvent
+
+        right_edge_pos = QPoint(table.width() - 3, table.height() // 2)
+        viewport_pos = table._table.viewport().mapFrom(table, right_edge_pos)
+
+        event = QMouseEvent(
+            QEvent.Type.MouseButtonPress,
+            viewport_pos.toPointF(),
+            viewport_pos.toPointF(),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        result = table.eventFilter(table._table.viewport(), event)
+        assert result is True
+        assert table._resizing is True
+        assert table._resize_edge == "right"
+
+    def test_viewport_click_center_does_not_resize(self, main_window):
+        from src.ui.editor import TableWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        table = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        table.setFixedWidth(400)
+        table.resize(400, 200)
+
+        from PyQt6.QtCore import QEvent, QPoint, Qt
+        from PyQt6.QtGui import QMouseEvent
+
+        center_pos = QPoint(table.width() // 2, table.height() // 2)
+        viewport_pos = table._table.viewport().mapFrom(table, center_pos)
+
+        event = QMouseEvent(
+            QEvent.Type.MouseButtonPress,
+            viewport_pos.toPointF(),
+            viewport_pos.toPointF(),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        result = table.eventFilter(table._table.viewport(), event)
+        assert result is not True
+        assert table._resizing is False
+
+    def test_viewport_click_left_edge_initiates_resize(self, main_window):
+        from src.ui.editor import TableWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        table = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        table.setFixedWidth(400)
+        table.resize(400, 200)
+
+        from PyQt6.QtCore import QEvent, QPoint, Qt
+        from PyQt6.QtGui import QMouseEvent
+
+        left_edge_pos = QPoint(3, table.height() // 2)
+        viewport_pos = table._table.viewport().mapFrom(table, left_edge_pos)
+
+        event = QMouseEvent(
+            QEvent.Type.MouseButtonPress,
+            viewport_pos.toPointF(),
+            viewport_pos.toPointF(),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        result = table.eventFilter(table._table.viewport(), event)
+        assert result is True
+        assert table._resizing is True
+        assert table._resize_edge == "left"
+
+    def test_viewport_click_bottom_edge_initiates_resize(self, main_window):
+        from src.ui.editor import TableWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        table = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        table.setFixedWidth(400)
+        table.resize(400, 200)
+
+        from PyQt6.QtCore import QEvent, QPoint, Qt
+        from PyQt6.QtGui import QMouseEvent
+
+        bottom_edge_pos = QPoint(table.width() // 2, table.height() - 3)
+        viewport_pos = table._table.viewport().mapFrom(table, bottom_edge_pos)
+
+        event = QMouseEvent(
+            QEvent.Type.MouseButtonPress,
+            viewport_pos.toPointF(),
+            viewport_pos.toPointF(),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        result = table.eventFilter(table._table.viewport(), event)
+        assert result is True
+        assert table._resizing is True
+        assert table._resize_edge == "bottom"
+
+    def test_viewport_click_bottom_right_initiates_resize(self, main_window):
+        from src.ui.editor import TableWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        table = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        table.setFixedWidth(400)
+        table.resize(400, 200)
+
+        from PyQt6.QtCore import QEvent, QPoint, Qt
+        from PyQt6.QtGui import QMouseEvent
+
+        br_pos = QPoint(table.width() - 3, table.height() - 3)
+        viewport_pos = table._table.viewport().mapFrom(table, br_pos)
+
+        event = QMouseEvent(
+            QEvent.Type.MouseButtonPress,
+            viewport_pos.toPointF(),
+            viewport_pos.toPointF(),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        result = table.eventFilter(table._table.viewport(), event)
+        assert result is True
+        assert table._resizing is True
+        assert table._resize_edge == "bottom-right"
+
+    def test_viewport_child_click_initiates_resize(self, main_window):
+        from src.ui.editor import TableWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        table = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        table.setFixedWidth(400)
+        table.resize(400, 200)
+
+        from PyQt6.QtCore import QEvent, QPoint, Qt
+        from PyQt6.QtGui import QMouseEvent
+
+        child = table._table.viewport().findChild(object)
+        if child is None:
+            return
+
+        right_edge_pos = QPoint(table.width() - 3, table.height() // 2)
+        child_pos = child.mapFrom(table, right_edge_pos)
+
+        event = QMouseEvent(
+            QEvent.Type.MouseButtonPress,
+            child_pos.toPointF(),
+            child_pos.toPointF(),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        result = table.eventFilter(child, event)
+        if result is True:
+            assert table._resizing is True
+
+    def test_viewport_resize_changes_geometry(self, main_window):
+        from src.ui.editor import TableWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        table = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        table.setFixedWidth(400)
+        table.resize(400, 200)
+        initial_w = table.width()
+        initial_h = table.height()
+
+        from PyQt6.QtCore import QEvent, QPoint, Qt
+        from PyQt6.QtGui import QMouseEvent
+
+        viewport = table._table.viewport()
+
+        right_edge_pos = QPoint(initial_w - 3, initial_h // 2)
+        viewport_pos = viewport.mapFrom(table, right_edge_pos)
+        press_event = QMouseEvent(
+            QEvent.Type.MouseButtonPress,
+            viewport_pos.toPointF(),
+            viewport_pos.toPointF(),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        table.eventFilter(viewport, press_event)
+        assert table._resizing is True
+
+        move_pos = QPoint(initial_w + 100, initial_h // 2)
+        viewport_move_pos = viewport.mapFrom(table, move_pos)
+        move_event = QMouseEvent(
+            QEvent.Type.MouseMove,
+            viewport_move_pos.toPointF(),
+            viewport_move_pos.toPointF(),
+            Qt.MouseButton.NoButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        table.eventFilter(viewport, move_event)
+        assert table.width() > initial_w
+
+        release_event = QMouseEvent(
+            QEvent.Type.MouseButtonRelease,
+            viewport_move_pos.toPointF(),
+            viewport_move_pos.toPointF(),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.NoButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        table.eventFilter(viewport, release_event)
+        assert table._resizing is False
+        assert table.width() >= initial_w + 100
+
+    def test_viewport_resize_bottom_via_event_filter(self, main_window):
+        from src.ui.editor import TableWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        table = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        table.setFixedWidth(400)
+        table.resize(400, 200)
+        initial_h = table.height()
+
+        from PyQt6.QtCore import QEvent, QPoint, Qt
+        from PyQt6.QtGui import QMouseEvent
+
+        viewport = table._table.viewport()
+
+        bottom_edge_pos = QPoint(table.width() // 2, initial_h - 3)
+        viewport_pos = viewport.mapFrom(table, bottom_edge_pos)
+        press_event = QMouseEvent(
+            QEvent.Type.MouseButtonPress,
+            viewport_pos.toPointF(),
+            viewport_pos.toPointF(),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        table.eventFilter(viewport, press_event)
+        assert table._resizing is True
+        assert table._resize_edge == "bottom"
+
+        move_pos = QPoint(table.width() // 2, initial_h + 100)
+        viewport_move_pos = viewport.mapFrom(table, move_pos)
+        move_event = QMouseEvent(
+            QEvent.Type.MouseMove,
+            viewport_move_pos.toPointF(),
+            viewport_move_pos.toPointF(),
+            Qt.MouseButton.NoButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        table.eventFilter(viewport, move_event)
+        assert table.height() > initial_h
+
+        release_event = QMouseEvent(
+            QEvent.Type.MouseButtonRelease,
+            viewport_move_pos.toPointF(),
+            viewport_move_pos.toPointF(),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.NoButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        table.eventFilter(viewport, release_event)
+        assert table._resizing is False
+        assert table.height() >= initial_h + 100
+
+    def test_viewport_drag_moves_table(self, main_window):
+        from src.ui.editor import TableWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        table = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        table.setFixedWidth(400)
+        table.resize(400, 200)
+        table.move(50, 50)
+        initial_x = table.x()
+        initial_y = table.y()
+
+        from PyQt6.QtCore import QEvent, QPoint, Qt
+        from PyQt6.QtGui import QMouseEvent
+
+        viewport = table._table.viewport()
+
+        header_center = QPoint(table.width() // 2, 18)
+        viewport_pos = viewport.mapFrom(table, header_center)
+        press_event = QMouseEvent(
+            QEvent.Type.MouseButtonPress,
+            viewport_pos.toPointF(),
+            viewport_pos.toPointF(),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        table.eventFilter(viewport, press_event)
+        assert table._dragging is True
+
+        move_pos = QPoint(table.width() // 2 + 60, 18)
+        viewport_move_pos = viewport.mapFrom(table, move_pos)
+        move_event = QMouseEvent(
+            QEvent.Type.MouseMove,
+            viewport_move_pos.toPointF(),
+            viewport_move_pos.toPointF(),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        table.eventFilter(viewport, move_event)
+
+        release_event = QMouseEvent(
+            QEvent.Type.MouseButtonRelease,
+            viewport_move_pos.toPointF(),
+            viewport_move_pos.toPointF(),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.NoButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        table.eventFilter(viewport, release_event)
+        assert table._dragging is False
+        assert table.x() != initial_x or table.y() != initial_y
+
+    def test_resize_then_drag_works(self, main_window):
+        from src.ui.editor import TableWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        table = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        table.setFixedWidth(400)
+        table.resize(400, 200)
+        table.move(50, 50)
+        initial_x = table.x()
+        initial_y = table.y()
+
+        from PyQt6.QtCore import QEvent, QPoint, Qt
+        from PyQt6.QtGui import QMouseEvent
+
+        viewport = table._table.viewport()
+
+        right_edge = QPoint(table.width() - 3, table.height() // 2)
+        vp_right = viewport.mapFrom(table, right_edge)
+        press = QMouseEvent(
+            QEvent.Type.MouseButtonPress,
+            vp_right.toPointF(),
+            vp_right.toPointF(),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        table.eventFilter(viewport, press)
+        assert table._resizing is True
+
+        move = QPoint(table.width() + 50, table.height() // 2)
+        vp_move = viewport.mapFrom(table, move)
+        move_evt = QMouseEvent(
+            QEvent.Type.MouseMove,
+            vp_move.toPointF(),
+            vp_move.toPointF(),
+            Qt.MouseButton.NoButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        table.eventFilter(viewport, move_evt)
+
+        release = QMouseEvent(
+            QEvent.Type.MouseButtonRelease,
+            vp_move.toPointF(),
+            vp_move.toPointF(),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.NoButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        table.eventFilter(viewport, release)
+        assert table._resizing is False
+        assert table.width() > 400
+
+        header_center = QPoint(table.width() // 2, 18)
+        vp_header = viewport.mapFrom(table, header_center)
+        press2 = QMouseEvent(
+            QEvent.Type.MouseButtonPress,
+            vp_header.toPointF(),
+            vp_header.toPointF(),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        table.eventFilter(viewport, press2)
+        assert table._dragging is True
+
+        move2 = QPoint(table.width() // 2 + 40, 18)
+        vp_move2 = viewport.mapFrom(table, move2)
+        move_evt2 = QMouseEvent(
+            QEvent.Type.MouseMove,
+            vp_move2.toPointF(),
+            vp_move2.toPointF(),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        table.eventFilter(viewport, move_evt2)
+
+        release2 = QMouseEvent(
+            QEvent.Type.MouseButtonRelease,
+            vp_move2.toPointF(),
+            vp_move2.toPointF(),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.NoButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        table.eventFilter(viewport, release2)
+        assert table._dragging is False
+        assert table.x() != initial_x or table.y() != initial_y
+
+
+class TestChecklistResizeMouseSimulation:
+    def test_resize_right_edge_via_mouse(self, main_window):
+        from src.ui.editor import ChecklistWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        checklist = ChecklistWidget(0, page_id=pid, parent=main_window.editor.content)
+        checklist.setFixedWidth(400)
+        checklist._add_item()
+        checklist._refresh_size()
+        initial_w = checklist.width()
+
+        from PyQt6.QtCore import QEvent, QPoint, Qt
+        from PyQt6.QtGui import QMouseEvent
+
+        edge_pos = QPoint(initial_w - 3, checklist.height() // 2)
+        press_event = QMouseEvent(
+            QEvent.Type.MouseButtonPress,
+            edge_pos.toPointF(),
+            edge_pos.toPointF(),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        checklist.mousePressEvent(press_event)
+        assert checklist._resizing is True
+        assert checklist._resize_edge == "right"
+
+        move_pos = QPoint(initial_w + 50, checklist.height() // 2)
+        move_event = QMouseEvent(
+            QEvent.Type.MouseMove,
+            move_pos.toPointF(),
+            move_pos.toPointF(),
+            Qt.MouseButton.NoButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        checklist.mouseMoveEvent(move_event)
+        assert checklist.width() >= initial_w
+
+        release_event = QMouseEvent(
+            QEvent.Type.MouseButtonRelease,
+            move_pos.toPointF(),
+            move_pos.toPointF(),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.NoButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        checklist.mouseReleaseEvent(release_event)
+        assert checklist._resizing is False
+        assert checklist._resize_edge is None
+        assert checklist._resize_start is None
+        assert checklist._resize_origin is None
+
+    def test_resize_left_edge_via_mouse(self, main_window):
+        from src.ui.editor import ChecklistWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        checklist = ChecklistWidget(0, page_id=pid, parent=main_window.editor.content)
+        checklist.setFixedWidth(400)
+        checklist._add_item()
+        checklist._refresh_size()
+
+        from PyQt6.QtCore import QEvent, QPoint, Qt
+        from PyQt6.QtGui import QMouseEvent
+
+        edge_pos = QPoint(3, checklist.height() // 2)
+        press_event = QMouseEvent(
+            QEvent.Type.MouseButtonPress,
+            edge_pos.toPointF(),
+            edge_pos.toPointF(),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        checklist.mousePressEvent(press_event)
+        assert checklist._resizing is True
+        assert checklist._resize_edge == "left"
+
+        move_pos = QPoint(-50, checklist.height() // 2)
+        move_event = QMouseEvent(
+            QEvent.Type.MouseMove,
+            move_pos.toPointF(),
+            move_pos.toPointF(),
+            Qt.MouseButton.NoButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        checklist.mouseMoveEvent(move_event)
+        assert checklist.width() >= checklist._MIN_W
+
+        release_event = QMouseEvent(
+            QEvent.Type.MouseButtonRelease,
+            move_pos.toPointF(),
+            move_pos.toPointF(),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.NoButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        checklist.mouseReleaseEvent(release_event)
+        assert checklist._resizing is False
+
+    def test_resize_bottom_edge_via_mouse(self, main_window):
+        from src.ui.editor import ChecklistWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        checklist = ChecklistWidget(0, page_id=pid, parent=main_window.editor.content)
+        checklist.setFixedWidth(400)
+        checklist._add_item()
+        checklist._refresh_size()
+        initial_h = checklist.height()
+
+        from PyQt6.QtCore import QEvent, QPoint, Qt
+        from PyQt6.QtGui import QMouseEvent
+
+        edge_pos = QPoint(checklist.width() // 2, initial_h - 3)
+        press_event = QMouseEvent(
+            QEvent.Type.MouseButtonPress,
+            edge_pos.toPointF(),
+            edge_pos.toPointF(),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        checklist.mousePressEvent(press_event)
+        assert checklist._resizing is True
+        assert checklist._resize_edge == "bottom"
+
+        move_pos = QPoint(checklist.width() // 2, initial_h + 50)
+        move_event = QMouseEvent(
+            QEvent.Type.MouseMove,
+            move_pos.toPointF(),
+            move_pos.toPointF(),
+            Qt.MouseButton.NoButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        checklist.mouseMoveEvent(move_event)
+        assert checklist.height() >= checklist._min_height()
+
+        release_event = QMouseEvent(
+            QEvent.Type.MouseButtonRelease,
+            move_pos.toPointF(),
+            move_pos.toPointF(),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.NoButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        checklist.mouseReleaseEvent(release_event)
+        assert checklist._resizing is False
+
+    def test_resize_bottom_right_via_mouse(self, main_window):
+        from src.ui.editor import ChecklistWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        checklist = ChecklistWidget(0, page_id=pid, parent=main_window.editor.content)
+        checklist.setFixedWidth(400)
+        checklist._add_item()
+        checklist._refresh_size()
+        initial_w = checklist.width()
+        initial_h = checklist.height()
+
+        from PyQt6.QtCore import QEvent, QPoint, Qt
+        from PyQt6.QtGui import QMouseEvent
+
+        edge_pos = QPoint(initial_w - 3, initial_h - 3)
+        press_event = QMouseEvent(
+            QEvent.Type.MouseButtonPress,
+            edge_pos.toPointF(),
+            edge_pos.toPointF(),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        checklist.mousePressEvent(press_event)
+        assert checklist._resizing is True
+        assert checklist._resize_edge == "bottom-right"
+
+        move_pos = QPoint(initial_w + 50, initial_h + 50)
+        move_event = QMouseEvent(
+            QEvent.Type.MouseMove,
+            move_pos.toPointF(),
+            move_pos.toPointF(),
+            Qt.MouseButton.NoButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        checklist.mouseMoveEvent(move_event)
+        assert checklist.width() >= initial_w
+        assert checklist.height() >= checklist._min_height()
+
+        release_event = QMouseEvent(
+            QEvent.Type.MouseButtonRelease,
+            move_pos.toPointF(),
+            move_pos.toPointF(),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.NoButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        checklist.mouseReleaseEvent(release_event)
+        assert checklist._resizing is False
+
+
+class TestTableResizeMouseSimulation:
+    def test_resize_right_edge_via_mouse(self, main_window):
+        from src.ui.editor import TableWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        table = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        table.setFixedWidth(400)
+        table.resize(400, 200)
+        initial_w = table.width()
+
+        from PyQt6.QtCore import QEvent, QPoint, Qt
+        from PyQt6.QtGui import QMouseEvent
+
+        edge_pos = QPoint(initial_w - 3, table.height() // 2)
+        press_event = QMouseEvent(
+            QEvent.Type.MouseButtonPress,
+            edge_pos.toPointF(),
+            edge_pos.toPointF(),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        table.mousePressEvent(press_event)
+        assert table._resizing is True
+        assert table._resize_edge == "right"
+
+        move_pos = QPoint(initial_w + 50, table.height() // 2)
+        move_event = QMouseEvent(
+            QEvent.Type.MouseMove,
+            move_pos.toPointF(),
+            move_pos.toPointF(),
+            Qt.MouseButton.NoButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        table.mouseMoveEvent(move_event)
+        assert table.width() >= initial_w
+
+        release_event = QMouseEvent(
+            QEvent.Type.MouseButtonRelease,
+            move_pos.toPointF(),
+            move_pos.toPointF(),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.NoButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        table.mouseReleaseEvent(release_event)
+        assert table._resizing is False
+        assert table._resize_edge is None
+
+    def test_resize_left_edge_via_mouse(self, main_window):
+        from src.ui.editor import TableWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        table = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        table.setFixedWidth(400)
+        table.resize(400, 200)
+
+        from PyQt6.QtCore import QEvent, QPoint, Qt
+        from PyQt6.QtGui import QMouseEvent
+
+        edge_pos = QPoint(3, table.height() // 2)
+        press_event = QMouseEvent(
+            QEvent.Type.MouseButtonPress,
+            edge_pos.toPointF(),
+            edge_pos.toPointF(),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        table.mousePressEvent(press_event)
+        assert table._resizing is True
+        assert table._resize_edge == "left"
+
+        move_pos = QPoint(-50, table.height() // 2)
+        move_event = QMouseEvent(
+            QEvent.Type.MouseMove,
+            move_pos.toPointF(),
+            move_pos.toPointF(),
+            Qt.MouseButton.NoButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        table.mouseMoveEvent(move_event)
+        assert table.width() >= table._MIN_W
+
+        release_event = QMouseEvent(
+            QEvent.Type.MouseButtonRelease,
+            move_pos.toPointF(),
+            move_pos.toPointF(),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.NoButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        table.mouseReleaseEvent(release_event)
+        assert table._resizing is False
+
+    def test_resize_bottom_edge_via_mouse(self, main_window):
+        from src.ui.editor import TableWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        table = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        table.setFixedWidth(400)
+        table.resize(400, 200)
+        initial_h = table.height()
+
+        from PyQt6.QtCore import QEvent, QPoint, Qt
+        from PyQt6.QtGui import QMouseEvent
+
+        edge_pos = QPoint(table.width() // 2, initial_h - 3)
+        press_event = QMouseEvent(
+            QEvent.Type.MouseButtonPress,
+            edge_pos.toPointF(),
+            edge_pos.toPointF(),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        table.mousePressEvent(press_event)
+        assert table._resizing is True
+        assert table._resize_edge == "bottom"
+
+        move_pos = QPoint(table.width() // 2, initial_h + 50)
+        move_event = QMouseEvent(
+            QEvent.Type.MouseMove,
+            move_pos.toPointF(),
+            move_pos.toPointF(),
+            Qt.MouseButton.NoButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        table.mouseMoveEvent(move_event)
+        assert table.height() >= table._min_height()
+
+        release_event = QMouseEvent(
+            QEvent.Type.MouseButtonRelease,
+            move_pos.toPointF(),
+            move_pos.toPointF(),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.NoButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        table.mouseReleaseEvent(release_event)
+        assert table._resizing is False
+
+    def test_resize_top_edge_via_mouse(self, main_window):
+        from src.ui.editor import TableWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        table = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        table.setFixedWidth(400)
+        table.resize(400, 200)
+
+        from PyQt6.QtCore import QEvent, QPoint, Qt
+        from PyQt6.QtGui import QMouseEvent
+
+        header_h = table._header.height()
+        edge_pos = QPoint(table.width() // 2, header_h + 3)
+        press_event = QMouseEvent(
+            QEvent.Type.MouseButtonPress,
+            edge_pos.toPointF(),
+            edge_pos.toPointF(),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        table.mousePressEvent(press_event)
+        assert table._resizing is True
+        assert table._resize_edge == "top"
+
+        move_pos = QPoint(table.width() // 2, header_h - 50)
+        move_event = QMouseEvent(
+            QEvent.Type.MouseMove,
+            move_pos.toPointF(),
+            move_pos.toPointF(),
+            Qt.MouseButton.NoButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        table.mouseMoveEvent(move_event)
+        assert table.height() >= table._min_height()
+
+        release_event = QMouseEvent(
+            QEvent.Type.MouseButtonRelease,
+            move_pos.toPointF(),
+            move_pos.toPointF(),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.NoButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        table.mouseReleaseEvent(release_event)
+        assert table._resizing is False
+
+    def test_resize_bottom_right_via_mouse(self, main_window):
+        from src.ui.editor import TableWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        table = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        table.setFixedWidth(400)
+        table.resize(400, 200)
+        initial_w = table.width()
+        initial_h = table.height()
+
+        from PyQt6.QtCore import QEvent, QPoint, Qt
+        from PyQt6.QtGui import QMouseEvent
+
+        edge_pos = QPoint(initial_w - 3, initial_h - 3)
+        press_event = QMouseEvent(
+            QEvent.Type.MouseButtonPress,
+            edge_pos.toPointF(),
+            edge_pos.toPointF(),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        table.mousePressEvent(press_event)
+        assert table._resizing is True
+        assert table._resize_edge == "bottom-right"
+
+        move_pos = QPoint(initial_w + 50, initial_h + 50)
+        move_event = QMouseEvent(
+            QEvent.Type.MouseMove,
+            move_pos.toPointF(),
+            move_pos.toPointF(),
+            Qt.MouseButton.NoButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        table.mouseMoveEvent(move_event)
+        assert table.width() >= initial_w
+        assert table.height() >= table._min_height()
+
+        release_event = QMouseEvent(
+            QEvent.Type.MouseButtonRelease,
+            move_pos.toPointF(),
+            move_pos.toPointF(),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.NoButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        table.mouseReleaseEvent(release_event)
+        assert table._resizing is False
+
+    def test_resize_min_width_enforced(self, main_window):
+        from src.ui.editor import ChecklistWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        checklist = ChecklistWidget(0, page_id=pid, parent=main_window.editor.content)
+        checklist.setFixedWidth(400)
+        checklist._add_item()
+        checklist._refresh_size()
+
+        from PyQt6.QtCore import QEvent, QPoint, Qt
+        from PyQt6.QtGui import QMouseEvent
+
+        edge_pos = QPoint(3, checklist.height() // 2)
+        press_event = QMouseEvent(
+            QEvent.Type.MouseButtonPress,
+            edge_pos.toPointF(),
+            edge_pos.toPointF(),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        checklist.mousePressEvent(press_event)
+
+        move_pos = QPoint(9999, checklist.height() // 2)
+        move_event = QMouseEvent(
+            QEvent.Type.MouseMove,
+            move_pos.toPointF(),
+            move_pos.toPointF(),
+            Qt.MouseButton.NoButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        checklist.mouseMoveEvent(move_event)
+        assert checklist.width() >= checklist._MIN_W
+
+        release_event = QMouseEvent(
+            QEvent.Type.MouseButtonRelease,
+            move_pos.toPointF(),
+            move_pos.toPointF(),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.NoButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        checklist.mouseReleaseEvent(release_event)
+
+    def test_resize_min_height_enforced(self, main_window):
+        from src.ui.editor import ChecklistWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        checklist = ChecklistWidget(0, page_id=pid, parent=main_window.editor.content)
+        checklist.setFixedWidth(400)
+        checklist._add_item()
+        checklist._refresh_size()
+
+        from PyQt6.QtCore import QEvent, QPoint, Qt
+        from PyQt6.QtGui import QMouseEvent
+
+        edge_pos = QPoint(checklist.width() // 2, checklist.height() - 3)
+        press_event = QMouseEvent(
+            QEvent.Type.MouseButtonPress,
+            edge_pos.toPointF(),
+            edge_pos.toPointF(),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        checklist.mousePressEvent(press_event)
+
+        move_pos = QPoint(checklist.width() // 2, -9999)
+        move_event = QMouseEvent(
+            QEvent.Type.MouseMove,
+            move_pos.toPointF(),
+            move_pos.toPointF(),
+            Qt.MouseButton.NoButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        checklist.mouseMoveEvent(move_event)
+        assert checklist.height() >= checklist._min_height()
+
+        release_event = QMouseEvent(
+            QEvent.Type.MouseButtonRelease,
+            move_pos.toPointF(),
+            move_pos.toPointF(),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.NoButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        checklist.mouseReleaseEvent(release_event)
+
+    def test_resize_origin_restored_on_release(self, main_window):
+        from src.ui.editor import ChecklistWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        checklist = ChecklistWidget(0, page_id=pid, parent=main_window.editor.content)
+        checklist.setFixedWidth(400)
+        checklist._add_item()
+        checklist._refresh_size()
+
+        from PyQt6.QtCore import QEvent, QPoint, Qt
+        from PyQt6.QtGui import QMouseEvent
+
+        edge_pos = QPoint(3, checklist.height() // 2)
+        press_event = QMouseEvent(
+            QEvent.Type.MouseButtonPress,
+            edge_pos.toPointF(),
+            edge_pos.toPointF(),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        checklist.mousePressEvent(press_event)
+        assert checklist._resize_origin is not None
+
+        move_pos = QPoint(-50, checklist.height() // 2)
+        move_event = QMouseEvent(
+            QEvent.Type.MouseMove,
+            move_pos.toPointF(),
+            move_pos.toPointF(),
+            Qt.MouseButton.NoButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        checklist.mouseMoveEvent(move_event)
+
+        release_event = QMouseEvent(
+            QEvent.Type.MouseButtonRelease,
+            move_pos.toPointF(),
+            move_pos.toPointF(),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.NoButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        checklist.mouseReleaseEvent(release_event)
+        assert checklist._resize_origin is None
+        assert checklist._resize_start is None
+
+    def test_resize_user_width_set(self, main_window):
+        from src.ui.editor import ChecklistWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        checklist = ChecklistWidget(0, page_id=pid, parent=main_window.editor.content)
+        checklist.setFixedWidth(400)
+        checklist._add_item()
+        checklist._refresh_size()
+        initial_w = checklist.width()
+
+        from PyQt6.QtCore import QEvent, QPoint, Qt
+        from PyQt6.QtGui import QMouseEvent
+
+        edge_pos = QPoint(initial_w - 3, checklist.height() // 2)
+        press_event = QMouseEvent(
+            QEvent.Type.MouseButtonPress,
+            edge_pos.toPointF(),
+            edge_pos.toPointF(),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        checklist.mousePressEvent(press_event)
+
+        move_pos = QPoint(initial_w + 100, checklist.height() // 2)
+        move_event = QMouseEvent(
+            QEvent.Type.MouseMove,
+            move_pos.toPointF(),
+            move_pos.toPointF(),
+            Qt.MouseButton.NoButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        checklist.mouseMoveEvent(move_event)
+        assert checklist._user_width is not None
+        assert checklist._user_width > 0
+
+
+class TestTableRowScaling:
+    def test_scale_rows_during_resize(self, main_window):
+        from src.ui.editor import TableWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        table = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        table.setFixedWidth(400)
+        table.resize(400, 200)
+
+        from PyQt6.QtCore import QEvent, QPoint, Qt
+        from PyQt6.QtGui import QMouseEvent
+
+        vh = table._table.verticalHeader()
+        initial_row_h = vh.sectionSize(0)
+
+        edge_pos = QPoint(table.width() // 2, table.height() - 3)
+        press_event = QMouseEvent(
+            QEvent.Type.MouseButtonPress,
+            edge_pos.toPointF(),
+            edge_pos.toPointF(),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        table.mousePressEvent(press_event)
+
+        move_pos = QPoint(table.width() // 2, table.height() + 100)
+        move_event = QMouseEvent(
+            QEvent.Type.MouseMove,
+            move_pos.toPointF(),
+            move_pos.toPointF(),
+            Qt.MouseButton.NoButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        table.mouseMoveEvent(move_event)
+
+        for r in range(table._table.rowCount()):
+            assert vh.sectionSize(r) > initial_row_h
+
+        release_event = QMouseEvent(
+            QEvent.Type.MouseButtonRelease,
+            move_pos.toPointF(),
+            move_pos.toPointF(),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.NoButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        table.mouseReleaseEvent(release_event)
+
+    def test_scale_rows_via_event_filter(self, main_window):
+        from src.ui.editor import TableWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        table = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        table.setFixedWidth(400)
+        table.resize(400, 200)
+
+        from PyQt6.QtCore import QEvent, QPoint, Qt
+        from PyQt6.QtGui import QMouseEvent
+
+        viewport = table._table.viewport()
+        vh = table._table.verticalHeader()
+        initial_row_h = vh.sectionSize(0)
+
+        bottom_edge_pos = QPoint(table.width() // 2, table.height() - 3)
+        viewport_pos = viewport.mapFrom(table, bottom_edge_pos)
+        press_event = QMouseEvent(
+            QEvent.Type.MouseButtonPress,
+            viewport_pos.toPointF(),
+            viewport_pos.toPointF(),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        table.eventFilter(viewport, press_event)
+
+        move_pos = QPoint(table.width() // 2, table.height() + 100)
+        viewport_move_pos = viewport.mapFrom(table, move_pos)
+        move_event = QMouseEvent(
+            QEvent.Type.MouseMove,
+            viewport_move_pos.toPointF(),
+            viewport_move_pos.toPointF(),
+            Qt.MouseButton.NoButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        table.eventFilter(viewport, move_event)
+
+        for r in range(table._table.rowCount()):
+            assert vh.sectionSize(r) > initial_row_h
+
+
+class TestChecklistEventFilterResize:
+    def test_event_filter_detects_edge_and_initiates_resize(self, main_window):
+        from src.ui.editor import ChecklistWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        checklist = ChecklistWidget(0, page_id=pid, parent=main_window.editor.content)
+        checklist.setFixedWidth(400)
+        checklist._add_item()
+        checklist._refresh_size()
+
+        from PyQt6.QtCore import QEvent, QPoint, Qt
+        from PyQt6.QtGui import QMouseEvent
+
+        child = checklist._checkboxes_layout.itemAt(0).widget()
+        right_edge_pos = QPoint(checklist.width() - 3, checklist.height() // 2)
+        child_pos = child.mapFrom(checklist, right_edge_pos)
+
+        event = QMouseEvent(
+            QEvent.Type.MouseButtonPress,
+            child_pos.toPointF(),
+            child_pos.toPointF(),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        result = checklist.eventFilter(child, event)
+        assert result is True
+        assert checklist._resizing is True
+        assert checklist._resize_edge == "right"
+
+    def test_event_filter_center_click_does_not_resize(self, main_window):
+        from src.ui.editor import ChecklistWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        checklist = ChecklistWidget(0, page_id=pid, parent=main_window.editor.content)
+        checklist.setFixedWidth(400)
+        checklist._add_item()
+        checklist._refresh_size()
+
+        from PyQt6.QtCore import QEvent, QPoint, Qt
+        from PyQt6.QtGui import QMouseEvent
+
+        child = checklist._checkboxes_layout.itemAt(0).widget()
+        center_pos = QPoint(checklist.width() // 2, checklist.height() // 2)
+        child_pos = child.mapFrom(checklist, center_pos)
+
+        event = QMouseEvent(
+            QEvent.Type.MouseButtonPress,
+            child_pos.toPointF(),
+            child_pos.toPointF(),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        result = checklist.eventFilter(child, event)
+        assert result is not True
+        assert checklist._resizing is False
+
+
+class TestHeightPersistence:
+    def test_checklist_save_load_height(self, main_window):
+        from src.repositories.page_object_repo import PageObjectRepo
+        from src.ui.editor import ChecklistWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        checklist = ChecklistWidget(0, page_id=pid, parent=main_window.editor.content)
+        checklist.setFixedWidth(400)
+        checklist._add_item()
+        checklist._refresh_size()
+        checklist.resize(400, 350)
+        checklist._save_meta()
+
+        meta = PageObjectRepo().get_meta(pid, checklist.checklist_id)
+        assert meta is not None
+        data = json.loads(meta.content)
+        assert "height" in data
+        assert data["height"] == 350
+
+    def test_table_save_load_height(self, main_window):
+        from src.repositories.page_object_repo import PageObjectRepo
+        from src.ui.editor import TableWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        table = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        table.setFixedWidth(400)
+        table.resize(400, 350)
+        table._save_meta()
+
+        meta = PageObjectRepo().get_table_meta(pid, table.table_id)
+        assert meta is not None
+        data = json.loads(meta.content)
+        assert "height" in data
+        assert data["height"] == 350
+
+    def test_checklist_load_restores_height(self, main_window):
+        from src.ui.editor import ChecklistWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        checklist = ChecklistWidget(0, page_id=pid, parent=main_window.editor.content)
+        checklist.setFixedWidth(400)
+        checklist._add_item()
+        checklist._refresh_size()
+        checklist.resize(400, 350)
+        checklist._save_meta()
+
+        checklist2 = ChecklistWidget(0, page_id=pid, parent=main_window.editor.content)
+        checklist2._load_meta()
+        assert checklist2.height() == 350
+
+    def test_table_load_restores_height(self, main_window):
+        from src.ui.editor import TableWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        table = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        table.setFixedWidth(400)
+        table.resize(400, 350)
+        table._save_meta()
+
+        table2 = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        table2._load_meta()
+        assert table2.height() == 350
+
+    def test_checklist_height_none_when_not_saved(self, main_window):
+        from src.ui.editor import ChecklistWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        checklist = ChecklistWidget(0, page_id=pid, parent=main_window.editor.content)
+        checklist._load_meta()
+        assert checklist._user_height is None
+
+    def test_table_height_none_when_not_saved(self, main_window):
+        from src.ui.editor import TableWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        table = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        table._load_meta()
+        assert table._user_height is None
+
+    def test_checklist_resize_persists_height(self, main_window):
+        from src.repositories.page_object_repo import PageObjectRepo
+        from src.ui.editor import ChecklistWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        checklist = ChecklistWidget(0, page_id=pid, parent=main_window.editor.content)
+        checklist.setFixedWidth(400)
+        checklist._add_item()
+        checklist._refresh_size()
+
+        from PyQt6.QtCore import QEvent, QPoint, Qt
+        from PyQt6.QtGui import QMouseEvent
+
+        edge_pos = QPoint(checklist.width() // 2, checklist.height() - 3)
+        press_event = QMouseEvent(
+            QEvent.Type.MouseButtonPress,
+            edge_pos.toPointF(),
+            edge_pos.toPointF(),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        checklist.mousePressEvent(press_event)
+
+        new_h = checklist.height() + 80
+        move_pos = QPoint(checklist.width() // 2, new_h)
+        move_event = QMouseEvent(
+            QEvent.Type.MouseMove,
+            move_pos.toPointF(),
+            move_pos.toPointF(),
+            Qt.MouseButton.NoButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        checklist.mouseMoveEvent(move_event)
+
+        release_event = QMouseEvent(
+            QEvent.Type.MouseButtonRelease,
+            move_pos.toPointF(),
+            move_pos.toPointF(),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.NoButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        checklist.mouseReleaseEvent(release_event)
+
+        meta = PageObjectRepo().get_meta(pid, checklist.checklist_id)
+        assert meta is not None
+        data = json.loads(meta.content)
+        assert data["height"] >= checklist._min_height()
+
+    def test_table_resize_persists_height(self, main_window):
+        from src.repositories.page_object_repo import PageObjectRepo
+        from src.ui.editor import TableWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        table = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        table.setFixedWidth(400)
+        table.resize(400, 200)
+
+        from PyQt6.QtCore import QEvent, QPoint, Qt
+        from PyQt6.QtGui import QMouseEvent
+
+        edge_pos = QPoint(table.width() // 2, table.height() - 3)
+        press_event = QMouseEvent(
+            QEvent.Type.MouseButtonPress,
+            edge_pos.toPointF(),
+            edge_pos.toPointF(),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        table.mousePressEvent(press_event)
+
+        new_h = table.height() + 80
+        move_pos = QPoint(table.width() // 2, new_h)
+        move_event = QMouseEvent(
+            QEvent.Type.MouseMove,
+            move_pos.toPointF(),
+            move_pos.toPointF(),
+            Qt.MouseButton.NoButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        table.mouseMoveEvent(move_event)
+
+        release_event = QMouseEvent(
+            QEvent.Type.MouseButtonRelease,
+            move_pos.toPointF(),
+            move_pos.toPointF(),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.NoButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        table.mouseReleaseEvent(release_event)
+
+        meta = PageObjectRepo().get_table_meta(pid, table.table_id)
+        assert meta is not None
+        data = json.loads(meta.content)
+        assert data["height"] >= table._min_height()
