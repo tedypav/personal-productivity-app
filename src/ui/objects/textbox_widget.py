@@ -1,5 +1,5 @@
 from PyQt6.QtCore import Qt, QUrl, pyqtSignal
-from PyQt6.QtGui import QDesktopServices, QIcon, QImage, QPixmap
+from PyQt6.QtGui import QDesktopServices, QIcon, QImage, QPixmap, QTextCursor
 from PyQt6.QtWidgets import (
     QFileDialog,
     QHBoxLayout,
@@ -43,18 +43,9 @@ class TextboxTextBlock(QWidget):
         self._layout.setSpacing(0)
 
         header_row = QHBoxLayout()
-        header_row.setContentsMargins(0, 0, 4, 0)
-        header_row.addStretch()
-        del_btn = QPushButton("✕ Remove")
-        del_btn.setObjectName("textboxTableBtn")
-        del_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        del_btn.clicked.connect(self.delete_requested.emit)
-        header_row.addWidget(del_btn)
-        self._layout.addLayout(header_row)
-
-        toolbar = QHBoxLayout()
-        toolbar.setContentsMargins(4, 2, 4, 2)
-        toolbar.setSpacing(2)
+        header_row.setContentsMargins(4, 2, 4, 2)
+        header_row.setSpacing(2)
+        self._fmt_btns = []
         for label, slot in [
             ("B", self._bold),
             ("I", self._italic),
@@ -68,10 +59,17 @@ class TextboxTextBlock(QWidget):
             btn.setObjectName("textboxTableBtn")
             btn.setFixedSize(28, 22)
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn.setCheckable(True)
             btn.clicked.connect(slot)
-            toolbar.addWidget(btn)
-        toolbar.addStretch()
-        self._layout.addLayout(toolbar)
+            header_row.addWidget(btn)
+            self._fmt_btns.append(btn)
+        header_row.addStretch()
+        del_btn = QPushButton("✕ Remove")
+        del_btn.setObjectName("textboxTableBtn")
+        del_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        del_btn.clicked.connect(self.delete_requested.emit)
+        header_row.addWidget(del_btn)
+        self._layout.addLayout(header_row)
 
         self._editor = QTextEdit()
         self._editor.setObjectName("textboxEditor")
@@ -80,6 +78,8 @@ class TextboxTextBlock(QWidget):
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum
         )
         self._editor.textChanged.connect(self._on_text_changed)
+        self._editor.currentCharFormatChanged.connect(self._update_fmt_buttons)
+        self._editor.cursorPositionChanged.connect(self._update_fmt_buttons)
         self._editor.viewport().installEventFilter(self)
         self._layout.addWidget(self._editor)
 
@@ -192,8 +192,8 @@ class TextboxTextBlock(QWidget):
         else:
             cursor.insertText("``")
             cursor.movePosition(
-                Qt.MoveOperation.Left,
-                Qt.MoveMode.MoveAnchor,
+                QTextCursor.MoveOperation.Left,
+                QTextCursor.MoveMode.MoveAnchor,
                 1,
             )
             self._editor.setTextCursor(cursor)
@@ -218,6 +218,15 @@ class TextboxTextBlock(QWidget):
         cursor = self._editor.textCursor()
         cursor.insertHtml("<ul><li>&nbsp;</li></ul>")
         self._editor.setFocus()
+
+    def _update_fmt_buttons(self):
+        if not self._editing:
+            return
+        fmt = self._editor.currentCharFormat()
+        bold = fmt.fontWeight() >= 700
+        italic = fmt.fontItalic()
+        self._fmt_btns[0].setChecked(bold)
+        self._fmt_btns[1].setChecked(italic)
 
     def _on_text_changed(self):
         if self._editing:
