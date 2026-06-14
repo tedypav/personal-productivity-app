@@ -109,8 +109,9 @@ class TextboxTextBlock(QWidget):
         self._editor.setObjectName("textboxEditor")
         self._editor.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self._editor.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
         )
+        self._editor.setMinimumHeight(0)
         self._editor.textChanged.connect(self._on_text_changed)
         self._editor.currentCharFormatChanged.connect(self._update_fmt_buttons)
         self._editor.cursorPositionChanged.connect(self._update_fmt_buttons)
@@ -152,7 +153,7 @@ class TextboxTextBlock(QWidget):
                     dy = curr.y() - self._resize_start.y()
                     new_h = max(30, self.height() + dy)
                     self._resize_start = curr
-                    self._editor.setMinimumHeight(max(30, new_h - 6))
+                    self._editor.setFixedHeight(max(30, new_h - 6))
                     event.accept()
                     return True
             if event.type() == QEvent.Type.MouseButtonRelease:
