@@ -559,6 +559,20 @@ QMessageBox {
     border-color: #CFA6D6;
     color: #9b59b6;
 }
+#editorTextboxBtn {
+    font-size: 12px;
+    color: #CFA6D6;
+    background: transparent;
+    border: 1px solid #F0E6E8;
+    border-radius: 14px;
+    padding: 4px 14px;
+    font-family: 'Inter', sans-serif;
+}
+#editorTextboxBtn:hover {
+    background: #FFF0F3;
+    border-color: #CFA6D6;
+    color: #9b59b6;
+}
 #editorTocContainer {
     background: transparent;
 }
