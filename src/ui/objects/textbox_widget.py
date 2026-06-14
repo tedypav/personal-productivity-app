@@ -121,9 +121,7 @@ class TextboxTextBlock(QWidget):
                 '<p style="color:#9CA3AF; font-style:italic;">'
                 "Double-click to start typing...</p>"
             )
-        doc_size = self._editor.document().size()
-        h = max(30, int(doc_size.height()) + 16)
-        self._editor.setMinimumHeight(h)
+        self._editor.setMinimumHeight(0)
 
     def _on_text_changed(self):
         if self._editing:
