@@ -10,6 +10,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from src.controllers.checklist_controller import ChecklistController
 from src.models.page_object import PageObject
 from src.repositories.page_object_repo import PageObjectRepo
 from src.ui.objects.resizable_mixin import ResizableMixin
@@ -29,43 +30,25 @@ class ChecklistWidget(ResizableMixin, QWidget):
         self.checklist_id = checklist_id
         self.page_id = page_id
         self._init_resizable_state()
+        self._checklist_controller = ChecklistController()
         self.setObjectName("checklist")
-        self.setStyleSheet(
-            "#checklist {"
-            " background-color: #FFFFFF;"
-            " border: 1px solid #F7D1DC;"
-            " border-radius: 12px;"
-            "}"
-            "#checklist > QWidget {"
-            " background-color: transparent;"
-            "}"
-        )
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self._layout = QVBoxLayout(self)
         self._layout.setContentsMargins(0, 0, 0, 0)
         self._layout.setSpacing(0)
 
         header = QWidget()
         header.setFixedHeight(36)
-        header.setObjectName("checklist_header")
+        header.setObjectName("checklistHeader")
+        header.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         header.setCursor(Qt.CursorShape.OpenHandCursor)
-        header.setStyleSheet(
-            "#checklist_header {"
-            " background-color: #FFF0F3;"
-            " border-top-left-radius: 12px;"
-            " border-bottom: 1px solid #F7D1DC;"
-            "}"
-        )
         header_layout = QHBoxLayout(header)
         header_layout.setContentsMargins(12, 4, 12, 4)
         header_layout.setSpacing(6)
 
         title = QLineEdit("Checklist")
+        title.setObjectName("checklistTitle")
         title.setPlaceholderText("Checklist")
-        title.setStyleSheet(
-            "QLineEdit { border: none; background: transparent;"
-            " font-family: 'Inter', sans-serif; font-size: 11px;"
-            " color: #8B6B7B; font-weight: 600; padding: 0; }"
-        )
         title.returnPressed.connect(self._on_title_changed)
         title.editingFinished.connect(self._on_title_changed)
         self._title_edit = title
@@ -73,18 +56,10 @@ class ChecklistWidget(ResizableMixin, QWidget):
         header_layout.addStretch()
 
         delete_btn = QToolButton()
+        delete_btn.setObjectName("checklistDeleteBtn")
         delete_btn.setText("×")
         delete_btn.setFixedSize(28, 28)
         delete_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        delete_btn.setStyleSheet(
-            "QToolButton {"
-            " border: none; font-size: 14px;"
-            " color: #4B5563; background: transparent;"
-            " }"
-            " QToolButton:hover {"
-            " color: #EF4444;"
-            " }"
-        )
         delete_btn.clicked.connect(self._delete_checklist)
         header_layout.addWidget(delete_btn)
 
@@ -97,14 +72,8 @@ class ChecklistWidget(ResizableMixin, QWidget):
         self._layout.addLayout(self._checkboxes_layout)
 
         add_btn = QPushButton("+ Add item")
+        add_btn.setObjectName("checklistAddBtn")
         add_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        add_btn.setStyleSheet(
-            "QPushButton { border: none; font-size: 12px; color: #CFA6D6;"
-            " padding: 8px 12px; text-align: left;"
-            " font-family: 'Inter', sans-serif;"
-            " background: #FFFFFF; }"
-            " QPushButton:hover { color: #9b59b6; }"
-        )
         add_btn.clicked.connect(lambda: self._add_item())
         self._layout.addWidget(add_btn)
         self.setMouseTracking(True)
@@ -148,6 +117,16 @@ class ChecklistWidget(ResizableMixin, QWidget):
         pos = obj.mapTo(self, event.position().toPoint())
         if event.type() == QEvent.Type.MouseButtonPress:
             if event.button() == Qt.MouseButton.LeftButton:
+                if pos.y() <= self._header.height():
+                    child = self._header.childAt(pos)
+                    if child is self._title_edit:
+                        return False
+                    self.setFocus()
+                    self._dragging = True
+                    self._drag_start = event.globalPosition().toPoint() - self.pos()
+                    self._header.setCursor(Qt.CursorShape.ClosedHandCursor)
+                    event.accept()
+                    return True
                 for i in range(self._checkboxes_layout.count()):
                     w = self._checkboxes_layout.itemAt(i).widget()
                     if w and hasattr(w, "obj_id") and w.isAncestorOf(obj):
@@ -169,7 +148,62 @@ class ChecklistWidget(ResizableMixin, QWidget):
                     )
                     event.accept()
                     return True
+        if event.type() == QEvent.Type.MouseButtonRelease:
+            if self._dragging:
+                self._dragging = False
+                self._drag_start = None
+                self._header.setCursor(Qt.CursorShape.OpenHandCursor)
+                self._save_meta()
+                event.accept()
+                return True
+            if self._resizing:
+                self._resizing = False
+                self._resize_edge = None
+                self._resize_start = None
+                self._resize_origin = None
+                self.setCursor(Qt.CursorShape.ArrowCursor)
+                self._on_resize_complete()
+                self._save_meta()
+                event.accept()
+                return True
         if event.type() == QEvent.Type.MouseMove:
+            if self._dragging and self._drag_start is not None:
+                curr = event.globalPosition().toPoint()
+                new_pos = curr - self._drag_start
+                parent = self.parent()
+                if parent:
+                    new_x = max(0, min(new_pos.x(), parent.width() - self.width()))
+                    new_y = max(0, min(new_pos.y(), parent.height() - self.height()))
+                    self.move(new_x, new_y)
+                event.accept()
+                return True
+            if self._resizing and self._resize_start is not None:
+                curr = event.globalPosition().toPoint()
+                dx = curr.x() - self._resize_start.x()
+                dy = curr.y() - self._resize_start.y()
+                ox, oy, ow, oh = self._resize_origin
+                edge = self._resize_edge
+                new_x, new_y, new_w, new_h = ox, oy, ow, oh
+                if "right" in edge:
+                    new_w = max(self._MIN_W, ow + dx)
+                if "bottom" in edge:
+                    new_h = max(self._min_height(), oh + dy)
+                if "left" in edge:
+                    new_w = max(self._MIN_W, ow - dx)
+                    new_x = ox + ow - new_w
+                if "top" in edge:
+                    new_h = max(self._min_height(), oh - dy)
+                    new_y = oy + oh - new_h
+                parent = self.parent()
+                if parent:
+                    new_x = max(0, min(new_x, parent.width() - new_w))
+                    new_y = max(0, min(new_y, parent.height() - new_h))
+                self._user_width = new_w
+                self.setMinimumWidth(0)
+                self.setMaximumWidth(16777215)
+                self.setGeometry(new_x, new_y, new_w, new_h)
+                event.accept()
+                return True
             edge = self._detect_edge(pos)
             if edge and not self._resizing and not self._dragging:
                 obj.setCursor(self._edge_cursor(edge))
@@ -198,6 +232,7 @@ class ChecklistWidget(ResizableMixin, QWidget):
                 "x": self.x(),
                 "y": self.y(),
                 "width": self.width(),
+                "height": self.height(),
                 "title": self._title_edit.text(),
             }
         )
@@ -216,8 +251,13 @@ class ChecklistWidget(ResizableMixin, QWidget):
     def _load_meta(self):
         meta = PageObjectRepo().get_meta(self.page_id, self.checklist_id)
         if meta:
-            data = json.loads(meta.content)
+            try:
+                data = json.loads(meta.content)
+            except (json.JSONDecodeError, ValueError):
+                self._loaded_pos = None
+                return
             self._user_width = data.get("width")
+            self._user_height = data.get("height")
             title = data.get("title", "Checklist")
             self._title_edit.setText(title)
             x = data.get("x")
@@ -227,6 +267,8 @@ class ChecklistWidget(ResizableMixin, QWidget):
                 self.move(x, y)
             else:
                 self._loaded_pos = None
+            if self._user_width:
+                self.resize(self._user_width, self._user_height or self.height())
         else:
             self._loaded_pos = None
 
@@ -284,7 +326,7 @@ class ChecklistWidget(ResizableMixin, QWidget):
         return 36 + 42 + 32
 
     def _on_resize_complete(self):
-        self._scale_rows_to_fit()
+        pass
 
     def keyPressEvent(self, event):
         is_delete_key = event.key() == Qt.Key.Key_Delete
@@ -315,7 +357,10 @@ class ChecklistWidget(ResizableMixin, QWidget):
         from src.ui.objects.checkbox_widget import CheckboxWidget
 
         for obj in objects:
-            content = json.loads(obj.content)
+            try:
+                content = json.loads(obj.content)
+            except (json.JSONDecodeError, ValueError):
+                content = {}
             text = content.get("text", "")
             if not isinstance(text, str):
                 text = str(text)
