@@ -772,10 +772,117 @@ class FunImportsDialog(QDialog):
 
     def _refresh_custom_sections(self):
         self._build_emoji_grid()
-        self._build_gif_content()
+        self._rebuild_gif_content()
 
-    def _build_gif_content(self):
-        pass
+    def _rebuild_gif_content(self):
+        while self._gif_layout.count():
+            item = self._gif_layout.takeAt(0)
+            if item.widget():
+                item.widget().setParent(None)
+
+        gif_categories = {
+            "Trending": ["🎉", "🔥", "❤️", "😂", "👋", "👏", "🙌", "💪"],
+            "Reactions": ["😮", "😍", "🥺", "😭", "🤣", "🙄", "😬", "🤔"],
+            "Celebrations": ["🎊", "🥳", "🎆", "🎇", "🎈", "🎁", "🏆", "🎉"],
+        }
+
+        for cat_name, emojis in gif_categories.items():
+            cat_label = QLabel(cat_name)
+            cat_label.setObjectName("funImportsCatLabel")
+            self._gif_layout.addWidget(cat_label)
+
+            grid = QGridLayout()
+            grid.setSpacing(4)
+            for i, em in enumerate(emojis):
+                btn = QLabel(em)
+                btn.setObjectName("funImportsGifBtn")
+                btn.setFixedSize(80, 80)
+                btn.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                btn.setFont(QFont("Segoe UI Emoji", 24))
+                btn.mousePressEvent = lambda checked, e=em: self._insert_gif(e)
+                btn.setCursor(Qt.CursorShape.PointingHandCursor)
+                grid.addWidget(btn, i // 4, i % 4)
+            grid_widget = QWidget()
+            grid_widget.setLayout(grid)
+            self._gif_layout.addWidget(grid_widget)
+
+        self._build_custom_gif_section(self._gif_layout)
+        self._gif_layout.addStretch()
+
+    def _upload_emoji(self):
+        from PyQt6.QtWidgets import QFileDialog
+
+        paths, _ = QFileDialog.getOpenFileNames(
+            self,
+            "Select Emoji Images",
+            "",
+            "Images (*.png *.jpg *.jpeg *.gif *.svg)",
+        )
+        if paths:
+            import shutil
+
+            upload_dir = self._get_upload_dir("emojis")
+            for path in paths:
+                shutil.copy2(path, upload_dir)
+            self._refresh_custom_sections()
+
+    def _upload_gif(self):
+        from PyQt6.QtWidgets import QFileDialog
+
+        paths, _ = QFileDialog.getOpenFileNames(
+            self,
+            "Select GIF Files",
+            "",
+            "GIFs (*.gif)",
+        )
+        if paths:
+            import shutil
+
+            upload_dir = self._get_upload_dir("gifs")
+            for path in paths:
+                shutil.copy2(path, upload_dir)
+            self._refresh_custom_sections()
+
+    def _build_upload_tab(self):
+        widget = QWidget()
+        main_layout = QVBoxLayout(widget)
+        main_layout.setContentsMargins(8, 8, 8, 8)
+        main_layout.setSpacing(8)
+
+        from PyQt6.QtWidgets import QPushButton
+
+        emoji_label = QLabel("Upload Custom Emojis")
+        emoji_label.setObjectName("funImportsCatLabel")
+        main_layout.addWidget(emoji_label)
+
+        upload_emoji_btn = QPushButton("+ Upload Emoji Image")
+        upload_emoji_btn.setObjectName("funImportsCatBtn")
+        upload_emoji_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        upload_emoji_btn.clicked.connect(self._upload_emoji)
+        main_layout.addWidget(upload_emoji_btn)
+
+        emoji_hint = QLabel("Uploaded images appear in the Emojis tab.")
+        emoji_hint.setStyleSheet("color: #9CA3AF; font-size: 11px; padding: 2px 0;")
+        main_layout.addWidget(emoji_hint)
+
+        main_layout.addSpacing(16)
+
+        gif_label = QLabel("Upload Custom GIFs")
+        gif_label.setObjectName("funImportsCatLabel")
+        main_layout.addWidget(gif_label)
+
+        upload_gif_btn = QPushButton("+ Upload GIF")
+        upload_gif_btn.setObjectName("funImportsCatBtn")
+        upload_gif_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        upload_gif_btn.clicked.connect(self._upload_gif)
+        main_layout.addWidget(upload_gif_btn)
+
+        gif_hint = QLabel("Uploaded GIFs appear in the GIFs tab.")
+        gif_hint.setStyleSheet("color: #9CA3AF; font-size: 11px; padding: 2px 0;")
+        main_layout.addWidget(gif_hint)
+
+        main_layout.addStretch()
+        return widget
 
     def _insert_gif(self, gif):
         if self.target_edit:
