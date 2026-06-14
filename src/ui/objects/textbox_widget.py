@@ -58,6 +58,7 @@ class TextboxTextBlock(QWidget):
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
         )
         self._editor.textChanged.connect(self._on_text_changed)
+        self._editor.hide()
         self._layout.addWidget(self._editor)
 
         self._render()
