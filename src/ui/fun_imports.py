@@ -514,7 +514,7 @@ class FunImportsDialog(QDialog):
             grid_widget.setProperty("category", category)
             self._emoji_layout.addWidget(grid_widget)
 
-        self._build_custom_emoji_section()
+        self._build_custom_emoji_section(self._emoji_layout)
         self._emoji_layout.addStretch()
 
     def _scroll_to_category(self, category):
