@@ -50,8 +50,28 @@ class TextboxTextBlock(QWidget):
         del_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         del_btn.clicked.connect(self.delete_requested.emit)
         header_row.addWidget(del_btn)
-        header_row.addWidget(del_btn)
         self._layout.addLayout(header_row)
+
+        toolbar = QHBoxLayout()
+        toolbar.setContentsMargins(4, 2, 4, 2)
+        toolbar.setSpacing(2)
+        for label, slot in [
+            ("B", self._bold),
+            ("I", self._italic),
+            ("H1", self._h1),
+            ("H2", self._h2),
+            ("<>", self._code),
+            ("🔗", self._link),
+            ("•", self._bullet),
+        ]:
+            btn = QPushButton(label)
+            btn.setObjectName("textboxTableBtn")
+            btn.setFixedSize(28, 22)
+            btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn.clicked.connect(slot)
+            toolbar.addWidget(btn)
+        toolbar.addStretch()
+        self._layout.addLayout(toolbar)
 
         self._editor = QTextEdit()
         self._editor.setObjectName("textboxEditor")
@@ -134,6 +154,70 @@ class TextboxTextBlock(QWidget):
                 "Double-click to start typing...</p>"
             )
         self._editor.setMinimumHeight(0)
+
+    def _ensure_editing(self):
+        if not self._editing:
+            self._enter_edit_mode()
+
+    def _bold(self):
+        self._ensure_editing()
+        self._editor.setFontWeight(700 if self._editor.fontWeight() < 700 else 400)
+        self._editor.setFocus()
+
+    def _italic(self):
+        self._ensure_editing()
+        self._editor.setFontItalic(not self._editor.fontItalic())
+        self._editor.setFocus()
+
+    def _h1(self):
+        self._ensure_editing()
+        fmt = self._editor.currentCharFormat()
+        fmt.setFontPointSize(24)
+        self._editor.mergeCurrentCharFormat(fmt)
+        self._editor.setFocus()
+
+    def _h2(self):
+        self._ensure_editing()
+        fmt = self._editor.currentCharFormat()
+        fmt.setFontPointSize(18)
+        self._editor.mergeCurrentCharFormat(fmt)
+        self._editor.setFocus()
+
+    def _code(self):
+        self._ensure_editing()
+        cursor = self._editor.textCursor()
+        if cursor.hasSelection():
+            text = cursor.selectedText()
+            cursor.insertText(f"`{text}`")
+        else:
+            cursor.insertText("``")
+            cursor.movePosition(
+                Qt.MoveOperation.Left,
+                Qt.MoveMode.MoveAnchor,
+                1,
+            )
+            self._editor.setTextCursor(cursor)
+        self._editor.setFocus()
+
+    def _link(self):
+        self._ensure_editing()
+        from PyQt6.QtWidgets import QInputDialog
+
+        url, ok = QInputDialog.getText(self, "Insert Link", "Enter URL:")
+        if ok and url.strip():
+            cursor = self._editor.textCursor()
+            if cursor.hasSelection():
+                text = cursor.selectedText()
+                cursor.insertHtml(f'<a href="{url}">{text}</a>')
+            else:
+                cursor.insertHtml(f'<a href="{url}">{url}</a>')
+        self._editor.setFocus()
+
+    def _bullet(self):
+        self._ensure_editing()
+        cursor = self._editor.textCursor()
+        cursor.insertHtml("<ul><li>&nbsp;</li></ul>")
+        self._editor.setFocus()
 
     def _on_text_changed(self):
         if self._editing:
