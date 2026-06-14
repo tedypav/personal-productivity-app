@@ -117,6 +117,16 @@ class TestTextboxTextBlock:
         block = TextboxTextBlock()
         assert block._handle.cursor().shape() == Qt.CursorShape.SizeVerCursor
 
+    def test_editor_min_height_is_zero(self, app_instance):
+        block = TextboxTextBlock(html="<p>Hello</p>")
+        assert block._editor.minimumHeight() == 0
+
+    def test_editor_not_locked_by_document_size(self, app_instance):
+        block = TextboxTextBlock()
+        block.show()
+        doc_h = block._editor.document().size().height()
+        assert block._editor.minimumHeight() != int(doc_h) + 16
+
     def test_event_filter_enters_edit_on_click(self, app_instance):
         block = TextboxTextBlock()
         block.show()
