@@ -70,20 +70,13 @@ class TextboxTextBlock(QWidget):
             header_row.addWidget(btn)
             self._fmt_btns.append(btn)
 
-        for icon_name, slot in [
-            ("align_left", self._align_left),
-            ("align_center", self._align_center),
-            ("align_right", self._align_right),
-        ]:
-            btn = QPushButton()
-            btn.setObjectName("textboxTableBtn")
-            btn.setFixedSize(34, 24)
-            btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            icon_path = os.path.join(_icon_dir, f"{icon_name}.svg")
-            if os.path.exists(icon_path):
-                btn.setIcon(QIcon(icon_path))
-            btn.clicked.connect(slot)
-            header_row.addWidget(btn)
+        align_btn = QPushButton("⫿")
+        align_btn.setObjectName("textboxTableBtn")
+        align_btn.setFixedSize(34, 24)
+        align_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        align_btn.clicked.connect(self._show_align_menu)
+        self._align_btn = align_btn
+        header_row.addWidget(align_btn)
 
         from PyQt6.QtWidgets import QComboBox
 
@@ -266,26 +259,45 @@ class TextboxTextBlock(QWidget):
         cursor.insertHtml("<ul><li>&nbsp;</li></ul>")
         self._editor.setFocus()
 
-    def _align_left(self):
+    def _show_align_menu(self):
         self._ensure_editing()
-        self._editor.setAlignment(
-            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
-        )
-        self._editor.setFocus()
+        from PyQt6.QtWidgets import QMenu
 
-    def _align_center(self):
-        self._ensure_editing()
-        self._editor.setAlignment(
-            Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter
-        )
-        self._editor.setFocus()
+        menu = QMenu(self)
+        current = self._editor.alignment()
 
-    def _align_right(self):
-        self._ensure_editing()
-        self._editor.setAlignment(
-            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
-        )
-        self._editor.setFocus()
+        items = [
+            ("⫷  Align Left", Qt.AlignmentFlag.AlignLeft, "left"),
+            ("⫿  Align Center", Qt.AlignmentFlag.AlignHCenter, "center"),
+            ("⫸  Align Right", Qt.AlignmentFlag.AlignRight, "right"),
+            ("↥  Align Top", Qt.AlignmentFlag.AlignTop, "top"),
+            ("↕  Align Middle", Qt.AlignmentFlag.AlignVCenter, "middle"),
+            ("↧  Align Bottom", Qt.AlignmentFlag.AlignBottom, "bottom"),
+        ]
+        for label, flag, _key in items:
+            action = menu.addAction(label)
+            if int(current) & int(flag):
+                action.setText("✓ " + label.lstrip())
+            action.setData(flag)
+
+        action = menu.exec(self._header.mapToGlobal(self._header.rect().bottomLeft()))
+        if action:
+            flag = action.data()
+            h = flag & (
+                Qt.AlignmentFlag.AlignLeft
+                | Qt.AlignmentFlag.AlignHCenter
+                | Qt.AlignmentFlag.AlignRight
+            )
+            v = flag & (
+                Qt.AlignmentFlag.AlignTop
+                | Qt.AlignmentFlag.AlignVCenter
+                | Qt.AlignmentFlag.AlignBottom
+            )
+            if h:
+                self._editor.setAlignment(h | Qt.AlignmentFlag.AlignVCenter)
+            if v:
+                self._editor.setAlignment(v | Qt.AlignmentFlag.AlignHCenter)
+            self._editor.setFocus()
 
     def _set_font_size(self, size_text):
         self._ensure_editing()
