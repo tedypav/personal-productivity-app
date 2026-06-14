@@ -66,6 +66,8 @@ class TextboxTextBlock(QWidget):
     def _enter_edit_mode(self):
         self._editing = True
         self._editor.setReadOnly(False)
+        if not self._html.strip():
+            self._editor.clear()
         self._editor.setFocus()
 
     def exit_edit_mode(self):
