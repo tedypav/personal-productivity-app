@@ -46,12 +46,18 @@ class TextboxTextBlock(QWidget):
         header_row.setContentsMargins(4, 2, 4, 2)
         header_row.setSpacing(2)
         self._fmt_btns = []
+
+        import os
+
+        _icon_dir = os.path.join(
+            os.path.dirname(__file__), "..", "..", "..", "assets", "icons"
+        )
+
         for label, slot in [
             ("B", self._bold),
             ("I", self._italic),
             ("H1", self._h1),
             ("H2", self._h2),
-            ("<>", self._code),
             ("🔗", self._link),
             ("•", self._bullet),
         ]:
@@ -63,6 +69,21 @@ class TextboxTextBlock(QWidget):
             btn.clicked.connect(slot)
             header_row.addWidget(btn)
             self._fmt_btns.append(btn)
+
+        for icon_name, slot in [
+            ("align_left", self._align_left),
+            ("align_center", self._align_center),
+            ("align_right", self._align_right),
+        ]:
+            btn = QPushButton()
+            btn.setObjectName("textboxTableBtn")
+            btn.setFixedSize(34, 24)
+            btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            icon_path = os.path.join(_icon_dir, f"{icon_name}.svg")
+            if os.path.exists(icon_path):
+                btn.setIcon(QIcon(icon_path))
+            btn.clicked.connect(slot)
+            header_row.addWidget(btn)
 
         from PyQt6.QtWidgets import QComboBox
 
@@ -240,6 +261,27 @@ class TextboxTextBlock(QWidget):
         self._ensure_editing()
         cursor = self._editor.textCursor()
         cursor.insertHtml("<ul><li>&nbsp;</li></ul>")
+        self._editor.setFocus()
+
+    def _align_left(self):
+        self._ensure_editing()
+        self._editor.setAlignment(
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+        )
+        self._editor.setFocus()
+
+    def _align_center(self):
+        self._ensure_editing()
+        self._editor.setAlignment(
+            Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter
+        )
+        self._editor.setFocus()
+
+    def _align_right(self):
+        self._ensure_editing()
+        self._editor.setAlignment(
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+        )
         self._editor.setFocus()
 
     def _set_font_size(self, size_text):
