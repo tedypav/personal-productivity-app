@@ -62,6 +62,7 @@ class ChecklistWidget(ResizableMixin, QWidget):
         delete_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         delete_btn.clicked.connect(self._delete_checklist)
         header_layout.addWidget(delete_btn)
+        self._delete_btn = delete_btn
 
         self._header = header
         self._layout.addWidget(header)
@@ -120,6 +121,8 @@ class ChecklistWidget(ResizableMixin, QWidget):
                 if pos.y() <= self._header.height():
                     child = self._header.childAt(pos)
                     if child is self._title_edit:
+                        return False
+                    if child is self._delete_btn:
                         return False
                     self.setFocus()
                     self._dragging = True
