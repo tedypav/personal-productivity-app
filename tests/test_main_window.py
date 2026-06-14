@@ -1710,6 +1710,57 @@ class TestTableTab:
         assert table._table.currentRow() == 0
         assert table._table.currentColumn() == 0
 
+    def test_tab_new_row_matches_existing_height(self, main_window):
+        from src.ui.editor import TableWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        table = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        table.setFixedWidth(400)
+        table.resize(400, 200)
+        table._scale_rows_to_fit()
+
+        initial_rows = table._table.rowCount()
+        table._table.setCurrentCell(initial_rows - 1, table._table.columnCount() - 1)
+        from PyQt6.QtCore import QEvent, Qt
+        from PyQt6.QtGui import QKeyEvent
+
+        event = QKeyEvent(
+            QEvent.Type.KeyPress,
+            Qt.Key.Key_Tab,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        table._handle_tab(event)
+
+        new_row_h = table._table.verticalHeader().sectionSize(initial_rows)
+        other_row_h = table._table.verticalHeader().sectionSize(0)
+        assert new_row_h == other_row_h
+        assert table._table.rowCount() == initial_rows + 1
+
+    def test_shift_tab_does_not_add_row(self, main_window):
+        from src.ui.editor import TableWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        table = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        table.setFixedWidth(400)
+        table.resize(400, 200)
+
+        initial_rows = table._table.rowCount()
+        table._table.setCurrentCell(0, 0)
+        from PyQt6.QtCore import QEvent, Qt
+        from PyQt6.QtGui import QKeyEvent
+
+        event = QKeyEvent(
+            QEvent.Type.KeyPress,
+            Qt.Key.Key_Backtab,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        table._handle_tab(event, reverse=True)
+        assert table._table.rowCount() == initial_rows
+
 
 class TestResizableMixinState:
     def test_user_height_initialized_none(self, main_window):
