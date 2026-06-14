@@ -56,11 +56,11 @@ class TextboxTextBlock(QWidget):
 
         if (
             obj is self._editor
-            and event.type() == QEvent.Type.MouseButtonDblClick
+            and event.type() == QEvent.Type.MouseButtonPress
+            and event.button() == Qt.MouseButton.LeftButton
             and not self._editing
         ):
             self._enter_edit_mode()
-            return True
         return super().eventFilter(obj, event)
 
     def _enter_edit_mode(self):
