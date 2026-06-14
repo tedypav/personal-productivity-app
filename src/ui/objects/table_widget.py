@@ -5,6 +5,7 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLineEdit,
     QPushButton,
+    QTableWidget,
     QToolButton,
     QVBoxLayout,
     QWidget,
@@ -16,6 +17,25 @@ from src.repositories.page_object_repo import PageObjectRepo
 from src.ui.objects.resizable_mixin import ResizableMixin
 
 __all__ = ["TableWidget"]
+
+
+class TabTableWidget(QTableWidget):
+    """QTableWidget with custom Tab handling for auto-adding rows."""
+
+    def __init__(self, rows, cols, parent=None):
+        super().__init__(rows, cols, parent)
+        self._custom_tab_handler = None
+
+    def setCustomTabHandler(self, handler):
+        self._custom_tab_handler = handler
+
+    def keyPressEvent(self, event):
+        if event.key() in (Qt.Key.Key_Tab, Qt.Key.Key_Backtab):
+            if self._custom_tab_handler:
+                self._custom_tab_handler(event)
+                event.accept()
+                return
+        super().keyPressEvent(event)
 
 
 class TableWidget(ResizableMixin, QWidget):
@@ -100,9 +120,10 @@ class TableWidget(ResizableMixin, QWidget):
         self._layout.addWidget(header)
 
     def _build_table(self):
-        from PyQt6.QtWidgets import QSizePolicy, QTableWidget
+        from PyQt6.QtWidgets import QSizePolicy
 
-        self._table = QTableWidget(2, 3)
+        self._table = TabTableWidget(2, 3)
+        self._table.setCustomTabHandler(self._handle_tab)
         self._table.setObjectName("tableGrid")
         self._table.setHorizontalHeaderLabels(["Column 1", "Column 2", "Column 3"])
         self._table.verticalHeader().setVisible(False)
