@@ -155,6 +155,80 @@ class TestTextboxTextBlock:
         block.eventFilter(block._editor.viewport(), event)
         assert block._editing is False
 
+    def test_bold_toggles_font_weight(self, app_instance):
+        block = TextboxTextBlock()
+        block.show()
+        block._enter_edit_mode()
+        block._bold()
+        assert block._editor.fontWeight() >= 700
+        block._bold()
+        assert block._editor.fontWeight() < 700
+
+    def test_italic_toggles(self, app_instance):
+        block = TextboxTextBlock()
+        block.show()
+        block._enter_edit_mode()
+        block._italic()
+        assert block._editor.fontItalic() is True
+        block._italic()
+        assert block._editor.fontItalic() is False
+
+    def test_h1_sets_font_size(self, app_instance):
+        block = TextboxTextBlock()
+        block.show()
+        block._enter_edit_mode()
+        block._h1()
+        assert block._editor.currentCharFormat().fontPointSize() == 24
+
+    def test_h2_sets_font_size(self, app_instance):
+        block = TextboxTextBlock()
+        block.show()
+        block._enter_edit_mode()
+        block._h2()
+        assert block._editor.currentCharFormat().fontPointSize() == 18
+
+    def test_align_left(self, app_instance):
+        block = TextboxTextBlock()
+        block.show()
+        block._enter_edit_mode()
+        block._align_left()
+        assert int(block._editor.alignment()) & int(Qt.AlignmentFlag.AlignLeft)
+
+    def test_align_center(self, app_instance):
+        block = TextboxTextBlock()
+        block.show()
+        block._enter_edit_mode()
+        block._align_center()
+        assert int(block._editor.alignment()) & int(Qt.AlignmentFlag.AlignHCenter)
+
+    def test_align_right(self, app_instance):
+        block = TextboxTextBlock()
+        block.show()
+        block._enter_edit_mode()
+        block._align_right()
+        assert int(block._editor.alignment()) & int(Qt.AlignmentFlag.AlignRight)
+
+    def test_set_font_size(self, app_instance):
+        block = TextboxTextBlock()
+        block.show()
+        block._enter_edit_mode()
+        block._set_font_size("20")
+        assert block._editor.currentCharFormat().fontPointSize() == 20
+
+    def test_fmt_buttons_exist(self, app_instance):
+        block = TextboxTextBlock()
+        assert len(block._fmt_btns) == 6
+
+    def test_size_combo_exists(self, app_instance):
+        block = TextboxTextBlock()
+        assert block._size_combo is not None
+        assert block._size_combo.count() == 12
+
+    def test_resize_handle_starts_at_zero(self, app_instance):
+        block = TextboxTextBlock()
+        assert not block._resizing
+        assert block._resize_start is None
+
 
 class TestTextboxChecklistItem:
     def test_initially_unchecked(self, app_instance):
