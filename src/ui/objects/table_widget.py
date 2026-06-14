@@ -232,6 +232,7 @@ class TableWidget(ResizableMixin, QWidget):
 
     def _install_border_filter(self):
         self._table.setMouseTracking(True)
+        self._table.installEventFilter(self)
         self._table.viewport().installEventFilter(self)
         self._header.installEventFilter(self)
 
@@ -240,8 +241,10 @@ class TableWidget(ResizableMixin, QWidget):
         from PyQt6.QtGui import QKeyEvent, QMouseEvent
 
         if isinstance(event, QKeyEvent):
+            is_viewport = obj is self._table.viewport()
             is_viewport_child = self._table.viewport().isAncestorOf(obj)
-            if obj is not self._table.viewport() and not is_viewport_child:
+            is_table = obj is self._table
+            if not is_viewport and not is_viewport_child and not is_table:
                 return super().eventFilter(obj, event)
             if event.type() == QEvent.Type.KeyPress:
                 if event.key() == Qt.Key.Key_Tab:
