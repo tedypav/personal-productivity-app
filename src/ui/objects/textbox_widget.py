@@ -540,7 +540,6 @@ class TextboxWidget(ResizableMixin, QWidget):
                             return False
                         if isinstance(child, QPushButton | QToolButton):
                             return False
-                        self.setFocus()
                         self._dragging = True
                         self._drag_start = event.globalPosition().toPoint() - self.pos()
                         self._header.setCursor(Qt.CursorShape.ClosedHandCursor)
