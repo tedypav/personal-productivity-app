@@ -57,12 +57,25 @@ class TextboxTextBlock(QWidget):
         ]:
             btn = QPushButton(label)
             btn.setObjectName("textboxTableBtn")
-            btn.setFixedSize(28, 22)
+            btn.setFixedSize(34, 24)
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
             btn.setCheckable(True)
             btn.clicked.connect(slot)
             header_row.addWidget(btn)
             self._fmt_btns.append(btn)
+
+        from PyQt6.QtWidgets import QComboBox
+
+        self._size_combo = QComboBox()
+        self._size_combo.setObjectName("textboxTableBtn")
+        self._size_combo.setFixedSize(52, 24)
+        self._size_combo.addItems(
+            [str(s) for s in [9, 10, 11, 12, 13, 14, 16, 18, 20, 24, 28, 32]]
+        )
+        self._size_combo.setCurrentText("13")
+        self._size_combo.currentTextChanged.connect(self._set_font_size)
+        header_row.addWidget(self._size_combo)
+
         header_row.addStretch()
         del_btn = QPushButton("✕ Remove")
         del_btn.setObjectName("textboxTableBtn")
@@ -217,6 +230,17 @@ class TextboxTextBlock(QWidget):
         self._ensure_editing()
         cursor = self._editor.textCursor()
         cursor.insertHtml("<ul><li>&nbsp;</li></ul>")
+        self._editor.setFocus()
+
+    def _set_font_size(self, size_text):
+        self._ensure_editing()
+        try:
+            size = int(size_text)
+        except ValueError:
+            return
+        fmt = self._editor.currentCharFormat()
+        fmt.setFontPointSize(size)
+        self._editor.mergeCurrentCharFormat(fmt)
         self._editor.setFocus()
 
     def _update_fmt_buttons(self):
