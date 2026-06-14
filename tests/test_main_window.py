@@ -155,6 +155,33 @@ class TestCanvasBackground:
         assert main_window.editor.content._show_photo_bg is True
 
 
+class TestEditorScrollBehavior:
+    def test_scroll_to_top_on_page_load(self, main_window):
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+        sb = main_window.editor.scroll.verticalScrollBar()
+        assert sb.value() == 0
+
+    def test_scroll_to_top_on_second_page_load(self, main_window):
+        pid1 = PageRepo().create(Page(title="Page1"))
+        pid2 = PageRepo().create(Page(title="Page2"))
+        main_window.editor.load_page(pid1)
+        sb = main_window.editor.scroll.verticalScrollBar()
+        sb.setValue(100)
+        main_window.editor.load_page(pid2)
+        assert sb.value() == 0
+
+    def test_canvas_width_matches_viewport(self, main_window):
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+        vp_w = main_window.editor.scroll.viewport().width()
+        canvas_w = main_window.editor.content.width()
+        assert canvas_w == vp_w
+
+    def test_no_floating_add_button(self, main_window):
+        assert not hasattr(main_window.editor, "_add_btn")
+
+
 class TestFolderTableOfContents:
     def test_folder_shows_toc(self, main_window):
         folder_id = PageRepo().create(Page(title="MyFolder", page_type="folder"))
