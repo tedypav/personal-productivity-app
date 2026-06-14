@@ -1,7 +1,6 @@
 from PyQt6.QtCore import Qt, QUrl, pyqtSignal
 from PyQt6.QtGui import QDesktopServices, QImage, QPixmap
 from PyQt6.QtWidgets import (
-    QCheckBox,
     QFileDialog,
     QHBoxLayout,
     QLabel,
@@ -19,6 +18,7 @@ from PyQt6.QtWidgets import (
 )
 
 from src.controllers.textbox_controller import TextboxController
+from src.ui.objects.checkbox_widget import CustomCheckBox
 from src.ui.objects.resizable_mixin import ResizableMixin
 
 __all__ = ["TextboxWidget"]
@@ -137,8 +137,7 @@ class TextboxChecklistItem(QWidget):
         layout.setContentsMargins(4, 2, 4, 2)
         layout.setSpacing(6)
 
-        self._checkbox = QCheckBox()
-        self._checkbox.setChecked(checked)
+        self._checkbox = CustomCheckBox(checked=checked)
         self._checkbox.stateChanged.connect(self._on_check)
         layout.addWidget(self._checkbox)
 
