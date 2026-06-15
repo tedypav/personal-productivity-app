@@ -497,7 +497,6 @@ QMessageBox {
 }
 #editorToolbar {
     background: #FFF8F5;
-    border-bottom: 1px solid #F0E6E8;
 }
 #editorPageTitle {
     font-size: 18px;
