@@ -37,7 +37,7 @@ class PageObjectRepo:
                 obj.object_type,
                 obj.content,
                 int(obj.is_checked),
-                obj.sort_order if obj.sort_order else max_order,
+                obj.sort_order if obj.sort_order is not None else max_order,
             ),
         )
         conn.commit()
@@ -99,8 +99,17 @@ class PageObjectRepo:
 
     @staticmethod
     def copy_objects(source_page_id: int, dest_page_id: int) -> int:
-        """Copy all objects from source to destination page."""
+        """Copy all objects from source to destination page.
+
+        Clears existing objects on the destination first, then copies
+        source objects with their original sort_orders intact.
+        """
+        PageObjectRepo.delete_by_page(dest_page_id)
+
         objects = PageObjectRepo.get_by_page(source_page_id)
+        if not objects:
+            return 0
+
         for obj in objects:
             new_obj = PageObject(
                 page_id=dest_page_id,

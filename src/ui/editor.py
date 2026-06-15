@@ -181,6 +181,7 @@ class PageEditor(QWidget):
 
         self.page_title = _TitleEdit("Select a page")
         self.page_title.setObjectName("editorPageTitle")
+        self.page_title.setFrame(False)
         self.page_title.setReadOnly(True)
         self.page_title.clicked.connect(self._enter_title_edit)
         self.page_title.editingFinished.connect(self._on_title_edited)
