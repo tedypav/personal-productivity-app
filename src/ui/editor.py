@@ -442,7 +442,7 @@ class PageEditor(QWidget):
 
         canvas_w = self.content.width()
         container_w = min(400, canvas_w - 80)
-        widget.setFixedWidth(container_w)
+        widget.setMinimumWidth(container_w)
         widget._load_meta()
         if not widget._user_width:
             widget._user_width = container_w

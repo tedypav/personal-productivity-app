@@ -492,7 +492,8 @@ class TableWidget(ResizableMixin, QWidget):
             else:
                 self._loaded_pos = None
             if self._user_width:
-                self.resize(self._user_width, self._user_height or self.height())
+                h = max(self._user_height or self.height(), self._MIN_H)
+                self.resize(self._user_width, h)
         else:
             self._loaded_pos = None
 
