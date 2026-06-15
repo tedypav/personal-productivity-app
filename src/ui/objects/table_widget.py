@@ -473,6 +473,7 @@ class TableWidget(ResizableMixin, QWidget):
             self._title_edit.setText(title)
             headers = data.get("headers", ["Column 1", "Column 2", "Column 3"])
             rows_data = data.get("data", [["", "", ""], ["", "", ""]])
+            self._table.blockSignals(True)
             self._table.setColumnCount(len(headers))
             self._table.setHorizontalHeaderLabels(headers)
             self._table.setRowCount(len(rows_data))
@@ -481,6 +482,7 @@ class TableWidget(ResizableMixin, QWidget):
             for r, row in enumerate(rows_data):
                 for c, val in enumerate(row):
                     self._table.setItem(r, c, QTableWidgetItem(val))
+            self._table.blockSignals(False)
             show_row_nums = data.get("show_row_numbers", False)
             self._row_num_btn.setChecked(show_row_nums)
             self._table.verticalHeader().setVisible(show_row_nums)

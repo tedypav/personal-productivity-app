@@ -1637,6 +1637,83 @@ class TestTableWidget:
         table._remove_column()
         assert table._table.columnCount() == 1
 
+    def test_load_meta_does_not_overwrite_position(self, main_window):
+        from src.ui.editor import TableWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        table = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        table.move(200, 150)
+        table._save_meta()
+
+        table2 = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        table2._load_meta()
+        assert table2.x() == 200
+        assert table2.y() == 150
+
+    def test_load_meta_preserves_width_and_height(self, main_window):
+        from src.ui.editor import TableWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        table = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        table.move(100, 80)
+        table._user_width = 600
+        table._user_height = 350
+        table.resize(600, 350)
+        table._save_meta()
+
+        table2 = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        table2._load_meta()
+        assert table2._user_width == 600
+        assert table2._user_height == 350
+
+    def test_load_meta_does_not_trigger_save_meta(self, main_window):
+        from src.ui.editor import TableWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        table = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        table.move(300, 250)
+        table._save_meta()
+
+        table2 = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        save_count = [0]
+        original_save = table2._save_meta
+
+        def counting_save():
+            save_count[0] += 1
+            original_save()
+
+        table2._save_meta = counting_save
+
+        table2._load_meta()
+        assert save_count[0] == 0
+
+    def test_load_meta_restores_cell_data(self, main_window):
+        from PyQt6.QtWidgets import QTableWidgetItem
+
+        from src.ui.editor import TableWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        table = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        table.move(100, 100)
+        table._table.setItem(0, 0, QTableWidgetItem("Alpha"))
+        table._table.setItem(1, 1, QTableWidgetItem("Beta"))
+        table._save_meta()
+
+        table2 = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        table2._load_meta()
+        assert table2._table.item(0, 0).text() == "Alpha"
+        assert table2._table.item(1, 1).text() == "Beta"
+        assert table2.x() == 100
+        assert table2.y() == 100
+
 
 class TestTableResize:
     def test_detect_edge_right(self, main_window):
