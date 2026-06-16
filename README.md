@@ -32,7 +32,7 @@
 - Editable headers with configurable alignment
 
 <p align="center">
-  <img src="assets/screenshots/04_full_app.png" width="100%" alt="Page with text, table, and checklist blocks">
+  <img src="assets/screenshots/02_daily_page.png" width="100%" alt="Page with text, table, and checklist blocks">
 </p>
 
 ### Rich Text Editing
