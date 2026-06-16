@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <img src="assets/mockups/desktop_mockup.svg" width="100%" alt="Desktop mockup">
+  <img src="assets/screenshots/01_welcome.png" width="100%" alt="Welcome screen with sidebar and page tree">
 </p>
 
 ---
@@ -32,7 +32,7 @@
 - Editable headers with configurable alignment
 
 <p align="center">
-  <img src="assets/mockups/blocks_mockup.svg" width="100%" alt="Block types">
+  <img src="assets/screenshots/04_full_app.png" width="100%" alt="Page with text, table, and checklist blocks">
 </p>
 
 ### Rich Text Editing
@@ -136,6 +136,7 @@ personal-productivity-app/
 │   ├── fonts/              # Inter, Playfair Display, Magnolia
 │   ├── icons/              # App icons (SVG, ICO)
 │   ├── mockups/            # Design mockups
+│   ├── screenshots/        # App screenshots for README
 │   └── ui/                 # Design tokens (colors, spacing)
 ├── src/
 │   ├── main.py             # App bootstrap, stylesheet, fonts
