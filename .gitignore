@@ -226,6 +226,9 @@ __marimo__/
 # User-specific runtime config
 settings.json
 
+# User-uploaded custom assets (GIFs, emojis)
+assets/custom/
+
 # AI tool config
 opencode.json
 
