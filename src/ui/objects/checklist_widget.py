@@ -87,6 +87,7 @@ class ChecklistWidget(ResizableMixin, QWidget):
             child.installEventFilter(self)
 
     def eventFilter(self, obj, event):
+        """Filter events for drag, resize, and keyboard interactions."""
         from PyQt6.QtCore import QEvent
         from PyQt6.QtGui import QKeyEvent, QMouseEvent
 
@@ -332,6 +333,7 @@ class ChecklistWidget(ResizableMixin, QWidget):
         pass
 
     def keyPressEvent(self, event):
+        """Handle Delete key to remove focused checklist items."""
         is_delete_key = event.key() == Qt.Key.Key_Delete
         is_ctrl_d = (
             event.key() == Qt.Key.Key_D
@@ -357,6 +359,7 @@ class ChecklistWidget(ResizableMixin, QWidget):
         super().keyPressEvent(event)
 
     def load_objects(self, objects):
+        """Populate the checklist with checkbox items from database objects."""
         from src.ui.objects.checkbox_widget import CheckboxWidget
 
         for obj in objects:

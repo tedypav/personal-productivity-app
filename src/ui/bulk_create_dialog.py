@@ -34,6 +34,7 @@ def _style_calendar_dates(date_edit):
 
 
 def generate_titles(mode, start, end, week_start_day="Monday"):
+    """Generate page titles for bulk creation based on mode and date range."""
     titles = []
     if mode == "Days":
         current = start
@@ -133,9 +134,11 @@ class BulkCreateDialog(QDialog):
             self._end_date.setDate(self._start_date.date().addYears(1))
 
     def get_titles(self):
+        """Return the list of generated page titles after the dialog is accepted."""
         return self._titles
 
     def accept(self):
+        """Generate titles from mode and date range, then accept the dialog."""
         mode = self._mode_combo.currentText()
         start = self._start_date.date().toPyDate()
         end = self._end_date.date().toPyDate()

@@ -497,7 +497,6 @@ QMessageBox {
 }
 #editorToolbar {
     background: #FFF8F5;
-    border-bottom: 1px solid #F0E6E8;
 }
 #editorPageTitle {
     font-size: 18px;
@@ -505,6 +504,13 @@ QMessageBox {
     padding: 4px 8px;
     color: #2E2B2B;
     font-family: 'Playfair Display', serif;
+    background: transparent;
+    border: none;
+    selection-background-color: #E8D5E0;
+}
+#editorPageTitle:focus {
+    border-bottom: 2px solid #CFA6D6;
+    background: #FFFBF9;
 }
 #editorBackBtn {
     font-size: 12px;

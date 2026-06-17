@@ -7,6 +7,7 @@ from PyQt6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QPushButton,
     QScrollArea,
     QVBoxLayout,
@@ -15,6 +16,7 @@ from PyQt6.QtWidgets import (
 
 from src.controllers.editor_controller import EditorController
 from src.repositories.page_object_repo import PageObjectRepo
+from src.repositories.page_repo import PageRepo
 from src.ui.objects.checklist_widget import ChecklistWidget
 from src.ui.objects.table_widget import TableWidget
 from src.ui.objects.textbox_widget import TextboxWidget
@@ -41,10 +43,12 @@ class Canvas(QWidget):
                 Canvas._bg_pixmap = QPixmap(bg_path)
 
     def setPhotoBackground(self, show: bool):
+        """Enable or disable the photo background on the canvas."""
         self._show_photo_bg = show
         self.update()
 
     def paintEvent(self, event):
+        """Draw the photo background or a solid fill color."""
         painter = QPainter(self)
         if self._show_photo_bg and Canvas._bg_pixmap and not Canvas._bg_pixmap.isNull():
             vp_w, vp_h = self.width(), self.height()
@@ -73,9 +77,19 @@ class Canvas(QWidget):
         painter.end()
 
     def mousePressEvent(self, event):
+        """Emit the clicked_at signal with canvas coordinates on left click."""
         if event.button() == Qt.MouseButton.LeftButton:
             self.clicked_at.emit(int(event.position().x()), int(event.position().y()))
         event.accept()
+        super().mousePressEvent(event)
+
+
+class _TitleEdit(QLineEdit):
+    clicked = pyqtSignal()
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.clicked.emit()
         super().mousePressEvent(event)
 
 
@@ -113,7 +127,6 @@ class PageEditor(QWidget):
         self.content.clicked_at.connect(self._on_canvas_clicked)
         self.scroll.setWidget(self.content)
         self.scroll.viewport().installEventFilter(self)
-        self.scroll.setWidgetResizable(False)
         self.content.setPhotoBackground(True)
 
         self.welcome_label = QLabel()
@@ -148,6 +161,7 @@ class PageEditor(QWidget):
             self.welcome_label.move(x, y)
 
     def eventFilter(self, obj, event):
+        """Handle viewport resize and wheel events for canvas height expansion."""
         if obj is self.scroll.viewport() and event.type() == QEvent.Type.Resize:
             vp = self.scroll.viewport()
             self.content.setFixedWidth(vp.width())
@@ -169,8 +183,14 @@ class PageEditor(QWidget):
         toolbar = QHBoxLayout(toolbar_widget)
         toolbar.setContentsMargins(12, 6, 12, 6)
 
-        self.page_title = QLabel("Select a page")
+        self.page_title = _TitleEdit("Select a page")
         self.page_title.setObjectName("editorPageTitle")
+        self.page_title.setFrame(False)
+        self.page_title.setReadOnly(True)
+        self.page_title.clicked.connect(self._enter_title_edit)
+        self.page_title.editingFinished.connect(self._on_title_edited)
+        self.page_title.returnPressed.connect(self.page_title.clearFocus)
+        self.page_title.setPlaceholderText("Select a page")
         toolbar.addWidget(self.page_title)
         toolbar.addStretch()
 
@@ -218,6 +238,52 @@ class PageEditor(QWidget):
         if self._parent_folder_id is not None:
             self.navigate_to_page.emit(self._parent_folder_id)
 
+    def _enter_title_edit(self):
+        if self.current_page_id is None:
+            return
+        self.page_title.setReadOnly(False)
+        self.page_title.selectAll()
+        self.page_title.setFocus()
+
+    def _on_title_edited(self):
+        if self.current_page_id is None:
+            return
+        self.page_title.setReadOnly(True)
+        new_title = self.page_title.text().strip()
+        if not new_title:
+            page = PageRepo().get_by_id(self.current_page_id)
+            if page:
+                self.page_title.setText(page.title)
+            return
+
+        repo = PageRepo()
+        page = repo.get_by_id(self.current_page_id)
+        if page and page.title != new_title:
+            if repo.has_sibling_with_name(
+                page.parent_id, new_title, exclude_id=self.current_page_id
+            ):
+                counter = 2
+                base = new_title
+                while repo.has_sibling_with_name(
+                    page.parent_id, new_title, exclude_id=self.current_page_id
+                ):
+                    new_title = f"{base} {counter}"
+                    counter += 1
+            page.title = new_title
+            repo.update(page)
+            self.page_title.setText(new_title)
+            if hasattr(self, "_sidebar_ref") and self._sidebar_ref:
+                self._sidebar_ref._load_pages()
+
+    def refresh_title(self):
+        """Reload the page title from the database and update the title field."""
+        if self.current_page_id is None:
+            return
+
+        page = PageRepo().get_by_id(self.current_page_id)
+        if page:
+            self.page_title.setText(page.title)
+
     def _center_empty_hint(self):
         if self._page_empty_hint.isVisible():
             canvas_width = self.content.width()
@@ -227,8 +293,7 @@ class PageEditor(QWidget):
             self._page_empty_hint.move(x, y)
 
     def load_page(self, page_id: int):
-        from src.repositories.page_repo import PageRepo
-
+        """Load a page by ID, clearing current content and rendering its widgets."""
         self.current_page_id = page_id
         self.scroll.verticalScrollBar().setValue(0)
         self._clear_toc()
@@ -236,6 +301,7 @@ class PageEditor(QWidget):
         page = PageRepo().get_by_id(page_id)
         if page:
             self.page_title.setText(page.title)
+            self.page_title.setReadOnly(True)
             if page.parent_id is not None:
                 self._parent_folder_id = page.parent_id
                 self._back_btn.show()
@@ -376,7 +442,7 @@ class PageEditor(QWidget):
 
         canvas_w = self.content.width()
         container_w = min(400, canvas_w - 80)
-        widget.setFixedWidth(container_w)
+        widget.setMinimumWidth(container_w)
         widget._load_meta()
         if not widget._user_width:
             widget._user_width = container_w
@@ -446,9 +512,7 @@ class PageEditor(QWidget):
 
         from PyQt6.QtWidgets import QInputDialog
 
-        from src.repositories.page_repo import PageRepo as _PageRepo
-
-        pages = _PageRepo().get_all()
+        pages = PageRepo().get_all()
         template_pages = [p for p in pages if p.page_type == "template_page"]
         if not template_pages:
             from PyQt6.QtWidgets import QMessageBox
@@ -613,6 +677,7 @@ class PageEditor(QWidget):
             self._toc_widget = None
 
     def keyPressEvent(self, event):
+        """Intercept Delete/Ctrl+D when focus is inside a checklist widget."""
         is_delete_key = event.key() == Qt.Key.Key_Delete
         is_ctrl_d = (
             event.key() == Qt.Key.Key_D
@@ -631,8 +696,10 @@ class PageEditor(QWidget):
         super().keyPressEvent(event)
 
     def clear_editor(self):
+        """Reset the editor to the empty state with welcome message."""
         self.current_page_id = None
         self.page_title.setText("Select a page")
+        self.page_title.setReadOnly(True)
         self.welcome_label.show()
         self._page_empty_hint.hide()
         self._clear_toc()

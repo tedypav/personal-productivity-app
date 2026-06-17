@@ -94,7 +94,7 @@ def _excepthook(exc_type, exc_value, exc_tb):
             layout.addLayout(btn_layout)
             dialog.exec()
     except Exception:
-        pass
+        print("Failed to show error dialog", file=sys.stderr)
 
 
 sys.excepthook = _excepthook
@@ -139,6 +139,10 @@ def main():
     _QToolTip.setPalette(palette)
 
     app.setStyleSheet(APP_STYLESHEET)
+
+    from src.database import close_connection
+
+    app.aboutToQuit.connect(close_connection)
 
     window = MainWindow()
     window.show()

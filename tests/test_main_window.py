@@ -1,9 +1,13 @@
 import json
+from unittest.mock import MagicMock, patch
 
 import pytest
+from PyQt6.QtCore import Qt
+from PyQt6.QtWidgets import QDialog
 
 from src.models.page import Page
 from src.repositories.page_repo import PageRepo
+from src.undo_manager import capture_page_tree, undo_manager
 
 
 @pytest.fixture
@@ -253,6 +257,84 @@ class TestFolderTableOfContents:
             __import__("PyQt6.QtWidgets", fromlist=["QPushButton"]).QPushButton
         )
         assert len(buttons) == 3
+
+
+class TestEditablePageTitle:
+    def test_title_is_readonly_by_default(self, main_window):
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+        assert main_window.editor.page_title.isReadOnly()
+
+    def test_title_is_qlineedit(self, main_window):
+        from PyQt6.QtWidgets import QLineEdit
+
+        assert isinstance(main_window.editor.page_title, QLineEdit)
+
+    def test_enter_title_edit_sets_readonly_false(self, main_window):
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+        main_window.editor._enter_title_edit()
+        assert not main_window.editor.page_title.isReadOnly()
+
+    def test_enter_title_edit_no_page_does_nothing(self, main_window):
+        main_window.editor.clear_editor()
+        main_window.editor._enter_title_edit()
+        assert main_window.editor.page_title.isReadOnly()
+
+    def test_on_title_edited_saves_to_database(self, main_window):
+        pid = PageRepo().create(Page(title="OldTitle"))
+        main_window.editor.load_page(pid)
+        main_window.editor.page_title.setText("NewTitle")
+        main_window.editor._on_title_edited()
+        page = PageRepo().get_by_id(pid)
+        assert page.title == "NewTitle"
+
+    def test_on_title_edited_reverts_empty_to_previous(self, main_window):
+        pid = PageRepo().create(Page(title="Original"))
+        main_window.editor.load_page(pid)
+        main_window.editor.page_title.setText("")
+        main_window.editor._on_title_edited()
+        assert main_window.editor.page_title.text() == "Original"
+        page = PageRepo().get_by_id(pid)
+        assert page.title == "Original"
+
+    def test_on_title_edited_deduplicates_sibling_name(self, main_window):
+        folder_id = PageRepo().create(Page(title="Folder", page_type="folder"))
+        PageRepo().create(Page(title="Existing", parent_id=folder_id))
+        pid = PageRepo().create(Page(title="MyPage", parent_id=folder_id))
+        main_window.editor.load_page(pid)
+        main_window.editor.page_title.setText("Existing")
+        main_window.editor._on_title_edited()
+        assert main_window.editor.page_title.text() != "Existing"
+        page = PageRepo().get_by_id(pid)
+        assert page.title != "Existing"
+
+    def test_on_title_edited_sets_readonly(self, main_window):
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+        main_window.editor.page_title.setReadOnly(False)
+        main_window.editor.page_title.setText("NewTitle")
+        main_window.editor._on_title_edited()
+        assert main_window.editor.page_title.isReadOnly()
+
+    def test_on_title_edited_no_page_does_nothing(self, main_window):
+        main_window.editor.clear_editor()
+        main_window.editor._on_title_edited()
+        assert main_window.editor.page_title.isReadOnly()
+
+    def test_refresh_title_updates_from_database(self, main_window):
+        pid = PageRepo().create(Page(title="Before"))
+        main_window.editor.load_page(pid)
+        page = PageRepo().get_by_id(pid)
+        page.title = "After"
+        PageRepo().update(page)
+        main_window.editor.refresh_title()
+        assert main_window.editor.page_title.text() == "After"
+
+    def test_refresh_title_no_page_does_nothing(self, main_window):
+        main_window.editor.clear_editor()
+        main_window.editor.refresh_title()
+        assert main_window.editor.page_title.text() == "Select a page"
 
 
 class TestBackToFolderButton:
@@ -1558,6 +1640,83 @@ class TestTableWidget:
         assert table._table.columnCount() == 1
         table._remove_column()
         assert table._table.columnCount() == 1
+
+    def test_load_meta_does_not_overwrite_position(self, main_window):
+        from src.ui.editor import TableWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        table = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        table.move(200, 150)
+        table._save_meta()
+
+        table2 = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        table2._load_meta()
+        assert table2.x() == 200
+        assert table2.y() == 150
+
+    def test_load_meta_preserves_width_and_height(self, main_window):
+        from src.ui.editor import TableWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        table = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        table.move(100, 80)
+        table._user_width = 600
+        table._user_height = 350
+        table.resize(600, 350)
+        table._save_meta()
+
+        table2 = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        table2._load_meta()
+        assert table2._user_width == 600
+        assert table2._user_height == 350
+
+    def test_load_meta_does_not_trigger_save_meta(self, main_window):
+        from src.ui.editor import TableWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        table = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        table.move(300, 250)
+        table._save_meta()
+
+        table2 = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        save_count = [0]
+        original_save = table2._save_meta
+
+        def counting_save():
+            save_count[0] += 1
+            original_save()
+
+        table2._save_meta = counting_save
+
+        table2._load_meta()
+        assert save_count[0] == 0
+
+    def test_load_meta_restores_cell_data(self, main_window):
+        from PyQt6.QtWidgets import QTableWidgetItem
+
+        from src.ui.editor import TableWidget
+
+        pid = PageRepo().create(Page(title="TestPage"))
+        main_window.editor.load_page(pid)
+
+        table = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        table.move(100, 100)
+        table._table.setItem(0, 0, QTableWidgetItem("Alpha"))
+        table._table.setItem(1, 1, QTableWidgetItem("Beta"))
+        table._save_meta()
+
+        table2 = TableWidget(0, page_id=pid, parent=main_window.editor.content)
+        table2._load_meta()
+        assert table2._table.item(0, 0).text() == "Alpha"
+        assert table2._table.item(1, 1).text() == "Beta"
+        assert table2.x() == 100
+        assert table2.y() == 100
 
 
 class TestTableResize:
@@ -3371,3 +3530,159 @@ class TestHeightPersistence:
         assert meta is not None
         data = json.loads(meta.content)
         assert data["height"] >= table._min_height()
+
+
+class TestNavigateToPage:
+    def test_navigates_to_existing_page(self, main_window):
+        pid = PageRepo().create(Page(title="NavTarget"))
+        main_window.sidebar.refresh()
+        main_window._navigate_to_page(pid)
+        assert main_window.editor.current_page_id == pid
+
+    def test_navigates_to_nested_page(self, main_window):
+        folder_id = PageRepo().create(Page(title="Folder", page_type="folder"))
+        child_id = PageRepo().create(Page(title="Child", parent_id=folder_id))
+        main_window.sidebar.refresh()
+        main_window._navigate_to_page(child_id)
+        assert main_window.editor.current_page_id == child_id
+
+    def test_navigate_nonexistent_page(self, main_window):
+        main_window._navigate_to_page(99999)
+        assert main_window.editor.current_page_id is None
+
+
+class TestNewChildPage:
+    def test_creates_child_page(self, main_window):
+        pid = PageRepo().create(Page(title="Parent"))
+        main_window.editor.load_page(pid)
+        with patch(
+            "src.ui.main_window.QInputDialog.getText", return_value=("ChildPage", True)
+        ):
+            main_window._new_child_page()
+        children = PageRepo().get_children(pid)
+        assert len(children) == 1
+        assert children[0].title == "ChildPage"
+
+    def test_new_child_page_cancelled(self, main_window):
+        pid = PageRepo().create(Page(title="Parent"))
+        main_window.editor.load_page(pid)
+        with patch("src.ui.main_window.QInputDialog.getText", return_value=("", False)):
+            main_window._new_child_page()
+        children = PageRepo().get_children(pid)
+        assert len(children) == 0
+
+    def test_new_child_page_empty_title(self, main_window):
+        pid = PageRepo().create(Page(title="Parent"))
+        main_window.editor.load_page(pid)
+        with patch(
+            "src.ui.main_window.QInputDialog.getText", return_value=("  ", True)
+        ):
+            main_window._new_child_page()
+        children = PageRepo().get_children(pid)
+        assert len(children) == 0
+
+    def test_new_child_page_no_page_loaded(self, main_window):
+        main_window.editor.current_page_id = None
+        with patch("src.ui.main_window.QInputDialog.getText") as mock_input:
+            main_window._new_child_page()
+            mock_input.assert_not_called()
+
+
+class TestDeletePage:
+    def test_delete_current_page(self, main_window):
+        pid = PageRepo().create(Page(title="ToDelete"))
+        main_window.editor.load_page(pid)
+        main_window._delete_page()
+        assert PageRepo().get_by_id(pid) is None
+
+    def test_delete_page_no_selection(self, main_window):
+        main_window.editor.current_page_id = None
+        main_window.sidebar.tree.clearSelection()
+        main_window._delete_page()
+
+    def test_delete_page_with_undo(self, main_window):
+        pid = PageRepo().create(Page(title="UndoDelete"))
+        main_window.editor.load_page(pid)
+        main_window._delete_page()
+        assert PageRepo().get_by_id(pid) is None
+
+
+class TestUndoDelete:
+    def test_undo_restores_page(self, main_window):
+        pid = PageRepo().create(Page(title="RestoreMe"))
+        data = capture_page_tree(pid)
+        data["type"] = "page"
+        undo_manager.push(data)
+        PageRepo().delete(pid)
+        assert PageRepo().get_by_id(pid) is None
+        main_window._undo_delete()
+        assert PageRepo().get_by_id(pid) is not None
+
+    def test_undo_empty_stack(self, main_window):
+        main_window._undo_delete()
+
+    def test_undo_page_type_clears_editor(self, main_window):
+        pid = PageRepo().create(Page(title="PageType"))
+        main_window.editor.load_page(pid)
+        data = capture_page_tree(pid)
+        data["type"] = "page"
+        undo_manager.push(data)
+        PageRepo().delete(pid)
+        main_window.sidebar.refresh()
+        main_window._undo_delete()
+        assert main_window.editor.current_page_id is None
+
+
+class TestBulkDeleteSelected:
+    def test_bulk_delete_with_items(self, main_window):
+        p1 = PageRepo().create(Page(title="BD1"))
+        p2 = PageRepo().create(Page(title="BD2"))
+        main_window.sidebar.refresh()
+        main_window.sidebar.tree.clearSelection()
+        for i in range(main_window.sidebar.tree.topLevelItemCount()):
+            item = main_window.sidebar.tree.topLevelItem(i)
+            if item.data(0, Qt.ItemDataRole.UserRole) in (p1, p2):
+                item.setSelected(True)
+        main_window._bulk_delete_selected()
+        assert PageRepo().get_by_id(p1) is None
+
+    def test_bulk_delete_clears_editor(self, main_window):
+        pid = PageRepo().create(Page(title="OnlyPage"))
+        main_window.editor.load_page(pid)
+        main_window.sidebar.refresh()
+        main_window.sidebar.tree.clearSelection()
+        for i in range(main_window.sidebar.tree.topLevelItemCount()):
+            item = main_window.sidebar.tree.topLevelItem(i)
+            if item.data(0, Qt.ItemDataRole.UserRole) == pid:
+                item.setSelected(True)
+        main_window._bulk_delete_selected()
+        assert main_window.editor.current_page_id is None
+
+
+class TestBulkCreate:
+    def test_bulk_create_delegates(self, main_window):
+        with patch.object(main_window.sidebar, "_bulk_create_dialog") as mock:
+            main_window._bulk_create()
+            mock.assert_called_once()
+
+
+class TestShowSettings:
+    def test_settings_dialog_reject(self, main_window):
+        real_dialog = QDialog()
+        real_dialog.exec = MagicMock(return_value=0)
+        with patch("src.ui.main_window.QDialog", return_value=real_dialog):
+            main_window._show_settings()
+
+    def test_settings_dialog_accept(self, main_window):
+        from PyQt6.QtWidgets import QDialog as RealQDialog
+
+        real_dialog = RealQDialog()
+        real_dialog.exec = MagicMock(return_value=1)
+        with patch("src.ui.main_window.QDialog", return_value=real_dialog):
+            main_window._show_settings()
+        from src.settings import load_settings
+
+        settings = load_settings()
+        assert "week_start_day" in settings
+        assert "auto_save_interval_ms" in settings
+        assert "font_size" in settings

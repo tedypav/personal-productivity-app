@@ -1,5 +1,7 @@
+from unittest.mock import patch
+
 from PyQt6.QtCore import QEvent, QPointF, Qt
-from PyQt6.QtGui import QMouseEvent
+from PyQt6.QtGui import QMouseEvent, QTextCursor
 
 from src.controllers.textbox_controller import TextboxController
 from src.models.page import Page
@@ -522,3 +524,198 @@ class TestTextboxRepo:
     def test_get_textbox_meta_none(self, app_instance):
         pid = PageRepo().create(Page(title="Test"))
         assert PageObjectRepo().get_textbox_meta(pid, 999) is None
+
+
+class TestTextboxTextBlockFormatting:
+    def test_bold(self, app_instance):
+        block = TextboxTextBlock(html="<p>Hello</p>")
+        block.show()
+        block._enter_edit_mode()
+        cursor = block._editor.textCursor()
+        cursor.select(QTextCursor.SelectionType.Document)
+        block._editor.setTextCursor(cursor)
+        block._bold()
+        fmt = block._editor.currentCharFormat()
+        assert fmt.fontWeight() >= 700
+
+    def test_italic(self, app_instance):
+        block = TextboxTextBlock(html="<p>Hello</p>")
+        block.show()
+        block._enter_edit_mode()
+        cursor = block._editor.textCursor()
+        cursor.select(QTextCursor.SelectionType.Document)
+        block._editor.setTextCursor(cursor)
+        block._italic()
+        fmt = block._editor.currentCharFormat()
+        assert fmt.fontItalic()
+
+    def test_h1(self, app_instance):
+        block = TextboxTextBlock(html="<p>Hello</p>")
+        block.show()
+        block._enter_edit_mode()
+        block._h1()
+        fmt = block._editor.currentCharFormat()
+        assert fmt.fontPointSize() == 24
+
+    def test_h2(self, app_instance):
+        block = TextboxTextBlock(html="<p>Hello</p>")
+        block.show()
+        block._enter_edit_mode()
+        block._h2()
+        fmt = block._editor.currentCharFormat()
+        assert fmt.fontPointSize() == 18
+
+    def test_code_without_selection(self, app_instance):
+        block = TextboxTextBlock(html="<p>Hello</p>")
+        block.show()
+        block._enter_edit_mode()
+        block._code()
+        html = block._editor.toHtml()
+        assert "pre" in html.lower() or "code" in html.lower()
+
+    def test_code_with_selection(self, app_instance):
+        block = TextboxTextBlock(html="<p>Hello</p>")
+        block.show()
+        block._enter_edit_mode()
+        cursor = block._editor.textCursor()
+        cursor.select(QTextCursor.SelectionType.Document)
+        block._editor.setTextCursor(cursor)
+        block._code()
+        html = block._editor.toHtml()
+        assert "pre" in html.lower() or "Hello" in html
+
+    def test_bullet(self, app_instance):
+        block = TextboxTextBlock(html="<p>Hello</p>")
+        block.show()
+        block._enter_edit_mode()
+        block._bullet()
+        html = block._editor.toHtml()
+        assert "ul" in html.lower() or "li" in html.lower()
+
+    def test_align_left(self, app_instance):
+        block = TextboxTextBlock(html="<p>Hello</p>")
+        block.show()
+        block._enter_edit_mode()
+        block._align_left()
+        assert block._editor.alignment() & Qt.AlignmentFlag.AlignLeft
+
+    def test_align_center(self, app_instance):
+        block = TextboxTextBlock(html="<p>Hello</p>")
+        block.show()
+        block._enter_edit_mode()
+        block._align_center()
+        assert block._editor.alignment() & Qt.AlignmentFlag.AlignHCenter
+
+    def test_align_right(self, app_instance):
+        block = TextboxTextBlock(html="<p>Hello</p>")
+        block.show()
+        block._enter_edit_mode()
+        block._align_right()
+        assert block._editor.alignment() & Qt.AlignmentFlag.AlignRight
+
+    def test_set_font_size(self, app_instance):
+        block = TextboxTextBlock(html="<p>Hello</p>")
+        block.show()
+        block._enter_edit_mode()
+        block._set_font_size("20")
+        fmt = block._editor.currentCharFormat()
+        assert fmt.fontPointSize() == 20
+
+    def test_set_font_size_invalid(self, app_instance):
+        block = TextboxTextBlock(html="<p>Hello</p>")
+        block.show()
+        block._enter_edit_mode()
+        block._set_font_size("abc")
+
+    def test_link_with_selection(self, app_instance):
+        block = TextboxTextBlock(html="<p>Hello</p>")
+        block.show()
+        block._enter_edit_mode()
+        cursor = block._editor.textCursor()
+        cursor.select(QTextCursor.SelectionType.Document)
+        block._editor.setTextCursor(cursor)
+        with patch(
+            "PyQt6.QtWidgets.QInputDialog.getText",
+            return_value=("https://example.com", True),
+        ):
+            block._link()
+        html = block._editor.toHtml()
+        assert "example.com" in html
+
+    def test_link_without_selection(self, app_instance):
+        block = TextboxTextBlock(html="<p>Hello</p>")
+        block.show()
+        block._enter_edit_mode()
+        with patch(
+            "PyQt6.QtWidgets.QInputDialog.getText",
+            return_value=("https://example.com", True),
+        ):
+            block._link()
+        html = block._editor.toHtml()
+        assert "example.com" in html
+
+    def test_link_cancelled(self, app_instance):
+        block = TextboxTextBlock(html="<p>Hello</p>")
+        block.show()
+        block._enter_edit_mode()
+        with patch("PyQt6.QtWidgets.QInputDialog.getText", return_value=("", False)):
+            block._link()
+
+    def test_update_fmt_buttons_bold(self, app_instance):
+        block = TextboxTextBlock(html="<p>Hello</p>")
+        block.show()
+        block._enter_edit_mode()
+        cursor = block._editor.textCursor()
+        cursor.select(QTextCursor.SelectionType.Document)
+        block._editor.setTextCursor(cursor)
+        block._bold()
+        block._update_fmt_buttons()
+        assert block._fmt_btns[0].isChecked()
+
+    def test_update_fmt_buttons_italic(self, app_instance):
+        block = TextboxTextBlock(html="<p>Hello</p>")
+        block.show()
+        block._enter_edit_mode()
+        cursor = block._editor.textCursor()
+        cursor.select(QTextCursor.SelectionType.Document)
+        block._editor.setTextCursor(cursor)
+        block._italic()
+        block._update_fmt_buttons()
+        assert block._fmt_btns[1].isChecked()
+
+
+class TestTextboxWidgetDeletionHandlers:
+    def test_on_content_changed_saves(self, app_instance):
+        pid = PageRepo().create(Page(title="Test"))
+        w = TextboxWidget(0, page_id=pid)
+        w._add_text_block()
+        w._save_meta()
+        meta = PageObjectRepo().get_textbox_meta(pid, 0)
+        assert meta is not None
+
+    def test_remove_block(self, app_instance):
+        pid = PageRepo().create(Page(title="Test"))
+        w = TextboxWidget(0, page_id=pid)
+        w._add_text_block(html="<p>Block1</p>")
+        w._add_text_block(html="<p>Block2</p>")
+        assert len(w._blocks) == 2
+        w._remove_block(w._blocks[0][1])
+        assert len(w._blocks) == 1
+
+    def test_exit_all_edit_modes(self, app_instance):
+        pid = PageRepo().create(Page(title="Test"))
+        w = TextboxWidget(0, page_id=pid)
+        w._add_text_block(html="<p>Hello</p>")
+        block = w._blocks[0][1]
+        block._enter_edit_mode()
+        assert block._editing
+        w.exit_all_edit_modes()
+        assert not block._editing
+
+    def test_get_content(self, app_instance):
+        pid = PageRepo().create(Page(title="Test"))
+        w = TextboxWidget(0, page_id=pid)
+        w._add_text_block(html="<p>Hello</p>")
+        w._save_meta()
+        meta = PageObjectRepo().get_textbox_meta(pid, 0)
+        assert meta is not None

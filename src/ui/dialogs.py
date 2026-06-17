@@ -14,6 +14,7 @@ def _get_icon_path(name: str) -> str:
 
 
 def create_dialog_header(title: str) -> QHBoxLayout:
+    """Create a dialog header with a logo icon and title label."""
     layout = QHBoxLayout()
     logo_path = _get_icon_path("logo_icon")
     if os.path.exists(logo_path):

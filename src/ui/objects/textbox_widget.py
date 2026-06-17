@@ -47,12 +47,6 @@ class TextboxTextBlock(QWidget):
         header_row.setSpacing(2)
         self._fmt_btns = []
 
-        import os
-
-        _icon_dir = os.path.join(
-            os.path.dirname(__file__), "..", "..", "..", "assets", "icons"
-        )
-
         for label, slot in [
             ("B", self._bold),
             ("I", self._italic),
@@ -133,6 +127,7 @@ class TextboxTextBlock(QWidget):
         self._apply_view_mode()
 
     def eventFilter(self, obj, event):
+        """Filter events for editor click-to-edit and resize handle."""
         from PyQt6.QtCore import QEvent
         from PyQt6.QtGui import QMouseEvent
 
@@ -161,8 +156,6 @@ class TextboxTextBlock(QWidget):
                     self._editor.setFixedHeight(new_h)
                     event.accept()
                     return True
-                    event.accept()
-                    return True
             if event.type() == QEvent.Type.MouseButtonRelease:
                 if self._resizing:
                     self._resizing = False
@@ -180,6 +173,7 @@ class TextboxTextBlock(QWidget):
         self._editor.setFocus()
 
     def exit_edit_mode(self):
+        """Exit edit mode, save HTML content, and switch to view mode."""
         if self._editing:
             self._editing = False
             self._html = self._editor.toHtml()
@@ -329,13 +323,16 @@ class TextboxTextBlock(QWidget):
             self._html = self._editor.toHtml()
 
     def get_content(self) -> str:
+        """Return the HTML content of this text block."""
         return self._html
 
     def set_content(self, html: str):
+        """Set the HTML content and refresh the view mode."""
         self._html = html
         self._apply_view_mode()
 
     def text_cursor(self):
+        """Return the text cursor if editing, otherwise None."""
         if self._editing:
             return self._editor.textCursor()
         return None
@@ -380,9 +377,11 @@ class TextboxChecklistItem(QWidget):
         self.changed.emit()
 
     def get_data(self) -> dict:
+        """Return the item state as a dictionary."""
         return {"text": self._text.text(), "checked": self._checked}
 
     def set_data(self, data: dict):
+        """Restore item state from a dictionary."""
         self._checkbox.setChecked(data.get("checked", False))
         self._text.setText(data.get("text", ""))
 
@@ -439,6 +438,7 @@ class TextboxChecklistBlock(QWidget):
         self.content_changed.emit()
 
     def get_content(self) -> list:
+        """Return all checklist items as a list of dictionaries."""
         result = []
         for i in range(self._items_layout.count()):
             w = self._items_layout.itemAt(i).widget()
@@ -447,6 +447,7 @@ class TextboxChecklistBlock(QWidget):
         return result
 
     def set_content(self, items: list):
+        """Replace all checklist items with those from the given list."""
         while self._items_layout.count():
             w = self._items_layout.itemAt(0).widget()
             if w:
@@ -541,6 +542,7 @@ class TextboxTableBlock(QWidget):
         self._table.blockSignals(False)
 
     def get_content(self) -> dict:
+        """Return the table headers and data as a dictionary."""
         cols = self._table.columnCount()
         headers = []
         for c in range(cols):
@@ -556,6 +558,7 @@ class TextboxTableBlock(QWidget):
         return {"headers": headers, "data": data}
 
     def set_content(self, data: dict):
+        """Load table data from a dictionary of headers and rows."""
         self._load_data(data)
 
 
@@ -656,9 +659,11 @@ class TextboxImageBlock(QWidget):
         self.content_changed.emit()
 
     def get_content(self) -> dict:
+        """Return the image source and path/URL as a dictionary."""
         return {"source": self._source, "path_or_url": self._path_or_url}
 
     def set_content(self, data: dict):
+        """Load an image from the source and path/URL in the data dictionary."""
         source = data.get("source", "")
         path_or_url = data.get("path_or_url", "")
         if source and path_or_url:
@@ -830,6 +835,7 @@ class TextboxWidget(ResizableMixin, QWidget):
         self.installEventFilter(self)
 
     def eventFilter(self, obj, event):
+        """Filter events for resize handles and header drag."""
         from PyQt6.QtCore import QEvent
         from PyQt6.QtGui import QMouseEvent
 
@@ -917,6 +923,7 @@ class TextboxWidget(ResizableMixin, QWidget):
         return super().eventFilter(obj, event)
 
     def resizeEvent(self, event):
+        """Reposition resize handles when the widget is resized."""
         super().resizeEvent(event)
         self._layout_resize_handles()
 
@@ -989,6 +996,7 @@ class TextboxWidget(ResizableMixin, QWidget):
         self.object_delete_requested.emit(self.textbox_id)
 
     def exit_all_edit_modes(self):
+        """Exit edit mode on all text blocks."""
         for block_type, widget in self._blocks:
             if block_type == "text" and isinstance(widget, TextboxTextBlock):
                 widget.exit_edit_mode()

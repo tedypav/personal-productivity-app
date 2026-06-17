@@ -1,10 +1,19 @@
+"""CRUD operations for the page_objects table."""
+
 from src.database import get_connection
 from src.models.page_object import PageObject
 
 
 class PageObjectRepo:
+    """Static-method repository for page object database operations.
+
+    The sort_order field encodes block identity for meta lookups:
+    sort_order = block_id * 100 + 50.
+    """
+
     @staticmethod
     def get_by_page(page_id: int) -> list[PageObject]:
+        """Return all objects for a page, ordered by sort_order."""
         conn = get_connection()
         rows = conn.execute(
             "SELECT * FROM page_objects WHERE page_id=? ORDER BY sort_order",
@@ -14,6 +23,7 @@ class PageObjectRepo:
 
     @staticmethod
     def get_by_id(obj_id: int) -> PageObject | None:
+        """Return an object by its primary key, or None if not found."""
         conn = get_connection()
         row = conn.execute(
             "SELECT * FROM page_objects WHERE id=?", (obj_id,)
@@ -22,6 +32,10 @@ class PageObjectRepo:
 
     @staticmethod
     def create(obj: PageObject) -> int:
+        """Insert a new page object and return its auto-generated ID.
+
+        Auto-computes sort_order as MAX+1 for the page if not set.
+        """
         conn = get_connection()
         max_order = conn.execute(
             "SELECT COALESCE(MAX(sort_order), -1) + 1"
@@ -37,14 +51,17 @@ class PageObjectRepo:
                 obj.object_type,
                 obj.content,
                 int(obj.is_checked),
-                obj.sort_order if obj.sort_order else max_order,
+                obj.sort_order if obj.sort_order is not None else max_order,
             ),
         )
         conn.commit()
-        return cursor.lastrowid
+        result = cursor.lastrowid
+        assert result is not None
+        return result
 
     @staticmethod
-    def update(obj: PageObject):
+    def update(obj: PageObject) -> None:
+        """Update an existing object's content, checked state, and sort_order."""
         conn = get_connection()
         conn.execute(
             "UPDATE page_objects SET content=?, is_checked=?, sort_order=? WHERE id=?",
@@ -53,19 +70,22 @@ class PageObjectRepo:
         conn.commit()
 
     @staticmethod
-    def delete(obj_id: int):
+    def delete(obj_id: int) -> None:
+        """Delete an object by ID."""
         conn = get_connection()
         conn.execute("DELETE FROM page_objects WHERE id=?", (obj_id,))
         conn.commit()
 
     @staticmethod
-    def delete_by_page(page_id: int):
+    def delete_by_page(page_id: int) -> None:
+        """Delete all objects belonging to a page."""
         conn = get_connection()
         conn.execute("DELETE FROM page_objects WHERE page_id=?", (page_id,))
         conn.commit()
 
     @staticmethod
     def get_meta(page_id: int, checklist_id: int) -> PageObject | None:
+        """Return the checklist_meta record for a checklist block."""
         conn = get_connection()
         sort_order = checklist_id * 100 + 50
         row = conn.execute(
@@ -77,6 +97,7 @@ class PageObjectRepo:
 
     @staticmethod
     def get_table_meta(page_id: int, table_id: int) -> PageObject | None:
+        """Return the table_meta record for a table block."""
         conn = get_connection()
         sort_order = table_id * 100 + 50
         row = conn.execute(
@@ -88,6 +109,7 @@ class PageObjectRepo:
 
     @staticmethod
     def get_textbox_meta(page_id: int, textbox_id: int) -> PageObject | None:
+        """Return the textbox_meta record for a textbox block."""
         conn = get_connection()
         sort_order = textbox_id * 100 + 50
         row = conn.execute(
@@ -99,8 +121,18 @@ class PageObjectRepo:
 
     @staticmethod
     def copy_objects(source_page_id: int, dest_page_id: int) -> int:
-        """Copy all objects from source to destination page."""
+        """Copy all objects from source to destination page.
+
+        Clears existing objects on the destination first, then copies
+        source objects with their original sort_orders intact.
+        Returns the number of objects copied.
+        """
+        PageObjectRepo.delete_by_page(dest_page_id)
+
         objects = PageObjectRepo.get_by_page(source_page_id)
+        if not objects:
+            return 0
+
         for obj in objects:
             new_obj = PageObject(
                 page_id=dest_page_id,

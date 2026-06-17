@@ -29,9 +29,11 @@ class CustomCheckBox(QWidget):
         self.setCursor(Qt.CursorShape.PointingHandCursor)
 
     def isChecked(self) -> bool:
+        """Return whether the checkbox is checked."""
         return self._checked
 
     def setChecked(self, checked: bool) -> None:
+        """Set the checked state and emit stateChanged if it changed."""
         if self._checked != checked:
             self._checked = checked
             self.update()
@@ -42,14 +44,17 @@ class CustomCheckBox(QWidget):
             self.stateChanged.emit(val)
 
     def toggle(self) -> None:
+        """Toggle the checkbox state."""
         self.setChecked(not self._checked)
 
     def mousePressEvent(self, event) -> None:
+        """Handle mouse press to toggle on left-click."""
         if event.button() == Qt.MouseButton.LeftButton:
             self.toggle()
         super().mousePressEvent(event)
 
     def paintEvent(self, event) -> None:
+        """Custom-paint the checkbox indicator with rounded rect and checkmark."""
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
@@ -161,14 +166,17 @@ class CheckboxWidget(QWidget):
             )
 
     def get_data(self) -> dict:
+        """Return the checkbox state as a dictionary."""
         return {
             "text": self._text_edit.text(),
             "checked": self._checked,
         }
 
     def set_data(self, data: dict):
+        """Restore checkbox state from a dictionary."""
         self._text_edit.setText(data.get("text", ""))
         self._checkbox.setChecked(data.get("checked", False))
 
     def focus_text(self):
+        """Set keyboard focus to the text input field."""
         self._text_edit.setFocus()

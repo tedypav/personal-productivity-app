@@ -70,6 +70,7 @@ class ResizableMixin:
         return cursors.get(edge, Qt.CursorShape.ArrowCursor)
 
     def mousePressEvent(self, event):
+        """Handle mouse press to start dragging or resizing."""
         if event.button() == Qt.MouseButton.LeftButton:
             pos = event.position().toPoint()
             if pos.y() <= self._header.height():
@@ -98,6 +99,7 @@ class ResizableMixin:
         super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event):
+        """Handle mouse move for dragging or resizing the widget."""
         if self._dragging and self._drag_start is not None:
             new_pos = event.globalPosition().toPoint() - self._drag_start
             parent = self.parent()
@@ -143,6 +145,7 @@ class ResizableMixin:
         super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event):
+        """Handle mouse release to finish dragging or resizing."""
         if self._dragging:
             self._dragging = False
             self._drag_start = None

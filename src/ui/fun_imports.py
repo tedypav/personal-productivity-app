@@ -543,7 +543,9 @@ class FunImportsDialog(QDialog):
                 try:
                     self.target_edit.insertPlainText(emoji)
                 except Exception:
-                    pass
+                    import sys
+
+                    print(f"Failed to insert emoji: {emoji}", file=sys.stderr)
         self.accept()
 
     def _build_gif_tab(self):

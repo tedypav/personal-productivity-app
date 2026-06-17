@@ -1,6 +1,6 @@
 import sqlite3
 
-from src.database import get_connection, init_db
+from src.database import close_connection, get_connection, init_db, reset_connection
 
 
 class TestGetConnection:
@@ -61,3 +61,33 @@ class TestInitDb:
         cols = [r[1] for r in conn.execute("PRAGMA table_info(pages)").fetchall()]
         conn.close()
         assert "page_type" in cols
+
+
+class TestCloseConnection:
+    def test_close_connection(self):
+        import src.database as db_mod
+
+        get_connection()
+        assert db_mod._connection is not None
+        close_connection()
+        assert db_mod._connection is None
+
+    def test_close_when_none(self):
+        import src.database as db_mod
+
+        db_mod._connection = None
+        close_connection()
+        assert db_mod._connection is None
+
+    def test_reset_connection(self):
+        import src.database as db_mod
+
+        get_connection()
+        assert db_mod._connection is not None
+        reset_connection()
+        assert db_mod._connection is None
+
+    def test_get_connection_after_close(self):
+        close_connection()
+        conn = get_connection()
+        assert isinstance(conn, sqlite3.Connection)
