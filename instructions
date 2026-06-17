@@ -26,6 +26,7 @@ py run.py
   - **Playfair Display** (from `playfair-display/PlayfairDisplay.ttf`) - Used for elegant headings and the page title
   - **Inter** (from `inter/Inter.ttf`) - Used for body text, buttons, and UI elements (with Poppins as fallback)
 - When no page is selected, a welcome message appears: "Hello, lovely! Let's make it a productive day! ❤️" in Magnolia font
+- Database connection is closed on app exit via `aboutToQuit` signal
 
 ---
 
@@ -54,13 +55,18 @@ py run.py
 - **Keyboard:** `Delete`, `Ctrl+D` when multiple pages are selected.
 - All deletions are captured as a single undoable action — one undo restores everything.
 - **Page menu → Delete Current Page** also redirects to bulk delete when multiple pages are selected.
-- When multiple pages are selected, the context menu shows **only** bulk actions (Delete Selected, Insert Template) — single-page actions (Rename, Delete, Add Child, Move Up/Down) are hidden.
+- When multiple pages are selected, the context menu shows **only** bulk actions (Delete Selected) — single-page actions (Rename, Delete, Add Child, Move Up/Down) are hidden.
 
 ### Reorder pages
 - Right-click a page → **"Move Up"** / **"Move Down"** (changes `sort_order`).
 
+### Drag-and-drop reordering
+- Drag pages in the sidebar tree to reorder or move between folders.
+- Drop on a folder to make the dragged page a child of that folder.
+- Folders cannot be nested under non-folder pages.
+
 ### Bulk create time-based pages
-- Click **"Bulk Time-Based"** button, or **Edit → Bulk Create Pages** (`Ctrl+Shift+B`).
+- Click **"Time Pages"** button, or **Edit → Bulk Create Pages** (`Ctrl+Shift+B`).
 - Start and end date pre-filled (default: today). Date editors have calendar popups.
 - End date **dynamically adjusts** when start date changes: Days → +1 day, Weeks → +7 days, Years → +1 year.
 - End date is auto-validated: Days (end > start), Weeks (end >= start + 7 days), Years (end > start + 1 year).
@@ -73,7 +79,7 @@ py run.py
   | **Years** | One `YYYY` per year between start and end year | Count = end_year - start_year + 1 |
 
 ### Bulk create named pages
-- Click **"+ Bulk Named"** button.
+- Click **"Name Pages"** button.
 - Enter a **base name** (default: "Page") and **number of pages** (default: 5, range: 1–999).
 - Creates pages with sequential names: `BaseName 1`, `BaseName 2`, ..., `BaseName N`.
 - Empty base name is rejected (no pages created).
@@ -81,10 +87,10 @@ py run.py
 ### Undo Delete
 - **Edit → Undo Delete** (`Ctrl+Shift+Z`, `Ctrl+U`, or `Ctrl+Z` when sidebar has focus) restores deletions one at a time.
 - Each press undoes the most recent deletion — press repeatedly to go further back.
-- Works for: single page, bulk pages, content blocks, and individual tasks.
+- Works for: single page, bulk pages, and individual objects.
 - Actions older than **15 minutes** are automatically discarded.
 - After undo, the sidebar refreshes and the editor clears/resets.
-- Page undo recursively restores all child pages, content blocks, and tasks (preserving full hierarchy).
+- Page undo recursively restores all child pages and objects (preserving full hierarchy).
 - Undo restores items with their original database IDs.
 
 ### Expand / Collapse tree
@@ -95,209 +101,127 @@ py run.py
 ### Toggle sidebar visibility
 - **View → Toggle Sidebar**.
 
----
+### Archive pages
+- Right-click a page → **"Archive"** → page moves to the Archive folder.
+- Archive folder is created automatically if it doesn't exist.
+- System folders (Archive, Templates, Fun Imports) cannot be archived.
 
-## 3. Content Blocks — Text
-
-### Editor Toolbar
-- Displays the current page title as a bold label (shows "Select a page" when no page is loaded).
-- Block creation buttons: **+ Text**, **+ Table**, **+ List**, **Template**.
-- Formatting buttons: **B**, **I**, **H1**, **H2**, **<>**, **🔗**, **•**.
-- **Font size combo box** ("Size:") with sizes 9–32, applied to the focused element.
-- A vertical "|" separator divides block creation buttons from formatting buttons.
-
-### Add a text block
-- Click **"+ Text"** in the editor toolbar.
-- **Block placement:** Click on the canvas first, then click "+ Text" — the block appears at the click position. Without a prior click, the block is placed below all existing blocks. If all blocks have default position (0,0), they are auto-arranged in a grid (5 columns, 280px horizontal / 200px vertical spacing).
-
-### Edit content
-- Click the preview area to switch to edit mode (cursor moves to end).
-- Click outside or press Tab to return to preview.
-- Markdown is rendered as HTML in preview (fenced code, tables, line breaks via `nl2br` supported).
-- Content starting with `<` is treated as raw HTML.
-- Preview updates in real-time as you type (150ms debounce).
-- Text blocks use a **Notion-style paragraph model**: each paragraph is a separate widget.
-- **Enter** splits the current paragraph — a new empty paragraph appears below.
-- **Backspace** at the start of an empty paragraph deletes it and merges focus into the previous paragraph.
-- **Shift+Enter** inserts a newline within the same paragraph (no split).
-- Between each block, a thin **separator line** appears on hover with a **"+"** button to insert a new text block or task list at that position.
-- The **"Click + to add your first block"** hint appears at 25% from the top of the canvas when no blocks exist; it disappears once the first block is added.
-
-### Formatting toolbar
-| Button | Shortcut | Action |
-|--------|----------|--------|
-| **B** | `Ctrl+B` | Toggles bold on selected text or for new input |
-| **I** | `Ctrl+I` | Toggles italic on selected text or for new input |
-| **H1** | — | Toggles heading 1 (large bold) on selected text or for new input |
-| **H2** | — | Toggles heading 2 (medium bold) on selected text or for new input |
-| **<>** | — | Toggles code formatting (monospace with background) on selected text or for new input |
-| **🔗** | — | Opens file dialog to attach a file or insert a link |
-| **•** | — | Toggles bullet list on current paragraph or selected paragraphs |
-| **Size:** | — | Font size combo box: applies to focused element (header, text, table cell, or list item). Sizes: 9–32. |
-
-- Formatting buttons show checked state when the style is active at cursor position
-- Buttons update their state when focus changes between text areas
-- Clicking an active button toggles the style off
-- Formatting works in text blocks, table cells, and task text areas
-- Toolbar buttons maintain focus on the active text edit, allowing formatting to be applied without losing cursor position
-- Button state updates only on focus changes to prevent crashes during typing
-- Bullet list toggle validates block state before accessing text list to prevent crashes
-- Multiple bullet lists can be created in the same text box or table cell; toggling off exits the current list and creates a new paragraph
-- When switching from preview to edit mode, formatting is applied with a delay to ensure the editor is fully ready
-
-### Embedded Task Lists in Text Blocks
-- Click **"+ List"** while a text block has focus → an embedded task list is added inside the text block.
-- Each embedded list has: drag handle ("⠿"), "Tasks" label, **▲/▼** reorder buttons, "+ Add Task" button, resize handle at bottom, and "×" remove button.
-- **▲/▼ buttons** reorder embedded lists within the text block (▲ moves up, ▼ moves down).
-- **Resize handle** at the bottom of each embedded list allows height adjustment by dragging.
-- Tasks within embedded lists support: checkbox toggle, multi-line text, recurrence, and per-task delete.
-- Embedded lists are serialized as JSON within the text block's content and persist across sessions.
-- The "+ Add Task" button in the block header adds a task to the currently active embedded list.
-
-### Block Header
-- Each block has an **editable header** (click to edit; defaults to block type name, e.g., "text").
-- **Enter** in the header accepts the edit (clears focus). **Tab** moves focus out.
-- Placeholder text shows the block type when header is empty.
-- **Horizontal alignment:** ⫷ (left), ⫿ (center), ⫸ (right) buttons.
-- **Vertical alignment:** ↥ (top), ↕ (middle), ↧ (bottom) buttons (only enabled when header is focused).
-- **Header font size:** Use the toolbar "Size:" combo while the header has focus.
-- **Header height resize:** Drag the handle between the header and the block body to change header height.
-- All header properties (text, alignment, font size, height) are persisted in the database.
-
-### Delete a block
-- Click the **"×"** button in the block header (no confirmation, undoable).
-- **Keyboard:** `Delete` key deletes all selected blocks on the canvas.
-- **Keyboard:** `Ctrl+D` deletes all selected blocks (when focus is NOT in a text edit).
-
-### Multi-select blocks on canvas
-- **Ctrl+click** or **Shift+click** to select multiple blocks on the canvas.
-- Selected blocks display a 2px indigo border with light background.
-- Clicking a block without modifiers selects only that block.
-- Clicking empty canvas space clears the selection.
-
-### Resize a block
-- **Bottom resize handle** — drag up/down to change height, drag left/right to change width.
-- **Bottom-right corner** (24px dotted area) — 2D resize: drag to change both width and height simultaneously.
-- **Right edge** — hover near the right edge of any block (cursor changes to ↔), then click and drag to change width.
-
-### Canvas behavior
-- The canvas is **vertically infinite** — scrolling near the bottom extends it automatically (no horizontal scrollbar).
-- **Right edge is a hard boundary** — blocks cannot be dragged or resized past the right edge of the canvas.
-- Position (`pos_x`, `pos_y`) is persisted in the database.
-
-### Move blocks (free-form canvas)
-- Blocks are positioned on a **free-form canvas** (no layout constraints).
-- Drag the **"⋮⋮"** handle **or the header area** to freely reposition a block.
-- Blocks can overlap and be placed anywhere within the canvas bounds.
-- **Clicking** a block brings it to the front (z-order).
-- Drag is constrained to canvas bounds (blocks cannot be dragged off left/right edges).
-- Position is saved immediately after drag release.
-
-### Auto-fit to content
-- Blocks automatically resize their height to fit content when not manually resized.
-- Once a block is manually resized (via any handle), auto-fit is disabled for that block.
-- New blocks default to 200px height and 1/3 of the canvas width.
-
-### Scroll behavior
-- After adding a new block, the canvas scrolls to make it visible.
+### Set as template
+- Right-click a page → **"Set as Template"** → page is copied to the Templates folder.
+- Template page type is `template_page` (separate from regular `page` type).
 
 ---
 
-## 4. Content Blocks — Tables
+## 3. Content Widgets — Text Box
 
-### Add a table block
-- Click **"+ Table"** in the toolbar.
+### Add a text box widget
+- Click **"+ Text Box"** in the editor toolbar.
+- A floating text box widget appears on the canvas.
+
+### Text Box Features
+- **Editable title** — click the title field to rename the text box.
+- **Rich text editing** — click the text area to enter edit mode (HTML-based via QTextEdit).
+- **Formatting toolbar** — each text block has its own formatting buttons:
+  - **B** — Bold
+  - **I** — Italic
+  - **H1** — Heading 1 (24pt)
+  - **H2** — Heading 2 (18pt)
+  - **Link** — Insert hyperlink
+  - **•** — Bullet list
+  - **Alignment** — Left, Center, Right
+  - **Size** — Font size selector (9–32pt)
+- **Multiple blocks** — add multiple text blocks within a single text box via "T+ Text" button.
+- **Remove block** — click "✕ Remove" on any block to delete it.
+
+### Text Box Sub-blocks
+- **Checklist blocks** — click "✓ List" to add an inline checklist within the text box.
+- **Table blocks** — click "⊞ Table" to add an inline table within the text box.
+- **Image blocks** — click "🖼 Image" to add an image (from file or URL).
+- **Fun imports** — click " Fun" to open the emoji/GIF picker.
+
+### Resize & Position
+- **Drag header** to move the text box anywhere on the canvas.
+- **Drag edges** (left, right, top, bottom) to resize.
+- **Drag corners** to resize both width and height simultaneously.
+- Position and size are persisted in the database.
+
+---
+
+## 4. Content Widgets — Tables
+
+### Add a table widget
+- Click **"+ Table"** in the editor toolbar.
 
 ### Modify table structure
-- **"+ Row"** / **"- Row"** — add/remove the last row (minimum 1 row; 0 allowed if header row exists).
+- **"+ Row"** / **"- Row"** — add/remove the last row (minimum 1 row).
 - **"+ Col"** / **"- Col"** — add/remove the last column (minimum 1 column).
-- **"+ Header"** / **"- Header"** — toggle header row. Header cells are bold, centered, gray background. Header content is editable. Default labels: "Column N".
-- **"+ Row #"** / **"- Row #"** — toggle row number column. Shows sequential numbers (1, 2, 3...) in a 40px-wide leftmost column. Top-left cell shows "#" when headers are also enabled.
+- **"#"** — toggle row number column.
 
 ### Edit cells
-- Click any cell and type. Cells support plain text (not rendered Markdown).
-- **Tab** / **Shift+Tab** — navigate to next/previous cell (wraps between header and data cells).
+- Click any cell and type.
+- **Tab** / **Shift+Tab** — navigate to next/previous cell (wraps between rows).
 - **Tab in last cell of last row** — automatically adds a new row and moves focus to it.
-- **Delete / Backspace** — when cells are selected, clears content of all selected cells.
-- **Escape** — clears cell selection.
 
-### Multi-cell selection
-- **Ctrl+click** — toggle individual cell selection.
-- **Shift+click** — range select from anchor cell.
-- Selected cells are highlighted with a blue border and background.
+### Column headers
+- Double-click a column header to rename it inline.
 
-### Embedded Task Lists in Table Cells
-- Click **"+ List"** while a table cell has focus → an embedded task list replaces the cell's text edit with a task widget.
-- Tasks are serialized as JSON within the cell content and persist across sessions.
-- The block header's "+ Add Task" button dynamically shows/hides based on whether the active cell has a task list.
-
-### Persistence
-- Table content (including header/row-number state) is auto-saved and restored on page reload.
-- Header and row number state is stored as a JSON metadata line in the table's markdown content.
+### Resize & Position
+- **Drag header** to move the table anywhere on the canvas.
+- **Drag edges** to resize.
+- Position and size are persisted in the database.
 
 ---
 
-## 5. Content Blocks — Lists & Checkboxes (Tasks)
+## 5. Content Widgets — Checklists
 
-### Add a list/checkbox block
-- Click **"+ List"** in the toolbar.
-- **Context-aware behavior:** If a table cell has focus, adds a task list to that cell. If a text block has focus, adds an embedded task list to that block. Otherwise, creates a new standalone checkbox block.
-- **Standalone list blocks** start with one empty checkbox task visible immediately.
+### Add a checklist widget
+- Click **"+ Checklist"** in the editor toolbar.
 
-### Task operations
-- **Check/uncheck** a task via its checkbox.
-- **Edit task text** directly in a **multi-line text area** (auto-grows as you type).
-- **Set recurrence** via the dropdown: `none`, `daily`, `weekly`, `monthly`.
-- **Delete** a task with **"X"** button (no confirmation, undoable).
-- **Add** a new task with **"+ Add Task"** button in the block header (alongside the alignment & delete-block buttons).
+### Checklist Features
+- **Editable title** — click the title field to rename the checklist.
+- **Add items** — click "+ Add item" to add new checkbox items.
+- **Check/uncheck** — click the checkbox to toggle state.
+- **Edit text** — click the text field to edit item text.
+- **Delete items** — click "×" on any item to delete it.
+- **Enter key** — pressing Enter in an item creates a new item below.
 
-### Task row interactions
-- **Auto-grow** — the text area expands vertically when content exceeds the current row height (fires on every keystroke); never shrinks automatically.
-- **Column resize** — drag the thin vertical `⋮` handle between the text area and the sidebar to change text width (minimum 100 px, capped at container width).
-- **Row resize** — drag the thin horizontal handle at the bottom of any task row to set a fixed height (overrides auto-grow; row will not auto-grow taller while fixed).
-- **Sidebar layout** — each task row has a sidebar (Recur label+dropdown + Delete "X") fixed at the right edge; all sidebars are **vertically aligned** across every row of the same list block.
-
-### Recurring tasks
-- When a recurring task is checked, a **copy** is created with the due date shifted forward (daily=+1d, weekly=+7d, monthly=+30d).
-- Verify: check a weekly task → a new unchecked task appears with the same text.
-- Monthly recurrence uses a fixed 30-day offset (not calendar months).
-
-### Undo for tasks
-- Deleting a task can be undone via **Edit → Undo Delete** (`Ctrl+Shift+Z`), same as page/block deletion.
-- Each undo restores the most recently deleted item (task, block, or page).
+### Resize & Position
+- **Drag header** to move the checklist anywhere on the canvas.
+- **Drag edges** to resize.
+- Position and size are persisted in the database.
 
 ---
 
-## 6. Template System
+## 6. Fun Imports (Emoji & GIF Support)
 
-### Save a page as template
-- **Page → Save Page as Template** → enter a name.
-- All content blocks (text, tables, tasks) are captured as JSON.
-- Confirmation message: "Template '{name}' saved."
-- If no page is loaded, shows "Select a page first."
+### Access Fun Imports
+- Click " Fun" button in any text box widget's header.
+- Or click "Fun Imports" in the sidebar's special folders section.
 
-### Insert a template into current page
-- Click **"Template"** button in the editor toolbar → select a template.
-- The template's blocks are appended to the current page.
-- If no templates exist, shows "No templates saved yet."
-- Templates are displayed as "Name (Category)" in the selection dialog.
+### Emoji Picker
+- **Categorized tabs** — Smileys, Gestures, Hearts, Animals, Food, Activities, Travel, Objects.
+- **Search** — type to filter emojis by category name or emoji content.
+- **Category navigation** — click category icons to scroll to that section.
+- **Custom emojis** — upload custom emoji images via the Upload tab.
 
-### Bulk insert template into multiple pages
-- **Ctrl+click** / **Shift+click** to select multiple pages in the sidebar.
-- Right-click → **"Insert Template into Selected (N)"** → pick one template.
-- The template is applied to **every selected page**.
-- Confirmation message: "Template '{name}' inserted into {N} page(s)."
+### GIF Browser
+- **Categories** — Trending, Reactions, Celebrations.
+- **Custom GIFs** — upload custom GIF files via the Upload tab.
+- GIFs are inserted as HTML `<img>` tags with local file URLs.
 
-### Persistence
-- Templates survive app restart (stored in SQLite `templates` table).
+### Upload Tab
+- Upload custom emoji images (PNG, JPG, JPEG, GIF, SVG).
+- Upload custom GIF files (GIF).
+- Uploaded files appear in their respective tabs.
 
 ---
 
 ## 7. Auto-Save
 
 - Content is auto-saved every **N ms** (default: 1000ms, configurable in Settings).
-- Any content change in text blocks/table cells triggers the save timer.
+- Any content change in widgets triggers the save timer.
 - Navigate away from a page and back → content should be preserved.
+- Auto-save timer interval updates immediately when changed in Settings.
 
 ---
 
@@ -309,7 +233,7 @@ py run.py
   - **Font size** (10–32; requires restart).
 - After saving, a message informs: "Settings saved. Restart to apply font size changes."
 - Settings persist in `settings.json`.
-- Additional persisted settings (not exposed in dialog): `sidebar_width` (default: 250), `theme` (default: "light").
+- Additional persisted settings (not exposed in dialog): `sidebar_width` (default: 250), `sidebar_splitter_sizes`, `main_splitter_sizes`, `theme` (default: "light").
 - Settings are loaded with merge-over-defaults behavior; corrupt JSON silently falls back to defaults.
 
 ---
@@ -318,7 +242,9 @@ py run.py
 
 - The splitter between sidebar and editor is **draggable**.
 - Window resizes gracefully; test at **1024×768** and **1920×1080**.
-- Sidebar has `minWidth=200` and `maxWidth=400`.
+- Sidebar has `minWidth=180`.
+- Splitter sizes are persisted across sessions.
+- Sidebar has its own vertical splitter between the page tree and template tree.
 
 ---
 
@@ -330,9 +256,7 @@ py run.py
 | `Ctrl+Shift+N` | Global | New Child Page |
 | `Ctrl+S` | Global | Save |
 | `Delete` | Sidebar focused | Delete page(s) — single or bulk |
-| `Delete` | Editor focused (blocks selected) | Delete selected block(s) |
 | `Ctrl+D` | Sidebar focused | Delete Selected (bulk) |
-| `Ctrl+D` | Editor focused (not in text edit) | Delete selected block(s) |
 | `Ctrl+Shift+Z` | Global | Undo Delete |
 | `Ctrl+U` | Global | Undo Delete |
 | `Ctrl+Z` | Sidebar focus only | Undo Delete |
@@ -342,10 +266,7 @@ py run.py
 | `Ctrl+Q` | Global | Exit |
 | `Tab` | Table cell | Navigate to next cell |
 | `Shift+Tab` | Table cell | Navigate to previous cell |
-| `Delete` / `Backspace` | Table cells selected | Clear selected cell content |
-| `Escape` | Table cell | Clear cell selection |
-| `Enter` | Block header | Accept header edit (clear focus) |
-| `Tab` | Block header | Move focus out of header |
+| `F2` | Sidebar focused | Rename selected page |
 
 ---
 
@@ -365,85 +286,65 @@ Run this after any code change:
   9. Select 3 pages → press Delete → bulk delete → Undo (Ctrl+U / Ctrl+Z w/ sidebar focus)
  10. Select a page → Ctrl+N → new page is a child of selected
  11. Select 2 pages → Ctrl+N → both get child with same name
- 12. Click "+ Bulk Named" → enter "Test" / 3 → creates "Test 1", "Test 2", "Test 3"
+ 12. Click "Name Pages" → enter "Test" / 3 → creates "Test 1", "Test 2", "Test 3"
  13. Click "Show All" / "Hide All" buttons → tree expands/collapses
  14. Collapse a branch → refresh sidebar (create a page) → stays collapsed
- 15. Add a text block → type Markdown → preview renders (Notion-style: Enter splits paragraphs)
- 16. Use B/I/H1/H2/<>/Link/Bullet formatting buttons
+ 15. Add a text box → click into text area → type content → verify editing works
+ 16. Use B/I/H1/H2/Link/Bullet formatting buttons in text box
  17. Ctrl+B / Ctrl+I shortcuts on active text block
  18. Add a table → add/remove rows and columns
- 19. Add a list block → "+ Add Task" button is visible in the block header (next to alignment buttons)
- 20. Create tasks → check some → set recurrence
- 21. Check a weekly task → new unchecked task appears
- 22. Type multi-line text in a task → row auto-grows vertically
- 23. Drag the vertical `⋮` handle between text and sidebar → text width changes (sidebar stays at right)
- 24. Drag the bottom horizontal handle of a task row → row height becomes fixed (no auto-grow above fixed height)
- 25. Delete a task → Undo Delete (`Ctrl+Shift+Z`) → task reappears
- 26. Delete a block (×) → Undo Delete → block with its content reappears
- 27. Save page as template → insert template on another page
- 28. Select 2+ pages → right-click → Insert Template into Selected → verify both get blocks
- 29. Open Settings → change week start day → save
- 30. Toggle sidebar visibility
- 31. Resize window, drag splitter
- 32. Close app → reopen → verify all data persists
- 33. Free-form canvas: drag "⋮⋮" handle to move a block anywhere on the page
- 34. Free-form canvas: blocks can overlap and z-order changes on click
- 35. Resize block vertically: drag bottom handle up/down
- 36. Resize block horizontally: drag bottom handle left/right or right edge ↔
- 37. 2D resize: drag bottom-right corner (dots) to change width + height simultaneously
- 38. Restart app → block positions persist
- 39. Scroll to bottom of canvas → canvas extends (infinite vertical scroll)
- 40. No horizontal scrollbar visible
- 41. Drag a block past the right edge → snaps back to boundary
- 42. Resize a block past the right edge → constrained to canvas width
- 43. Click on canvas → click "+ Text" → block appears at click position
- 44. Add 3+ blocks with default positions → verify auto-grid layout (5 columns)
- 45. Edit block header → type new name → header text persists after reload
- 46. Change header alignment (⫷/⫿/⫸) → persists after reload
- 47. Change header vertical alignment (↥/↕/↧) → persists after reload
- 48. Change header font size via toolbar combo → persists after reload
- 49. Drag header resize handle → header height changes → persists after reload
- 50. Ctrl+click multiple blocks on canvas → all show indigo selection border
- 51. Select multiple blocks → press Delete → all deleted → Undo restores them one by one
- 52. Select multiple blocks → press Ctrl+D → all deleted (when not in text edit)
- 53. Drag block by header area → block moves (not just drag handle)
- 54. Add text block → click "+ List" while text block focused → embedded task list appears inside text block with ▲/▼ and resize handle
- 55. Add tasks to embedded list → check/uncheck → set recurrence → verify persistence
- 56. Remove embedded task list via "×" button → list removed from text block
- 57. Add table → click "+ Header" → header row appears with "Column N" labels
- 58. Toggle "- Header" → header row removed → toggle "+ Header" again → headers restored
- 59. Click "+ Row #" → row number column appears on left → click "- Row #" → removed
- 60. In table: Ctrl+click multiple cells → cells highlighted blue
- 61. Select cells → press Delete → cell content cleared
- 62. Press Escape in table → cell selection cleared
- 63. Press Tab in cell → focus moves to next cell (wraps across rows)
- 64. Press Shift+Tab → focus moves to previous cell
- 65. Tab in last cell of last row → new row auto-added, focus moves to it
- 66. Click "+ List" in table cell → task list appears in cell
- 67. Add tasks to cell task list → verify persistence after reload
- 68. Use toolbar font size combo on header → size changes
- 69. Use toolbar font size combo on text content → size changes
- 70. Change font size in settings → restart → font size applied globally
- 71. Save template → verify confirmation message appears
- 72. Try saving template with no page → verify "Select a page first" message
- 73. Insert template when none exist → verify "No templates saved yet" message
- 74. Bulk insert template → verify confirmation message with count
- 75. Multi-select pages → right-click → verify only bulk actions shown (no Rename/Add Child/Move)
- 76. Page → Delete Current Page with multi-select → verify bulk delete triggered
- 77. Delete page with children → Undo → verify children recursively restored
- 78. Verify tree has animated expand/collapse transitions
- 79. Verify block auto-fits height to content (new blocks)
- 80. Manually resize a block → verify auto-fit is disabled for that block
- 81. List/checkbox block with many tasks → verify scrollbars appear within block
-  82. Change auto-save interval in settings → verify new interval applied without restart
- 83. Enter in text block → splits paragraph, new block appears below
- 84. Backspace at empty paragraph → deletes block, merges with previous
- 85. Hover between blocks → "+" separator appears, click to insert text/task
- 86. Embedded list: click ▲ → list moves up, ▼ → moves down
- 87. Embedded list: drag bottom handle → list resizes
- 88. Empty canvas shows "Click + to add your first block" at 25% from top
- 89. Add first block → hint disappears
- 90. Ctrl+A → all blocks selected; Escape → deselect all
+ 19. Add a checklist → "+ Add item" button is visible
+ 20. Create checklist items → check some → verify persistence
+ 21. Delete a checklist item → Undo Delete → item reappears
+ 22. Delete a text box (×) → Undo Delete → widget with its content reappears
+ 23. Delete a table (×) → Undo Delete → table reappears
+ 24. Delete a checklist (×) → Undo Delete → checklist reappears
+ 25. Open Settings → change week start day → save
+ 26. Toggle sidebar visibility
+ 27. Resize window, drag splitter
+ 28. Close app → reopen → verify all data persists
+ 29. Free-form canvas: drag header to move a widget anywhere on the page
+ 30. Free-form canvas: widgets can overlap
+ 31. Resize widget vertically: drag bottom handle up/down
+ 32. Resize widget horizontally: drag bottom handle left/right or right edge ↔
+ 33. 2D resize: drag bottom-right corner to change width + height simultaneously
+ 34. Restart app → widget positions persist
+ 35. Scroll to bottom of canvas → canvas extends (infinite vertical scroll)
+ 36. No horizontal scrollbar visible
+ 37. Drag a widget past the right edge → constrained to canvas width
+ 38. Resize a widget past the right edge → constrained to canvas width
+ 39. Click on canvas → click "+ Text Box" → widget appears at default position
+ 40. Edit text box title → type new name → title persists after reload
+ 41. Add text block to text box → click "T+ Text" → new block appears
+ 42. Add checklist block to text box → click "✓ List" → checklist appears
+ 43. Add table block to text box → click "⊞ Table" → table appears
+ 44. Add image block to text box → click "🖼 Image" → image picker appears
+ 45. Remove a block from text box → click "✕ Remove" → block removed
+ 46. Double-click table column header → rename inline → persists after reload
+ 47. Tab in last cell of last row → new row auto-added, focus moves to it
+ 48. Row number toggle → click "#" → row numbers appear/disappear
+ 49. Fun Imports: open emoji picker → click emoji → inserted at cursor
+ 50. Fun Imports: search emojis → filtered by category
+ 51. Fun Imports: upload custom emoji → appears in Emojis tab
+ 52. Fun Imports: upload custom GIF → appears in GIFs tab
+ 53. Drag-and-drop page reordering in sidebar
+ 54. Drag page onto folder → page becomes child of folder
+ 55. Archive a page → page moves to Archive folder
+ 56. Set page as template → page copied to Templates folder
+ 57. Import template → select template → objects copied to current page
+ 58. Delete page with children → Undo → verify children recursively restored
+ 59. Verify tree has animated expand/collapse transitions
+ 60. Template tree shows special folders (Archive, Templates, Fun Imports)
+ 61. Fun Imports folder click → opens emoji/GIF picker dialog
+ 62. Verify custom checkbox rendering (purple when checked)
+ 63. Verify table cell editing and Tab navigation
+ 64. Verify text box formatting toolbar (B, I, H1, H2, Link, Bullet)
+ 65. Verify text box alignment buttons (Left, Center, Right)
+ 66. Verify text box font size selector
+ 67. Change font size in settings → restart → font size applied globally
+ 68. Change auto-save interval in settings → verify new interval applied without restart
+ 69. Verify sidebar splitter sizes persist across sessions
+ 70. Verify main splitter sizes persist across sessions
 ```
 
 ## Project Workflow
@@ -472,7 +373,7 @@ When implementing a new feature, use these targeted testing guides based on the 
 5. Component handles edge cases (empty state, error state)
 
 **Regression checklist:**
-- Run steps 1-5, 14-15, 32, 79-80 from section 11
+- Run steps 1-5, 14-15, 28, 39-40 from section 11
 
 ### Adding New Database Operations
 
@@ -484,7 +385,7 @@ When implementing a new feature, use these targeted testing guides based on the 
 5. Edge cases: empty data, NULL values, constraints
 
 **Regression checklist:**
-- Run steps 1-2, 5, 32 from section 11
+- Run steps 1-2, 5, 28 from section 11
 
 ### Adding New Keyboard Shortcuts
 
@@ -495,7 +396,7 @@ When implementing a new feature, use these targeted testing guides based on the 
 4. Visual feedback shows when shortcut is triggered
 
 **Regression checklist:**
-- Run steps 16-17, 336-337 from section 11
+- Run steps 16-17 from section 11
 
 ### Adding New Context Menu Items
 
@@ -506,7 +407,7 @@ When implementing a new feature, use these targeted testing guides based on the 
 4. Menu item works with multi-selection (if applicable)
 
 **Regression checklist:**
-- Run steps 4-9, 54, 75-76 from section 11
+- Run steps 4-9, 54, 56 from section 11
 
 ### Adding New Formatting Features
 
@@ -514,43 +415,43 @@ When implementing a new feature, use these targeted testing guides based on the 
 1. Formatting applies correctly to selected text
 2. Formatting toggles on/off correctly
 3. Formatting persists across edit/preview switches
-4. Formatting works in text blocks, table cells, and task lists
+4. Formatting works in text blocks, table cells, and checklists
 
 **Regression checklist:**
-- Run steps 15-17, 68-69 from section 11
+- Run steps 15-17, 63-66 from section 11
 
-### Adding New Canvas/Block Features
+### Adding New Canvas/Widget Features
 
 **Required tests:**
 1. Feature works with free-form positioning
 2. Feature respects canvas boundaries
 3. Feature persists across app restarts
-4. Feature integrates with multi-select and undo
+4. Feature integrates with undo
 
 **Regression checklist:**
-- Run steps 33-53, 79-80 from section 11
+- Run steps 29-38, 40 from section 11
 
-### Adding New Task/Checkbox Features
+### Adding New Checklist Features
 
 **Required tests:**
-1. Task operations work correctly
-2. Recurring tasks work as expected
-3. Tasks persist across sessions
-4. Tasks integrate with embedded lists in text and tables
+1. Checklist operations work correctly
+2. Checkboxes toggle correctly
+3. Checklists persist across sessions
+4. Checklists integrate with text box blocks
 
 **Regression checklist:**
-- Run steps 19-27, 54-56, 66-67 from section 11
+- Run steps 19-21, 46 from section 11
 
 ### Adding New Template Features
 
 **Required tests:**
 1. Template save/load works correctly
-2. Template insertion works on single and multiple pages
+2. Template insertion works on single pages
 3. Templates persist across app restarts
 4. Templates handle edge cases (no templates, no page selected)
 
 **Regression checklist:**
-- Run steps 27-28, 71-74 from section 11
+- Run steps 56-57 from section 11
 
 ### Adding New Settings Features
 
@@ -562,7 +463,7 @@ When implementing a new feature, use these targeted testing guides based on the 
 5. Corrupt settings.json falls back to defaults
 
 **Regression checklist:**
-- Run steps 29, 70, 82 from section 11
+- Run steps 25, 67-68 from section 11
 
 ---
 
@@ -573,14 +474,14 @@ When time is limited, prioritize these tests based on what was changed:
 ### High Priority (Always Run)
 - Steps 1-2: App startup and basic functionality
 - Steps 5: Undo system works
-- Steps 32: Data persists across restarts
+- Steps 28: Data persists across restarts
 
 ### Medium Priority (Run if UI Changed)
 - Steps 14-15: Sidebar and page management
 - Steps 16-17: Formatting toolbar
-- Steps 33-53: Canvas and block operations
+- Steps 29-38: Canvas and widget operations
 
 ### Low Priority (Run if Specific Feature Changed)
-- Steps 59-70: Table-specific features
-- Steps 71-74: Template features
-- Steps 79-80: Auto-fit and resize features
+- Steps 46-48: Table-specific features
+- Steps 56-57: Template features
+- Steps 39-40: Text box features

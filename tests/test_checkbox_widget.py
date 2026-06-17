@@ -1,5 +1,12 @@
-from PyQt6.QtCore import Qt
+import json
 
+from PyQt6.QtCore import QEvent, QPoint, QPointF, Qt
+from PyQt6.QtGui import QKeyEvent, QMouseEvent
+
+from src.models.page import Page
+from src.models.page_object import PageObject
+from src.repositories.page_object_repo import PageObjectRepo
+from src.repositories.page_repo import PageRepo
 from src.ui.objects.checkbox_widget import CheckboxWidget, CustomCheckBox
 from src.ui.objects.checklist_widget import ChecklistWidget
 
@@ -171,9 +178,6 @@ class TestChecklistDeleteButton:
         assert blocker.args == [1]
 
     def test_delete_button_not_consumed_by_drag(self, app_instance):
-        from PyQt6.QtCore import QEvent, QPoint, QPointF
-        from PyQt6.QtGui import QMouseEvent
-
         cl = ChecklistWidget(checklist_id=5, page_id=1)
         btn = cl._delete_btn
         pos = btn.mapTo(cl, QPoint(btn.width() // 2, btn.height() // 2))
@@ -189,3 +193,118 @@ class TestChecklistDeleteButton:
         assert (
             result is False
         ), "Delete button click should not be consumed by drag logic"
+
+
+def _make_mouse_event(
+    event_type, pos, button=Qt.MouseButton.LeftButton, buttons=Qt.MouseButton.NoButton
+):
+    return QMouseEvent(
+        event_type,
+        QPointF(pos),
+        QPointF(pos),
+        button,
+        buttons,
+        Qt.KeyboardModifier.NoModifier,
+    )
+
+
+def _make_key_event(key, modifiers=Qt.KeyboardModifier.NoModifier):
+    return QKeyEvent(QEvent.Type.KeyPress, key, modifiers)
+
+
+class TestChecklistWidgetSaveMeta:
+    def test_save_meta_updates_existing(self, app_instance):
+        page_id = PageRepo.create(Page(title="Test Page"))
+        cl = ChecklistWidget(checklist_id=5, page_id=page_id)
+        cl.move(10, 20)
+        cl.resize(250, 150)
+
+        existing = PageObject(
+            page_id=page_id,
+            object_type="checklist_meta",
+            content=json.dumps({"x": 0, "y": 0, "width": 100, "height": 100}),
+            sort_order=550,
+        )
+        existing.id = PageObjectRepo.create(existing)
+
+        cl._save_meta()
+
+        updated = PageObjectRepo.get_meta(page_id, 5)
+        assert updated is not None
+        data = json.loads(updated.content)
+        assert data["x"] == 10
+        assert data["y"] == 20
+        assert updated.id == existing.id
+
+    def test_save_meta_creates_when_none(self, app_instance):
+        page_id = PageRepo.create(Page(title="Test Page"))
+        cl = ChecklistWidget(checklist_id=3, page_id=page_id)
+        cl.move(5, 15)
+        cl.resize(200, 120)
+
+        cl._save_meta()
+
+        meta = PageObjectRepo.get_meta(page_id, 3)
+        assert meta is not None
+        data = json.loads(meta.content)
+        assert data["x"] == 5
+        assert data["y"] == 15
+
+
+class TestChecklistWidgetDeleteChecklist:
+    def test_delete_checklist_removes_items_and_emits(self, app_instance, qtbot):
+        page_id = PageRepo.create(Page(title="P"))
+        cl = ChecklistWidget(checklist_id=7, page_id=page_id)
+        cl.show()
+
+        w1 = cl._add_item(text="a")
+        w2 = cl._add_item(text="b")
+        obj_ids = [w1.obj_id, w2.obj_id]
+
+        with qtbot.waitSignal(cl.object_delete_requested, raising=False) as blocker:
+            cl._delete_checklist()
+
+        assert blocker.signal_triggered is True
+        assert blocker.args == [7]
+
+        for oid in obj_ids:
+            assert PageObjectRepo.get_by_id(oid) is None
+
+
+class TestResizableMixinEdgeCursor:
+    def test_mouse_move_at_edge_changes_cursor(self, app_instance):
+        cl = ChecklistWidget(checklist_id=46, page_id=1)
+        cl.resize(400, 300)
+        cl.show()
+
+        w, h = cl.width(), cl.height()
+        pos = QPoint(w - 3, h // 2)
+        event = QMouseEvent(
+            QEvent.Type.MouseMove,
+            QPointF(pos),
+            QPointF(cl.mapToGlobal(pos)),
+            Qt.MouseButton.NoButton,
+            Qt.MouseButton.NoButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        cl.mouseMoveEvent(event)
+
+        assert cl.cursor().shape() != Qt.CursorShape.ArrowCursor
+
+    def test_mouse_move_away_resets_cursor(self, app_instance):
+        cl = ChecklistWidget(checklist_id=47, page_id=1)
+        cl.resize(400, 300)
+        cl.show()
+
+        pos = QPoint(200, 150)
+        event = QMouseEvent(
+            QEvent.Type.MouseMove,
+            QPointF(pos),
+            QPointF(cl.mapToGlobal(pos)),
+            Qt.MouseButton.NoButton,
+            Qt.MouseButton.NoButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        cl.mouseMoveEvent(event)
+
+        assert cl.cursor().shape() == Qt.CursorShape.ArrowCursor

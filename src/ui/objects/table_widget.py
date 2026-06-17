@@ -27,9 +27,11 @@ class TabTableWidget(QTableWidget):
         self._custom_tab_handler = None
 
     def setCustomTabHandler(self, handler):
+        """Set a custom handler function for Tab key navigation."""
         self._custom_tab_handler = handler
 
     def keyPressEvent(self, event):
+        """Override key press to use custom tab handler if set."""
         if event.key() in (Qt.Key.Key_Tab, Qt.Key.Key_Backtab):
             if self._custom_tab_handler:
                 self._custom_tab_handler(event)
@@ -147,6 +149,7 @@ class TableWidget(ResizableMixin, QWidget):
         self._layout.addWidget(self._table)
 
     def sizeHint(self):
+        """Return the suggested size based on the number of rows."""
         header_h = 36
         table_header_h = 28
         rows = self._table.rowCount()
@@ -166,6 +169,7 @@ class TableWidget(ResizableMixin, QWidget):
             self._table.verticalHeader().resizeSection(r, row_h)
 
     def mouseMoveEvent(self, event):
+        """Handle mouse move to scale rows during resize."""
         was_resizing = self._resizing
         super().mouseMoveEvent(event)
         if was_resizing:
@@ -258,6 +262,7 @@ class TableWidget(ResizableMixin, QWidget):
         self._header.installEventFilter(self)
 
     def eventFilter(self, obj, event):
+        """Filter events for tab navigation, drag, and resize."""
         from PyQt6.QtCore import QEvent
         from PyQt6.QtGui import QKeyEvent, QMouseEvent
 

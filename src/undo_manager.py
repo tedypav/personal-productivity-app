@@ -1,3 +1,5 @@
+"""Time-limited undo stack for page deletions with recursive tree restoration."""
+
 from datetime import datetime, timedelta
 
 from src.database import get_connection
@@ -6,6 +8,11 @@ UNDO_DURATION = timedelta(minutes=15)
 
 
 def capture_page_tree(page_id: int) -> dict | None:
+    """Recursively capture a page and all descendants as a nested dict.
+
+    Returns None if the page doesn't exist. The dict structure is:
+    {"page": {...}, "children": [{...}, ...]}
+    """
     from src.repositories.page_repo import PageRepo
 
     page = PageRepo().get_by_id(page_id)
@@ -18,7 +25,8 @@ def capture_page_tree(page_id: int) -> dict | None:
     }
 
 
-def _capture_children(parent_id: int) -> list:
+def _capture_children(parent_id: int) -> list[dict]:
+    """Recursively capture all children of a parent page."""
     from src.repositories.page_repo import PageRepo
 
     result = []
@@ -33,7 +41,8 @@ def _capture_children(parent_id: int) -> list:
     return result
 
 
-def _page_dict(page):
+def _page_dict(page) -> dict:
+    """Convert a Page dataclass to a plain dictionary."""
     return {
         "id": page.id,
         "title": page.title,
@@ -46,15 +55,30 @@ def _page_dict(page):
 
 
 class UndoManager:
-    def __init__(self):
-        self._actions = []
+    """In-memory undo stack with 15-minute TTL.
 
-    def push(self, action: dict):
+    Stores deleted page trees as nested snapshots. On undo, restores
+    original database IDs to preserve foreign key references.
+    """
+
+    def __init__(self) -> None:
+        self._actions: list[dict] = []
+
+    def push(self, action: dict) -> None:
+        """Push a deletion snapshot onto the undo stack.
+
+        Args:
+            action: Dict with 'type' key ('page' or 'bulk') and snapshot data.
+        """
         self._prune()
         action["timestamp"] = datetime.now()
         self._actions.append(action)
 
     def pop(self) -> dict | None:
+        """Pop and restore the most recent undo action.
+
+        Returns the restored action dict, or None if the stack is empty.
+        """
         self._prune()
         if not self._actions:
             return None
@@ -63,27 +87,28 @@ class UndoManager:
         return action
 
     def can_undo(self) -> bool:
+        """Return True if any undo actions are available."""
         self._prune()
         return bool(self._actions)
 
-    def _prune(self):
+    def _prune(self) -> None:
+        """Remove actions older than UNDO_DURATION."""
         cutoff = datetime.now() - UNDO_DURATION
         self._actions = [a for a in self._actions if a["timestamp"] > cutoff]
 
-    def _restore(self, action):
+    def _restore(self, action: dict) -> None:
+        """Re-insert a deletion snapshot into the database."""
         conn = get_connection()
-        try:
-            if action["type"] == "page":
-                self._restore_page(conn, action)
-            elif action["type"] == "bulk":
-                for sub in action["actions"]:
-                    if sub["type"] == "page":
-                        self._restore_page(conn, sub)
-            conn.commit()
-        finally:
-            conn.close()
+        if action["type"] == "page":
+            self._restore_page(conn, action)
+        elif action["type"] == "bulk":
+            for sub in action["actions"]:
+                if sub["type"] == "page":
+                    self._restore_page(conn, sub)
+        conn.commit()
 
-    def _restore_page(self, conn, action):
+    def _restore_page(self, conn, action: dict) -> None:
+        """Re-insert a single page and its children recursively."""
         p = action["page"]
         conn.execute(
             """INSERT INTO pages (id, title, parent_id, sort_order,

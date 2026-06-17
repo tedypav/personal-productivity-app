@@ -1,22 +1,32 @@
+"""CRUD operations for the pages table."""
+
 from src.database import get_connection
 from src.models.page import Page
 
 
 class PageRepo:
+    """Static-method repository for page database operations."""
+
     @staticmethod
     def get_all() -> list[Page]:
+        """Return all pages ordered by sort_order."""
         conn = get_connection()
         rows = conn.execute("SELECT * FROM pages ORDER BY sort_order").fetchall()
         return [Page(**dict(r)) for r in rows]
 
     @staticmethod
     def get_by_id(page_id: int) -> Page | None:
+        """Return a page by its primary key, or None if not found."""
         conn = get_connection()
         row = conn.execute("SELECT * FROM pages WHERE id=?", (page_id,)).fetchone()
         return Page(**dict(row)) if row else None
 
     @staticmethod
     def get_children(parent_id: int | None) -> list[Page]:
+        """Return direct children of a parent page, ordered by sort_order.
+
+        Pass parent_id=None to get root-level pages.
+        """
         conn = get_connection()
         if parent_id is None:
             rows = conn.execute(
@@ -31,6 +41,10 @@ class PageRepo:
 
     @staticmethod
     def create(page: Page) -> int:
+        """Insert a new page and return its auto-generated ID.
+
+        Auto-computes sort_order as MAX+1 among siblings if not set.
+        """
         conn = get_connection()
         max_order = conn.execute(
             "SELECT COALESCE(MAX(sort_order), -1) + 1 FROM pages WHERE parent_id IS ?",
@@ -49,10 +63,12 @@ class PageRepo:
         )
         conn.commit()
         page_id = cursor.lastrowid
+        assert page_id is not None
         return page_id
 
     @staticmethod
-    def update(page: Page):
+    def update(page: Page) -> None:
+        """Update an existing page's fields."""
         conn = get_connection()
         conn.execute(
             "UPDATE pages SET title=?, parent_id=?,"
@@ -63,13 +79,15 @@ class PageRepo:
         conn.commit()
 
     @staticmethod
-    def delete(page_id: int):
+    def delete(page_id: int) -> None:
+        """Delete a page by ID. Cascade handles children and objects."""
         conn = get_connection()
         conn.execute("DELETE FROM pages WHERE id=?", (page_id,))
         conn.commit()
 
     @staticmethod
-    def reorder(page_id: int, new_sort_order: int, new_parent_id: int | None):
+    def reorder(page_id: int, new_sort_order: int, new_parent_id: int | None) -> None:
+        """Update a page's sort_order and parent_id."""
         conn = get_connection()
         conn.execute(
             "UPDATE pages SET sort_order=?, parent_id=?,"
@@ -82,6 +100,13 @@ class PageRepo:
     def has_sibling_with_name(
         parent_id: int | None, name: str, exclude_id: int | None = None
     ) -> bool:
+        """Check if a sibling with the given name already exists.
+
+        Args:
+            parent_id: Parent page ID (None for root level).
+            name: Title to check for.
+            exclude_id: Page ID to exclude from the check (for renames).
+        """
         conn = get_connection()
         if parent_id is None:
             if exclude_id:

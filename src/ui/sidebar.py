@@ -25,6 +25,7 @@ from src.controllers.page_controller import PageController
 from src.models.page import Page
 from src.repositories.page_object_repo import PageObjectRepo
 from src.repositories.page_repo import PageRepo
+from src.seed_data import create_fun_pages
 from src.settings import load_settings
 from src.ui.dialogs import _get_icon_path, create_dialog_header
 from src.ui.fun_imports import FunImportsDialog
@@ -52,6 +53,7 @@ class DeleteButtonDelegate(QStyledItemDelegate):
                 self._hovered_index = None
 
     def paint(self, painter, option, index):
+        """Paint the item and draw a delete button if deletable."""
         super().paint(painter, option, index)
 
         can_delete = index.data(Qt.ItemDataRole.UserRole + 2)
@@ -72,6 +74,7 @@ class DeleteButtonDelegate(QStyledItemDelegate):
         painter.restore()
 
     def editorEvent(self, event, model, option, index):
+        """Handle mouse events for hover effects and delete button clicks."""
         if event.type() == QEvent.Type.MouseMove:
             item = self._tree.itemAt(event.position().toPoint())
             new_index = self._tree.indexFromItem(item) if item else None
@@ -129,9 +132,11 @@ class PageTreeWidget(QTreeWidget):
         self._sidebar = sidebar
 
     def mimeTypes(self):
+        """Return list of supported MIME types for drag operations."""
         return ["application/x-page-ids"]
 
     def mimeData(self, items):
+        """Create MIME data containing page IDs from selected items."""
         mime_data = QMimeData()
         page_ids = []
         for item in items:
@@ -142,6 +147,7 @@ class PageTreeWidget(QTreeWidget):
         return mime_data
 
     def dropEvent(self, event):
+        """Handle drop events to move pages between folders."""
         if not self._sidebar:
             event.ignore()
             return
@@ -389,6 +395,7 @@ class Sidebar(QWidget):
         for title in ("Archive", "Fun Imports", "Templates"):
             if title not in existing:
                 self.repo.create(Page(title=title, page_type="folder"))
+        create_fun_pages()
 
     def _archive_selected(self):
         """Archive the currently selected item(s) from the upper tree."""
@@ -1054,6 +1061,7 @@ class Sidebar(QWidget):
         self.pages_changed.emit()
 
     def delete_selected(self):
+        """Delete all currently selected pages from both trees."""
         self._delete_items(
             self.tree.selectedItems() + self.template_tree.selectedItems()
         )
@@ -1106,4 +1114,5 @@ class Sidebar(QWidget):
                 self.pages_changed.emit()
 
     def refresh(self):
+        """Reload all pages and refresh the sidebar trees."""
         self._load_pages()

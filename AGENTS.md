@@ -1,14 +1,15 @@
 # Personal Productivity App — Project Rules
 
 ## Project overview
-A PyQt6 desktop app for organizing notes, tasks, and plans. Uses SQLite for persistence, free-form canvas for content blocks, and a hierarchical page tree.
+A PyQt6 desktop app for organizing notes, tasks, and plans. Uses SQLite for persistence, free-form canvas for content widgets, and a hierarchical page tree.
 
 ## Architecture
 - `src/ui/` — PyQt6 widgets (sidebar, editor, dialogs, canvas)
-- `src/ui/objects/` — Reusable widget components (checklist, table, checkbox, resizable mixin)
-- `src/repositories/` — Database CRUD operations
+- `src/ui/objects/` — Reusable widget components (checklist, table, textbox, checkbox, resizable mixin)
+- `src/controllers/` — Business logic (page, editor, checklist, table, textbox controllers)
+- `src/repositories/` — Database CRUD operations (PageRepo, PageObjectRepo)
 - `src/models/` — Dataclasses (Page, PageObject)
-- `src/` — Core (database, settings, undo manager, styles)
+- `src/` — Core (database, settings, undo manager, styles, seed data)
 - `tests/` — pytest + pytest-qt tests
 - `scripts/` — Pre-commit check scripts
 
@@ -29,6 +30,7 @@ A PyQt6 desktop app for organizing notes, tasks, and plans. Uses SQLite for pers
 ## Code conventions
 - Python 3.10+, double quotes, 88-char lines
 - Repository pattern for database access
+- Controller pattern for business logic
 - Dataclass models in `src/models/`
 - SQLite with WAL mode and foreign keys
 - 90% test coverage minimum

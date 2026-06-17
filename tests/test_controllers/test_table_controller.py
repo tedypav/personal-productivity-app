@@ -62,3 +62,30 @@ class TestTableController:
     def test_delete_meta(self, controller, mock_repo):
         controller.delete_meta(1)
         mock_repo.delete.assert_called_once_with(1)
+
+    def test_update_cell(self, controller, mock_repo):
+        mock_meta = MagicMock()
+        data = {"data": [["A", "B"], ["C", "D"]]}
+        mock_meta.content = json.dumps(data)
+        mock_repo.get_table_meta.return_value = mock_meta
+        controller.update_cell(1, 1, 0, 1, "X")
+        content = json.loads(mock_meta.content)
+        assert content["data"][0][1] == "X"
+        mock_repo.update.assert_called_once_with(mock_meta)
+
+    def test_update_cell_no_meta(self, controller, mock_repo):
+        mock_repo.get_table_meta.return_value = None
+        controller.update_cell(1, 999, 0, 0, "X")
+        mock_repo.update.assert_not_called()
+
+    def test_update_cell_emits_signal(self, controller, mock_repo):
+        mock_meta = MagicMock()
+        data = {"data": [["A"]]}
+        mock_meta.content = json.dumps(data)
+        mock_repo.get_table_meta.return_value = mock_meta
+        emitted = []
+        controller.cell_changed.connect(
+            lambda r, c, t, ct: emitted.append((r, c, t, ct))
+        )
+        controller.update_cell(1, 1, 0, 0, "Z")
+        assert (0, 0, 1, "Z") in emitted

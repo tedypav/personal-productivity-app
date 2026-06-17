@@ -24,6 +24,7 @@ from src.undo_manager import capture_page_tree, undo_manager
 
 
 def get_logo_path():
+    """Return the absolute path to the application logo icon."""
     return os.path.join(
         os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
         "assets",
@@ -69,6 +70,13 @@ class MainWindow(QMainWindow):
         self.editor.navigate_to_page.connect(self._navigate_to_page)
         self.sidebar.set_editor(self.editor)
         self.sidebar.pages_changed.connect(self.editor.refresh_title)
+        self.editor._sidebar_ref = self.sidebar
+
+        self._auto_save_timer = QTimer(self)
+        self._auto_save_timer.setInterval(
+            self.settings.get("auto_save_interval_ms", 1000)
+        )
+        self._auto_save_timer.start()
 
         self._setup_menu()
         self._setup_shortcuts()

@@ -97,7 +97,7 @@ When the user reports a bug, follow this process strictly:
 The `instructions` file is your comprehensive testing guide. Use it to:
 
 1. **Understand feature requirements** - each feature has detailed specs
-2. **Follow regression checklists** - 82-step quick regression checklist
+2. **Follow regression checklists** - 90-step quick regression checklist
 3. **Use feature-specific testing guides** - targeted tests for different feature types
 4. **Prioritize testing** - high/medium/low priority sections
 
@@ -110,8 +110,8 @@ When implementing a feature, look up its type in the `instructions` file:
 - **Adding New Keyboard Shortcuts** → See "Feature-Specific Testing Guides" section
 - **Adding New Context Menu Items** → See "Feature-Specific Testing Guides" section
 - **Adding New Formatting Features** → See "Feature-Specific Testing Guides" section
-- **Adding New Canvas/Block Features** → See "Feature-Specific Testing Guides" section
-- **Adding New Task/Checkbox Features** → See "Feature-Specific Testing Guides" section
+- **Adding New Canvas/Widget Features** → See "Feature-Specific Testing Guides" section
+- **Adding New Checklist Features** → See "Feature-Specific Testing Guides" section
 - **Adding New Template Features** → See "Feature-Specific Testing Guides" section
 - **Adding New Settings Features** → See "Feature-Specific Testing Guides" section
 
@@ -194,23 +194,44 @@ personal-productivity-app/
 │   ├── database.py                 # SQLite connection + schema migrations
 │   ├── settings.py                 # JSON settings load/save
 │   ├── undo_manager.py             # Undo/restore for deletions
-│   ├── models/                     # Dataclasses (Page, ContentBlock, Task, Template)
-│   ├── repositories/               # CRUD operations (PageRepo, BlockRepo, TaskRepo, TemplateRepo)
+│   ├── styles.py                   # Application-wide QSS stylesheet
+│   ├── seed_data.py                # Fun pre-populated pages
+│   ├── models/                     # Dataclasses (Page, PageObject)
+│   ├── repositories/               # CRUD operations (PageRepo, PageObjectRepo)
+│   ├── controllers/                # Business logic (PageController, EditorController,
+│   │                               #   ChecklistController, TableController, TextboxController)
 │   └── ui/                         # PyQt6 widgets (main_window, sidebar, editor)
+│       └── objects/                # Reusable widget components
 ├── tests/                          # pytest + pytest-qt tests
 ├── assets/                         # Fonts, icons, design tokens
 ├── instructions                    # Testing instructions and regression checklists
 ├── project_plan.md                 # Feature specifications and workflow rules
+├── TODO.md                         # Outstanding issues and tech debt
 └── DEVELOPMENT.md                  # This file
 ```
 
 ### Architecture Patterns
 
-- **Repository pattern**: All database access goes through `src/repositories/` classes
-- **Dataclass models**: Domain objects in `src/models/` are simple dataclasses
+- **Repository pattern**: All database access goes through `src/repositories/` classes (PageRepo, PageObjectRepo)
+- **Controller pattern**: Business logic separated into `src/controllers/` classes (PageController, EditorController, ChecklistController, TableController, TextboxController)
+- **Dataclass models**: Domain objects in `src/models/` are simple dataclasses (Page, PageObject)
 - **SQLite with WAL mode**: Database uses `PRAGMA journal_mode=WAL` and `PRAGMA foreign_keys=ON`
 - **Schema migrations**: Use `ALTER TABLE ... ADD COLUMN` with try/except for incremental evolution
 - **Undo manager**: 15-minute TTL with recursive page tree restoration
+- **ResizableMixin**: Shared drag/resize logic for floating widgets (ChecklistWidget, TableWidget, TextboxWidget)
+
+### Database Schema
+
+| Table | Key Columns |
+|-------|-------------|
+| `pages` | id (PK), title (DEFAULT 'Untitled'), parent_id (FK self, nullable, CASCADE), sort_order, page_type (DEFAULT 'page'), created_at, updated_at |
+| `page_objects` | id (PK), page_id (FK, CASCADE), object_type (checkbox/checklist_meta/table_meta/textbox_meta), content (JSON), is_checked (bool), sort_order, created_at |
+
+- All foreign keys use `ON DELETE CASCADE`
+- `PRAGMA journal_mode=WAL` and `PRAGMA foreign_keys=ON` on every connection
+- `sqlite3.Row` row factory for dictionary-like access
+- Schema migrations via `ALTER TABLE ... ADD COLUMN` with try/except
+- Auto-calculated `sort_order` on create (MAX + 1 for given parent)
 
 ### Code Conventions
 
@@ -244,6 +265,19 @@ class NewRepo:
         return item.id
 ```
 
+**Adding a new controller:**
+```python
+# src/controllers/new_controller.py
+from PyQt6.QtCore import QObject, pyqtSignal
+
+class NewController(QObject):
+    data_changed = pyqtSignal()
+
+    def __init__(self, repo=None):
+        super().__init__()
+        self._repo = repo or NewRepo()
+```
+
 **Adding a new test file:**
 ```python
 # tests/test_new_feature.py
@@ -258,9 +292,9 @@ def test_new_function():
 ```
 
 **Adding a new UI widget:**
-- Inherit from appropriate Qt widget
-- Use existing QSS styles from `src/main.py`
-- Follow existing patterns in `src/ui/editor.py`
+- Inherit from appropriate Qt widget and ResizableMixin if floating
+- Use existing QSS styles from `src/styles.py`
+- Follow existing patterns in `src/ui/objects/`
 
 ### Common Gotchas
 
@@ -269,6 +303,8 @@ def test_new_function():
 3. **Thread safety**: Qt widgets must only be modified from the main thread
 4. **Memory management**: Qt handles most cleanup, but watch for circular references
 5. **File paths**: Use `os.path.join()` for cross-platform compatibility
+6. **Database close on exit**: `main.py` connects `aboutToQuit` to `close_connection()`
+7. **Undo manager**: `_restore()` does NOT close the global connection (allows continued use)
 
 ### Testing Guidelines
 
@@ -284,8 +320,9 @@ def test_new_function():
 2. **Check `project_plan.md`** for existing specifications
 3. **Write tests first** (TDD approach recommended)
 4. **Follow repository pattern** for any new database operations
-5. **Update documentation** (instructions, project_plan.md, this file if needed)
-6. **Run full regression** before committing
+5. **Follow controller pattern** for any new business logic
+6. **Update documentation** (instructions, project_plan.md, this file if needed)
+7. **Run full regression** before committing
 
 ### When Fixing Bugs
 
